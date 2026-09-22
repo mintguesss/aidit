@@ -112,6 +112,9 @@ const SECRET_ALLOW = [
   /\d{4}-\d{2}-\d{2}/, // 日期
   /\b\d{4}-[12]\b/, // 學期代號
   /thread\/\d+/, // 合成討論串網址
+  // ICS 的日期時間是 YYYYMMDD(THHMMSS)，八位數字長得跟學號一樣。
+  // 限定必須跟在 ICS 欄位名後面，不放寬成「任何八位數字」。
+  /(?:DTSTART|DTEND|DTSTAMP|UNTIL)[:=]\d/,
 ];
 
 export function scanSecrets(): SecretHit[] {

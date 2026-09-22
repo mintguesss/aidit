@@ -1,4 +1,9 @@
-# 部署
+# 部署：Vercel 公開 demo
+
+> **這份只適用於 Vercel 的公開 demo。** 家用主機跑本機模型看
+> [SELFHOST.md](SELFHOST.md)；兩邊的環境變數不一樣，不要互抄。
+> 各變數屬於哪一種部署，`.env.example` 開頭有對照表。
+
 
 線上 Demo 跑在 Vercel。選 Vercel 而不是 GitHub Pages 的理由很單純：本專案的頁面
 是 Next.js 的 async Server Component（每一頁都標了 `dynamic = "force-dynamic"`），

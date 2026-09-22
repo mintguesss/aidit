@@ -1,5 +1,5 @@
 import { traceStore, TRACE_TTL_DAYS } from "@/lib/store";
-import { purgeExpiredPrefs, PREF_TTL_MONTHS } from "@/lib/store/prefs-store";
+import { prefsStore, PREF_TTL_MONTHS } from "@/lib/store/prefs-store";
 
 /**
  * 保留政策的排程入口。
@@ -11,7 +11,7 @@ import { purgeExpiredPrefs, PREF_TTL_MONTHS } from "@/lib/store/prefs-store";
  */
 async function main() {
   const n = await traceStore().purgeExpired();
-  const p = purgeExpiredPrefs();
+  const p = await prefsStore().purgeExpired();
   console.log(
     `${new Date().toISOString()}　執行紀錄 ${n} 筆（保留 ${TRACE_TTL_DAYS} 天）、` +
       `偏好 ${p} 筆（${PREF_TTL_MONTHS} 個月未使用或已離校）`,

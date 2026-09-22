@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { traceStore } from "@/lib/store";
+import { prefsStore } from "@/lib/store/prefs-store";
 import { dataDir } from "@/lib/store/paths";
 import { LLM, MODEL_LABEL, LLM_TIMEOUT_MS, llmAvailable } from "@/lib/llm/client";
 
@@ -19,12 +20,14 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const store = traceStore();
   const storeHealth = await store.health();
+  const prefs = prefsStore();
+  const prefsHealth = await prefs.health();
 
   // 開發預設值等於全世界都能重算你的雜湊，正式部署必須改掉
   const traceSecretSet = Boolean(process.env.AIDIT_TRACE_SECRET);
 
   const body = {
-    ok: storeHealth.ok && traceSecretSet,
+    ok: storeHealth.ok && prefsHealth.ok && traceSecretSet,
     // Node 22 之前沒有原生 WebSocket，supabase-js 的 client 建構會因此失敗
     node: process.version,
     store: {
@@ -38,6 +41,11 @@ export async function GET() {
         SUPABASE_URL: Boolean(process.env.SUPABASE_URL),
         SUPABASE_SERVICE_ROLE_KEY: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
       },
+    },
+    prefs: {
+      kind: prefs.kind,
+      ok: prefsHealth.ok,
+      detail: prefsHealth.detail,
     },
     llm: {
       provider: LLM.provider,

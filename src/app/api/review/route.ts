@@ -23,7 +23,7 @@ export async function POST(req: Request) {
       if (!body.decision?.reviewer?.trim()) {
         return NextResponse.json({ error: "請填寫校對人姓名或代號。" }, { status: 400 });
       }
-      const record = saveDecision(body.packId, {
+      const record = await saveDecision(body.packId, {
         ...body.decision,
         decidedAt: new Date().toISOString(),
       });
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
       if (!body.reviewer?.trim()) {
         return NextResponse.json({ error: "鎖版必須記錄校對人。" }, { status: 400 });
       }
-      const r = lockPack(body.packId, body.reviewer);
+      const r = await lockPack(body.packId, body.reviewer);
       return r.ok
         ? NextResponse.json({ ok: true, path: r.path })
         : NextResponse.json({ error: r.reason }, { status: 409 });

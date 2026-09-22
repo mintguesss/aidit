@@ -2,14 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuditSession } from "@/lib/audit/session";
 import { parsePageParams } from "@/lib/ui/params";
 import { studentHash } from "@/lib/util/identity";
-import {
-  deleteOptional,
-  deletePrefs,
-  loadPrefs,
-  savePrefs,
-  PREF_TTL_MONTHS,
-  type StoredServerPrefs,
-} from "@/lib/store/prefs-store";
+import { prefsStore, PREF_TTL_MONTHS, type StoredServerPrefs } from "@/lib/store/prefs-store";
 import { traceStore } from "@/lib/store";
 import type { CoursePreferences } from "@/lib/types";
 import type { OptionalPreferences } from "@/lib/ui/prefs";
@@ -52,7 +45,7 @@ export async function POST(req: Request) {
 
   // 讀取
   if (!body?.required) {
-    const v = loadPrefs(who.hash);
+    const v = await prefsStore().load(who.hash);
     return NextResponse.json({ stored: v, ttlMonths: PREF_TTL_MONTHS });
   }
 
@@ -63,7 +56,7 @@ export async function POST(req: Request) {
     lastUsedAt: new Date().toISOString(),
     status: who.status,
   };
-  const ok = savePrefs(who.hash, next);
+  const ok = await prefsStore().save(who.hash, next);
   return NextResponse.json({ ok, stored: ok ? next : null });
 }
 
@@ -74,10 +67,10 @@ export async function DELETE(req: Request) {
 
   const scope = body?.scope ?? "preferences";
   if (scope === "optional") {
-    return NextResponse.json({ ok: deleteOptional(who.hash), scope });
+    return NextResponse.json({ ok: await prefsStore().deleteOptional(who.hash), scope });
   }
 
-  const ok = deletePrefs(who.hash);
+  const ok = await prefsStore().delete(who.hash);
   let traces = 0;
   if (scope === "all") {
     traces = await traceStore()

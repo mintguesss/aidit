@@ -1,6 +1,6 @@
 import { runAudit, type RunOutcome } from "@/lib/agent/runner";
 import { traceStore } from "@/lib/store";
-import { resolveRulePack } from "@/lib/rules/loader";
+import { resolveRulePack, preloadPublishedRules } from "@/lib/rules/loader";
 import { constraintsFrom, describeConstraints } from "@/lib/solver/schedule";
 import { preferencesOf } from "@/lib/chat/apply";
 import { purgeDaily } from "@/lib/store/purge";
@@ -33,6 +33,10 @@ const cache = new Map<string, { at: number; value: AuditSession }>();
 export async function getAuditSession(fixture: FixtureId, currentTerm: string): Promise<AuditSession> {
   // 保留政策要真的被執行才算數；每日一次，失敗不影響審查
   void purgeDaily();
+
+  // 已發布的規則包在這裡載入記憶體，之後 loadRulePacks()／loadCorpus() 維持同步。
+  // 放在這個入口是因為它是所有審查的必經之路，而且已經是 async。
+  await preloadPublishedRules();
 
   const key = `${fixture}:${currentTerm}`;
   const hit = cache.get(key);

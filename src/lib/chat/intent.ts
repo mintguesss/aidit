@@ -328,7 +328,8 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
   if (/重來|回到原本|重設|取消(所有)?調整/.test(t)) {
     const d = emptyDelta();
     d.reset = true;
-    return { ...base, intent: "adjust-load", delta: d, reason: "重設為個人資料的原始設定" };
+    // 重設不是調整堂數；標成 adjust-load 會讓 trace 記成完全不同的一件事
+    return { ...base, intent: "change-goal", delta: d, reason: "重設為個人資料的原始設定" };
   }
 
   const d = emptyDelta();
@@ -453,6 +454,13 @@ function offlineAskIntent(raw: string): z.infer<typeof zAskIntent> {
   const forbidden = detectForbidden(t);
   if (forbidden) return { ...base, forbidden };
 
+  // 「怎麼辦」要排在所有 what-if 之前：問的是手續，不是可不可行。
+  // 排在後面的話，「怎麼申請輔系？」會先撞上 /輔系/ 那一條，因為句子裡沒有系名
+  // 而被反問「想加修哪一個學系的輔系？」—— 使用者問流程，系統卻要他先選系，答非所問。
+  if (/怎麼申請|如何申請|怎麼辦理|如何辦理|要去哪|去哪裡辦|找誰|流程|期限|截止|表單|表格/.test(t)) {
+    return { ...base, intent: "procedure", procedure: t };
+  }
+
   if (/提前.*畢業|早一?學期畢業/.test(t)) {
     return {
       ...base,
@@ -533,10 +541,6 @@ function offlineAskIntent(raw: string): z.infer<typeof zAskIntent> {
   }
 
   if (/幫我排|排課|排下學期|課表怎麼排/.test(t)) return { ...base, intent: "plan" };
-
-  if (/怎麼申請|怎麼辦理|要去哪|找誰|流程|期限|截止|表單/.test(t)) {
-    return { ...base, intent: "procedure", procedure: t };
-  }
 
   if (/什麼時候開|誰教|哪個老師開|有沒有名額|餘額|幾學分.*課|時段/.test(t)) {
     const code = /([A-Z]{2}\d{4})/.exec(raw)?.[1];

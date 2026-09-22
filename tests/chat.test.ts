@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { runAudit } from "@/lib/agent/runner";
-import { askTurn, planTurn, type TurnContext } from "@/lib/chat/route";
-import { constraintSetFrom } from "@/lib/chat/apply";
+import { askTurn, planTurn, spokenCategory, type TurnContext } from "@/lib/chat/route";
+import { applyParams, constraintSetFrom, describeDelta } from "@/lib/chat/apply";
 import { preferencesOf } from "@/lib/chat/apply";
 import { resolveRulePack } from "@/lib/rules/loader";
 import { LlmBudget } from "@/lib/llm/client";
@@ -335,5 +335,136 @@ describe("§1.3 代價只列這一輪換來的變化", () => {
     for (const w of carried) {
       expect(second.plan!.costs, `「${w}」是上一輪就有的常駐警告`).not.toContain(w);
     }
+  });
+});
+
+describe("§1.4 不得自動放寬：解除既有偏好要有使用者說出口的依據", () => {
+  // 實測 qwen3:14b 對「空出星期五」送出的就是這組參數：avoidDays 空的，
+  // 三個布林全被填成 false —— 它把「沒提到」寫成了「關掉」。
+  const asModelSent = {
+    avoidDays: [] as number[],
+    allowDays: [] as number[],
+    avoidEarly: false,
+    avoidMorning: false,
+    preferCompactDays: false,
+    maxCredits: null,
+    courseCountDelta: null,
+    courseCountTarget: null,
+    goal: null,
+    goals: [] as never[],
+    excludeCourses: [] as string[],
+    pinCourses: [] as string[],
+    reset: false,
+  };
+
+  it("使用者沒說要解除時，既有的「不排早八」不得被關掉", async () => {
+    const c = await ctx();
+    const before = { ...c.constraints, avoidEarly: true };
+    const r = applyParams(before, c.originalConstraints, asModelSent, "模型自述", "空出星期五");
+    expect(r.next.avoidEarly).toBe(true);
+    expect(r.refusedParams).toContain("接受早八");
+  });
+
+  it("使用者明確說可以時，才真的解除", async () => {
+    const c = await ctx();
+    const before = { ...c.constraints, avoidEarly: true };
+    const r = applyParams(before, c.originalConstraints, asModelSent, "模型自述", "早八可以沒關係");
+    expect(r.next.avoidEarly).toBe(false);
+    expect(r.refusedParams).toEqual([]);
+  });
+
+  it("加嚴不受影響：設定偏好永遠照做", async () => {
+    const c = await ctx();
+    const before = { ...c.constraints, avoidEarly: false };
+    const r = applyParams(
+      before,
+      c.originalConstraints,
+      { ...asModelSent, avoidEarly: true },
+      "模型自述",
+      "不要早八",
+    );
+    expect(r.next.avoidEarly).toBe(true);
+    expect(r.refusedParams).toEqual([]);
+  });
+
+  it("被擋下的放寬不會出現在「改了什麼」裡", async () => {
+    const c = await ctx();
+    const before = { ...c.constraints, avoidEarly: true };
+    const r = applyParams(before, c.originalConstraints, asModelSent, "模型自述", "空出星期五");
+    expect(describeDelta(before, r.next)).not.toContain("接受早八");
+  });
+});
+
+describe("§1.5 數值參數必須是使用者說出口的", () => {
+  const zeros = {
+    avoidDays: [] as number[],
+    allowDays: [] as number[],
+    avoidEarly: null,
+    avoidMorning: null,
+    preferCompactDays: null,
+    maxCredits: 0,
+    courseCountDelta: null,
+    courseCountTarget: 0,
+    goal: null,
+    goals: [] as never[],
+    excludeCourses: [] as string[],
+    pinCourses: [] as string[],
+    reset: false,
+  };
+
+  it("原句沒提到堂數或學分時，不得設定上限與堂數", async () => {
+    const c = await ctx();
+    // qwen3:14b 對「空出星期五」實際送出的就是這組 0
+    const r = applyParams(c.constraints, c.originalConstraints, zeros, "模型自述", "空出星期五");
+    expect(r.next.maxCredits).toBe(c.constraints.maxCredits);
+    expect(r.next.targetCourseCount).toBe(c.constraints.targetCourseCount);
+    expect(r.refusedParams.length).toBe(2);
+  });
+
+  it("「星期五」的「五」不會被當成堂數", async () => {
+    const c = await ctx();
+    const r = applyParams(
+      c.constraints,
+      c.originalConstraints,
+      { ...zeros, courseCountTarget: 5, maxCredits: null },
+      "模型自述",
+      "空出星期五",
+    );
+    expect(r.next.targetCourseCount).toBe(c.constraints.targetCourseCount);
+  });
+
+  it("說出口時照做", async () => {
+    const c = await ctx();
+    const r = applyParams(
+      c.constraints,
+      c.originalConstraints,
+      { ...zeros, courseCountTarget: 3, maxCredits: 12 },
+      "模型自述",
+      "我想修 3 堂、12 學分以內",
+    );
+    expect(r.next.targetCourseCount).toBe(3);
+    expect(r.next.maxCredits).toBe(12);
+    expect(r.refusedParams).toEqual([]);
+  });
+});
+
+describe("§0.1 模型填的類別不得原樣顯示給使用者", () => {
+  it("原句沒出現過的類別一律忽略（模型幻覺）", () => {
+    // qwen3:14b 對「我還差幾學分畢業？」把 schema 的意圖名稱填進 category，
+    // 結果畫面顯示「查無「personal-audit」這個類別。」
+    expect(spokenCategory("personal-audit", "我還差幾學分畢業？")).toBeUndefined();
+  });
+
+  it("使用者真的說出口的類別照用", () => {
+    expect(spokenCategory("通識", "我的通識還差幾學分？")).toBe("通識");
+  });
+
+  it("使用者問了不存在的類別，仍要能走「查無」", () => {
+    // 這一層只管「是不是他說的」，類別存不存在由 answerPersonalAudit 判斷
+    expect(spokenCategory("體育", "體育學分夠了嗎？")).toBe("體育");
+  });
+
+  it("沒有類別時回 undefined", () => {
+    expect(spokenCategory(null, "我還差幾學分畢業？")).toBeUndefined();
   });
 });

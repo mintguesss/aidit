@@ -4,6 +4,7 @@ import { simulate } from "@/lib/whatif/simulate";
 import type { LlmBudget } from "@/lib/llm/client";
 import {
   alreadyClarified,
+  lastUser,
   parseAskIntent,
   parsePlanIntent,
   type AskIntentResult,
@@ -47,7 +48,11 @@ export type TurnResult = {
   /** 是否在向使用者提問（§0.7 澄清只問一次） */
   clarifying: boolean;
   /** A 介面：課表更新 */
-  plan?: PlanTurnOutcome & { constraintSet: ConstraintSet };
+  plan?: PlanTurnOutcome & {
+    constraintSet: ConstraintSet;
+    /** 模型推測出來、但使用者沒說出口而被擋下的參數（§0.6 寫 trace） */
+    refusedParams?: string[];
+  };
   /** B 介面：試算結果 */
   whatif?: ReturnType<typeof simulate>;
   /** §1.6 為什麼沒選某門課 */
@@ -131,7 +136,13 @@ export async function planTurn(
     return { reply: outOfScope("這不在系統能力範圍內。", "請洽系辦公室。"), tools, intent: "out-of-scope", clarifying: false };
   }
 
-  const applied = applyParams(ctx.constraints, ctx.originalConstraints, intent.params, intent.reason);
+  const applied = applyParams(
+    ctx.constraints,
+    ctx.originalConstraints,
+    intent.params,
+    intent.reason,
+    lastUser(messages),
+  );
   const solveCtx = buildContext(ctx.audit, ctx.record, ctx.pack, applied.next);
   // 「改了什麼」只能由實際生效的差異產生，不採用模型自述的 reason（見 describeDelta）
   const changed = intent.params.reset
@@ -151,7 +162,7 @@ export async function planTurn(
       tools,
       intent: intent.intent,
       clarifying: true,
-      plan: { ...outcome, constraintSet: applied.next },
+      plan: { ...outcome, constraintSet: applied.next, refusedParams: applied.refusedParams },
     };
   }
 
@@ -160,7 +171,7 @@ export async function planTurn(
     tools,
     intent: intent.intent,
     clarifying: false,
-    plan: { ...outcome, constraintSet: applied.next },
+    plan: { ...outcome, constraintSet: applied.next, refusedParams: applied.refusedParams },
   };
 }
 
@@ -253,7 +264,17 @@ export async function askTurn(
   switch (intent.intent) {
     case "personal-audit":
       tools.push("credit.audit");
-      return { reply: answerPersonalAudit(ctx.audit, p.category), tools, intent: intent.intent, clarifying: false };
+      // 類別必須是使用者自己說出口的。實測 qwen3:14b 對「我還差幾學分畢業？」
+      // 把 schema 的意圖名稱 "personal-audit" 填進 category，程式拿去查類別、
+      // 查不到，就把模型吐的字串原封不動顯示成「查無「personal-audit」這個類別」。
+      // 原句裡找不到的類別一律視為模型自己編的，直接忽略，改答整體進度；
+      // 使用者真的問了某個不存在的類別（例如「體育學分夠嗎」）仍會走「查無」。
+      return {
+        reply: answerPersonalAudit(ctx.audit, spokenCategory(p.category, p.raw)),
+        tools,
+        intent: intent.intent,
+        clarifying: false,
+      };
 
     case "regulation":
       tools.push("rule.lookup");
@@ -412,3 +433,15 @@ function toScenario(s: ScenarioParams) {
 
 export { describeSet };
 export type { SolveResult };
+
+/**
+ * 只接受使用者原句裡真的出現過的類別名稱。
+ *
+ * 意圖解析會把使用者沒說的欄位填滿（見 apply.ts 的 RELAX_CUE / COUNT_CUE 註解），
+ * category 也不例外，而它的值會直接進到回覆文字裡，所以幻覺會被原樣顯示給使用者。
+ */
+export function spokenCategory(category: string | null | undefined, raw: string): string | undefined {
+  if (!category) return undefined;
+  const t = raw.replace(/\s/g, "");
+  return t.includes(category.replace(/\s/g, "")) ? category : undefined;
+}

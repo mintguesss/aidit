@@ -4,48 +4,41 @@
 
 ---
 
-## A. 待決定（先決定，否則下游會做白工）
-
-- [ ] **A1　偏好要不要留在伺服器端**
-      現況是留（SPEC-CHANGES **E60**，你自己提的：「不然都在本地的話要刪除功能幹嘛」）。
-      決定「留」→ 做 B2；決定「改回本地」→ 要拆掉 `prefs-store.ts`、
-      `/api/preferences` 的 DELETE、隱私頁四項控制裡的三項，並補一條 E65 記錄反轉。
-      **注意**：偏好現在已經在伺服器上了，B2 不是新增落地，是讓它真的留得住。
+## A. 待決定
 
 - [ ] **A2　`fixture` 參數接真實資料後的角色**
       現在同時是「選哪份測試案例」和「選哪個學生」，接真實資料源後會分家。
-      牽動 [API.md](API.md) 大部分端點，**前後端要一起談**。
-
-- [ ] **A3　課表要不要能儲存**
-      現在不存，每次重算。要做的話是新功能，且屬於學生資料，要先過 A1 的同一套判準。
-
+      牽動 [API.md](API.md) 大部分端點，**前後端要一起談**。這條同時也是 E3
+      那個漏洞的根因。
 - [ ] **A4　最終驗證數據用哪個模型**
       決定了才知道哪一份評測報告是要交出去的那一份。見 D2。
 
 ## B. 儲存層
 
-- [ ] **B1　Vercel 接上 Supabase**
-      本機已驗證可用（insert／select／cascade 刪除全過）。線上兩個環境變數
-      讀不到，查 Environment 有沒有勾 Production。打 `/api/health` 確認。
-- [ ] **B2　`prefs-store` 的 Supabase 實作**（取決於 A1）
-      線上存 `/tmp`，使用者設定完重新整理就不見 —— 現在是壞的。
-- [ ] **B3　規則包與語料搬到儲存層**
-      鎖版現在寫進 `src/lib/rules/packs/`（原始碼目錄），serverless 唯讀必然失敗。
-      **`loadCorpus()` 保持同步**，用冷啟動預載，別改成 async（會傳染到審查引擎）。
-- [ ] **B4　校對紀錄與上傳暫存搬到儲存層**
-      含校對人姓名，且 `/tmp` 上留不住。
+- [ ] **B5　PDF 原檔存到 Supabase Storage**
+      上傳的**中繼資料**已經進 `rulepack_uploads`，但檔案本身仍落在暫存區
+      （serverless 上是 `/tmp`，換實例就沒了）。校對時要能調出原始那一份。
+- [ ] **B6　草稿（`.data/drafts/`）搬到儲存層**
+      目前由 `scripts/extract-rulepack.ts` 在本機產生，所以線上的校對頁看不到
+      任何草稿。要讓校對能在線上做就得搬。
 
 ## C. 真實資料
 
 - [ ] **C1　實際修業規定進系統**
       PDF → 分段 → 抽取 → 自動驗證 → 人工校對 → 鎖版，流程見 BACKEND.md §2。
       `scripts/extract-rulepack.ts` 需要 `ANTHROPIC_API_KEY`，沒有離線替身。
+      鎖版現在會發布到 `rule_packs` 資料表（不再寫進原始碼目錄）。
 - [ ] **C2　課綱原文語料**
-      每條結論都要能回查原文，沒有語料的文件其引用無法驗證，會降級成待確認。
+      每條結論都要能回查原文。沒有語料的文件其引用無法驗證，會降級成待確認。
+      鎖版時會連同 `corpus_docs` 一起發布。
 - [ ] **C3　開課資料抓取與正規化**
       時段字串解析、擋修資料、抓取策略，BACKEND.md §4。現在是合成資料。
-- [ ] **C4　`CourseRecordProvider` 接校務系統**
-      取決於 A2。`api` kind 目前刻意 throw —— 本系統不代為登入校務系統。
+- [ ] **C4　`CourseRecordProvider` 接校務系統**（取決於 A2）
+- [ ] **C5　節次時間表與學期行事曆換成真的**
+      `PERIOD_TIMES`（[periods.ts](../src/lib/offerings/periods.ts)）與
+      `TERM_DATES`（[export.ts](../src/lib/plan/export.ts)）目前都是合成資料。
+      **課表匯出直接吃這兩張表** —— 一份看起來很真、時間卻是假的行事曆，
+      比沒有行事曆更糟。跟 C3 一起做。
 
 ## D. 模型
 
@@ -62,28 +55,64 @@
       降級成待確認」這條路從來沒被真實模型的雜訊測過。那是零錯答主張的最後
       一道防線，用本機模型才驗得到（Opus 5 幾乎不吐壞形狀，反而測不到）。
 
-## E. 安全
+## E. 資安
+
+**在接真實學生資料之前，E1 到 E4 全部都要做完。** 現在是合成資料所以無害，
+但這幾條都不是「加強」，是「缺」。
 
 - [ ] **E1　身分驗證**
-      現在**完全沒有**：沒有 middleware，`/api/review` 能鎖規則包版本。
-      在做出來之前，自架的那台只能待在 Tailscale 內網，不要 port forwarding。
+      現在**完全沒有**：沒有 middleware，沒有 session，沒有任何登入。
+      自架的那台在做出來之前只能待在 Tailscale 內網，不要 port forwarding。
 - [ ] **E2　`/api/review` 加驗證或限制到內部網段**
+      這是內部作業端點，能鎖規則包版本 —— 鎖錯版等於所有人的判定依據都換掉。
       端點自己的註解就寫了這件事。
+- [ ] **E3　`/api/preferences` 的身分是請求參數決定的**
+      [route.ts](../src/app/api/preferences/route.ts) 的 `identify()` 從 body 裡的
+      `fixture` 推出學生，沒有任何驗證。也就是說**任何人都能讀、寫、刪掉
+      指定學生的偏好，`scope=all` 還會連執行紀錄一起刪**。
+      合成資料下無害，接真實資料就是嚴重漏洞。根因是 A2。
+- [ ] **E4　上傳檔案只看副檔名**
+      `/api/rulepack` 用 `name.endsWith(".pdf")` 判型別，沒檢查 magic bytes。
+      大小上限有做。
+- [ ] **E5　API 速率限制**
+      特別是會呼叫模型的 `/api/chat` 與 `/api/whatif` —— 沒有限制的話，
+      一個迴圈就能把額度跑完。單輪 LLM 呼叫上限只擋單次請求，不擋請求數。
+- [ ] **E6　安全標頭**
+      [next.config.ts](../next.config.ts) 目前只設了 `/api/*` 的 `Cache-Control`。
+      缺 CSP、`X-Content-Type-Options`、`Referrer-Policy`、HSTS。
+- [ ] **E7　`service_role` key 的權限面過大**
+      所有路徑都用同一把繞過 RLS 的鑰匙。之後可以分出受限角色，
+      讓查詢類端點拿不到刪除權。
+- [ ] **E8　執行期的去識別驗證**
+      CI 第 6 項掃的是**原始碼**。沒有任何測試驗證「實際產生的 trace 裡
+      不含姓名或學號」。那是 SPEC §9 的硬要求，應該有不變式擋著。
+- [ ] **E9　相依套件稽核進 CI**
+      `npm audit` 目前沒有跑。
+- [ ] **E10　`AIDIT_TRACE_SECRET` 的輪替程序**
+      換密鑰會讓舊 trace 的 `student_hash` 全部對不上 —— 那些紀錄不是消失，
+      是再也連不回學生，「刪除我的資料」對換密鑰前的紀錄會失效。
+      要換就趁還沒有真實資料時換，或先想好遷移方式。
 
 ## F. 文件債
 
-- [ ] **F1　修 [ui/prefs.ts](../src/lib/ui/prefs.ts) 的過時註解**
-      檔頭還停留在 E58，寫「偏好的保存位置：使用者自己的瀏覽器…伺服器完全不
-      持有這份資料」，但 E60 已經反轉成伺服器端。**跟現在的行為不符。**
-      等 A1 決定後一併改成正確的版本。
+- [ ] **F2　`/privacy` 頁的敘述要跟著儲存層改動核對一次**
+      偏好現在真的存在資料庫了，頁面上關於「存在哪裡、刪除會刪到什麼」
+      的說法要重新確認一次。
 
 ---
 
-## 已完成（留著當紀錄）
+## 已完成
 
 - [x] 上 GitHub、Vercel 自動部署、CI（七項＋build）
-- [x] `traces` 的 Supabase migration，本機來回測試通過
+- [x] **B1** Supabase 接上（線上 `store.kind=supabase`）
+- [x] **B2** 偏好（含額外修業目標）落地到資料庫 —— 維持 E60 的決定
+- [x] **B3** 規則包與語料的儲存層；`loadCorpus()` 維持同步，改用冷啟動預載
+- [x] **B4** 校對紀錄與上傳中繼資料落地；鎖版不再寫進原始碼目錄
+- [x] **A1** 偏好留在伺服器端（維持 E60）
+- [x] **A3** 課表**不儲存**，改提供匯出（ICS／CSV，瀏覽器端產生）
+- [x] **F1** 修掉 `ui/prefs.ts` 停留在 E58 的過時註解
 - [x] 模型可切換（Anthropic／OpenAI 相容），定價隨模型走
 - [x] `/api/health` —— 錯誤設定多半是靜默的，這條把實際狀態講出來
 - [x] 修 Node 20 下 supabase-js 因缺原生 WebSocket 連不上
-- [x] 文件整理：CONTRIBUTING／HANDOVER 去重、README 索引、[DATA.md](DATA.md) 盤點
+- [x] vitest 隔離外部服務 —— 避免單元測試寫進正式資料庫
+- [x] 文件集中到 `docs/`，[DATA.md](DATA.md) 資料盤點

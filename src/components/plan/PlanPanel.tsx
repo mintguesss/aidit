@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { CoursePreferences, ExclusionSummary, Infeasibility, Plan } from "@/lib/types";
 import { parseSlots } from "@/lib/solver/slots";
 import { Timetable } from "./Timetable";
+import { ExportButtons } from "./ExportButtons";
 import { PrefBar } from "./PrefBar";
 import type { ConstraintSet } from "@/lib/chat/types";
 import { ChatPanel, type PlanUpdate } from "../chat/ChatPanel";
@@ -129,6 +130,7 @@ export function PlanPanel({
         <div className="panel-hd">
           <h2>建議課表</h2>
           <span className="hint">{syncing ? "依你儲存的選課傾向重新排課中…" : nextTerm}</span>
+          {plan ? <ExportButtons plan={plan} /> : null}
         </div>
 
         <PrefBar

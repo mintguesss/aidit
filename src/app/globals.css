@@ -151,6 +151,13 @@ img{max-width:100%}
   align-items:baseline;flex-wrap:wrap;gap:4px 12px}
 .panel-hd h2{font-size:15px;font-weight:700}
 .panel-hd .hint{font-size:12.5px;color:var(--text-3)}
+
+/* 課表匯出：放在標題列右側，不搶版面 —— 它是備用動作，不是主要動線 */
+.exportbar{margin-left:auto;display:flex;gap:14px;align-items:center}
+.exportbar .linkish{background:none;border:0;padding:0;cursor:pointer;
+  font:inherit;font-size:12.5px;color:var(--link)}
+.exportbar .linkish:hover{text-decoration:underline}
+.exportbar .linkish:focus-visible{outline:2px solid var(--link);outline-offset:2px}
 .panel-bd{padding:18px}
 .panel-foot{margin:10px 0 0;font-size:12px;color:var(--text-3);line-height:1.7}
 @media(max-width:700px){.panel-hd{padding:10px 14px}.panel-bd{padding:14px}}

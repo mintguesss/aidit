@@ -1,3 +1,5 @@
+// 必須排在其他 import 之前：下面的模組在載入時就會讀 process.env
+import "@/lib/util/env";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { z } from "zod/v4";

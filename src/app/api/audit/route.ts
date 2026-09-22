@@ -18,7 +18,7 @@ type Body = {
  * POST /api/audit —— 執行審查。
  *
  * 中止時回 422 並附中止原因，不回半套結果：
- * 寧可中止並說明，不輸出可能錯誤的結果（BACKEND.md §9）。
+ * 寧可中止並說明，不輸出可能錯誤的結果（docs/BACKEND.md §9）。
  */
 export async function POST(req: Request) {
   let body: Body;

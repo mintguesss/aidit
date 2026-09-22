@@ -2,7 +2,7 @@ import type { CourseRecord, Student, StudentRecord, Term } from "@/lib/types";
 import type { Capabilities, CourseRecordProvider } from "./types";
 
 /**
- * 學生自行從校務系統匯出的檔案解析（SPEC.md §4）。
+ * 學生自行從校務系統匯出的檔案解析（docs/SPEC.md §4）。
  *
  * 刻意只接受「學生自己拿得到的匯出檔」：系統不代為登入、不儲存帳密。
  * 解析失敗的欄位一律拋錯並指出行號，不做任何補值猜測。

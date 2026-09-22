@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { assign, type AssignableCourse, type CategoryDemand } from "@/lib/audit/assign";
 
 /**
- * 指派問題的測試（BACKEND.md §1、§10 第 2 條）。
+ * 指派問題的測試（docs/BACKEND.md §1、§10 第 2 條）。
  *
  * 「這門課被採計為系專業選修」本身是一條會出現在依據裡的結論；
  * 同一份資料跑兩次得到不同指派，整個可溯源的主張就垮了。

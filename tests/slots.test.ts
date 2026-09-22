@@ -5,7 +5,7 @@ import { slotCorpus } from "./fixtures/slot-corpus";
 describe("時段解析語料", () => {
   const corpus = slotCorpus();
 
-  it("語料數量達 BACKEND.md §4 要求的 500 筆", () => {
+  it("語料數量達 docs/BACKEND.md §4 要求的 500 筆", () => {
     expect(corpus.length).toBeGreaterThanOrEqual(500);
   });
 

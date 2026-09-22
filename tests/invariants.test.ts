@@ -6,7 +6,7 @@ import { FIXTURES } from "@/lib/providers/fixtures";
 import { generatedCases } from "@/eval/golden/generated";
 
 /**
- * 不變式（SPEC.md §3）。先寫這個測試，再寫引擎。
+ * 不變式（docs/SPEC.md §3）。先寫這個測試，再寫引擎。
  *
  *   countable + inProgress + unmet === minCredits
  *   totalEarned === countable + overflow

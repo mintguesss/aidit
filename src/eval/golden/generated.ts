@@ -2,7 +2,7 @@ import type { CourseRecord, StudentRecord, Student } from "@/lib/types";
 import type { CategoryExpectation } from "./cases";
 
 /**
- * 程式生成的 golden 案例（SPEC.md §10 要求 30–50 份）。
+ * 程式生成的 golden 案例（docs/SPEC.md §10 要求 30–50 份）。
  *
  * 標準答案由本檔的**獨立參考實作** `reference()` 計算，而不是呼叫 audit engine ——
  * 否則回歸測試只會證明引擎與自己一致。

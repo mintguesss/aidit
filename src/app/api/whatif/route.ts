@@ -15,7 +15,7 @@ type Body = { fixture?: string; term?: string; scenario?: string };
  * POST /api/whatif —— 情境試算。
  *
  * 與 /api/plan 相同，審查結果由相同輸入重新推導而非伺服器端 session：
- * 修課紀錄不落地是 SPEC.md §9 的硬性要求。
+ * 修課紀錄不落地是 docs/SPEC.md §9 的硬性要求。
  *
  * LLM 只做意圖解析，之後全部交給確定性推算；
  * 意圖不明回問一個澄清問題，對應不到任何情境就明確說不處理。

@@ -4,13 +4,13 @@ import { dataDir } from "./paths";
 import type { Trace } from "@/lib/types";
 
 /**
- * Trace 儲存（BACKEND.md §6）。
+ * Trace 儲存（docs/BACKEND.md §6）。
  *
  * 正式環境為 Supabase（Postgres），欄位對應 traces / trace_steps / tool_calls /
  * blocked_content 四張表。沒有連線設定時退回本地檔案替身，讓 Demo 與評測
  * 在無憑證的機器上也能完整跑完 —— 兩者走同一個介面。
  *
- * 這裡刻意不存修課紀錄。SPEC.md §9 要求「僅於單次 request 生命週期處理，不落地」，
+ * 這裡刻意不存修課紀錄。docs/SPEC.md §9 要求「僅於單次 request 生命週期處理，不落地」，
  * 因此情境試算與選課微調改為以相同輸入重新推導審查結果
  * （見 src/lib/audit/session.ts 的 10 分鐘快取），而不是把學生資料留在伺服器上。
  * 落地的只有去識別後的 trace。

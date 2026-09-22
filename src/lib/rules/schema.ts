@@ -1,7 +1,7 @@
 import { z } from "zod/v4";
 
 /**
- * 規則包 schema（SPEC.md §5）。
+ * 規則包 schema（docs/SPEC.md §5）。
  *
  * 規則包是離線抽取 + 人工校對後的產物，執行期只做 zod 驗證與查表，
  * 不在執行期解析 PDF、也不在執行期問 LLM。
@@ -164,7 +164,7 @@ export const zRulePack = z
     }),
   })
   .superRefine((pack, ctx) => {
-    // BACKEND.md §2 自動驗證：類別學分加總必須等於畢業最低學分
+    // docs/BACKEND.md §2 自動驗證：類別學分加總必須等於畢業最低學分
     const sum = pack.categories.reduce((a, c) => a + c.credits, 0);
     if (sum !== pack.minCredits) {
       ctx.addIssue({

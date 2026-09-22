@@ -15,7 +15,7 @@ import { retrieveDiscussionsStep } from "./steps/09-retrieve-discussions";
 import { scanExternalStep } from "./steps/10-scan-external";
 
 /**
- * Step runner（SPEC.md §6）。
+ * Step runner（docs/SPEC.md §6）。
  *
  * 刻意不使用 agent 框架：流程是有限且已知的，用一個 step runner 就夠，
  * 而且 trace 的格式要能自己控制 —— trace 是決賽的交付項目。

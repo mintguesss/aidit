@@ -2,7 +2,7 @@ import type { StudentRecord } from "@/lib/types";
 import type { Capabilities, CourseRecordProvider } from "./types";
 
 /**
- * 瀏覽器 session 讀取（SPEC.md §4，實作順序第三）。
+ * 瀏覽器 session 讀取（docs/SPEC.md §4，實作順序第三）。
  *
  * 設計約束先寫在這裡，避免日後有人「順便」把憑證送到伺服器：
  *   1. 憑證不離開使用者瀏覽器；本類別只接受已在前端解析完成的 StudentRecord

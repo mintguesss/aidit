@@ -8,7 +8,7 @@
 
 ## 一併留存的文件
 
-- [SPEC-CHANGES.md](SPEC-CHANGES.md) —— 規格異動與實作偏差紀錄（快照）
+- [../SPEC-CHANGES.md](../SPEC-CHANGES.md) —— 規格異動與實作偏差紀錄（快照）
 
 ## 桌機（1280px）
 

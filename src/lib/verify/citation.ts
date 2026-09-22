@@ -2,7 +2,7 @@ import type { Citation, CitationVerdict } from "@/lib/types";
 import { fuzzyBestMatch, normalize } from "@/lib/util/text";
 
 /**
- * 引用查核（BACKEND.md §3）。
+ * 引用查核（docs/BACKEND.md §3）。
  *
  * 驗證的是「規則引用」，不是 LLM 的敘述 —— 目的是抓出被幻覺出來的規則。
  * 本檔不得呼叫 LLM（CI 會掃描 import）。

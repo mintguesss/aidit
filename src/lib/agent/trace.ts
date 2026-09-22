@@ -2,7 +2,7 @@ import type { BlockedContent, StepResult, StepStatus, ToolCall, ToolStatus, Trac
 import { scrub } from "@/lib/util/scrub";
 
 /**
- * Trace 收集器（SPEC.md §6「每一步都要寫 trace，包含失敗與重試」）。
+ * Trace 收集器（docs/SPEC.md §6「每一步都要寫 trace，包含失敗與重試」）。
  *
  * 寫入前一律過 scrubber：trace 儲存去識別後內容，不得含姓名、學號。
  * 課程名稱與成績可以留 —— 那是判定依據，且無法單獨識別個人。

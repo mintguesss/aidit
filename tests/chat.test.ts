@@ -9,7 +9,7 @@ import { fixture } from "@/lib/providers/fixtures";
 import { LIMITS, type ChatMessage } from "@/lib/chat/types";
 
 /**
- * 對話規則（CONVERSATION.md）。
+ * 對話規則（docs/CONVERSATION.md）。
  *
  * 測的不是「回答得好不好」，而是規則有沒有被遵守：
  *   §0.1 LLM 不得產生判定 —— 回覆文字全部由程式組出來

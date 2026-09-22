@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { checkBoundaries, GUARDED, scanSecrets } from "../scripts/lib/checks";
 
 /**
- * 模組邊界（BACKEND.md §10 第 4 條）。
+ * 模組邊界（docs/BACKEND.md §10 第 4 條）。
  *
  * 「這是整個專案最重要的一條，因為它用機械方式保證了『算數的那層沒有模型』
  *   這個技術主張。」答詢時可以直接把這個測試調出來給評審看。

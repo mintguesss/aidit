@@ -1,7 +1,7 @@
 # 資料盤點
 
 這個系統實際持有哪些資料、放在哪、留多久。改動任何一列之前先看
-[SPEC.md](../SPEC.md) §9 與 [SPEC-CHANGES.md](../SPEC-CHANGES.md) 的 E58／E60／E61。
+[SPEC.md](SPEC.md) §9 與 [SPEC-CHANGES.md](SPEC-CHANGES.md) 的 E58／E60／E61。
 
 ## 一、與學生有關的
 

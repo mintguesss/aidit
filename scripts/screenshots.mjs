@@ -186,7 +186,7 @@ const index = [
   "",
   "## 一併留存的文件",
   "",
-  "- [SPEC-CHANGES.md](SPEC-CHANGES.md) —— 規格異動與實作偏差紀錄（快照）",
+  "- [SPEC-CHANGES.md](../SPEC-CHANGES.md) —— 規格異動與實作偏差紀錄（快照）",
   "",
   "## 桌機（1280px）",
   "",
@@ -207,7 +207,7 @@ writeFileSync(join(OUT, "README.md"), index, "utf8");
 
 // 規格異動紀錄一併留存。標明它是快照 —— 否則之後會有人改到副本
 {
-  const src = join(process.cwd(), "SPEC-CHANGES.md");
+  const src = join(process.cwd(), "docs/SPEC-CHANGES.md");
   const dst = join(OUT, "SPEC-CHANGES.md");
   copyFileSync(src, dst);
   const body = readFileSync(dst, "utf8");
@@ -215,7 +215,7 @@ writeFileSync(join(OUT, "README.md"), index, "utf8");
     dst,
     [
       "> **這是快照，不是正本。**",
-      "> 正本在專案根目錄的 `SPEC-CHANGES.md`；本檔隨截圖一併留存，",
+      "> 正本在 `docs/SPEC-CHANGES.md`；本檔隨截圖一併留存，",
       `> 擷取於 ${new Date().toISOString().slice(0, 10)}。`,
       "> 要修改請改正本，再重跑 `npm run shots` 更新這份副本。",
       "",

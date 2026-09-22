@@ -13,7 +13,7 @@ const KINDS = ["minor", "double-major", "cert-program", "transfer"];
  * POST /api/extra-goals —— 額外修業目標的相關修課現況。
  *
  * 額外目標存在使用者的瀏覽器（localStorage），所以由前端帶上來；
- * 修課紀錄則與其他頁面一樣，由相同輸入重新推導，不經伺服器 session（SPEC.md §9）。
+ * 修課紀錄則與其他頁面一樣，由相同輸入重新推導，不經伺服器 session（docs/SPEC.md §9）。
  * 這條路徑完全不含 LLM。
  */
 export async function POST(req: Request) {

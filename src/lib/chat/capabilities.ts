@@ -6,7 +6,7 @@ import { formatSlots } from "@/lib/solver/slots";
 import type { Reply } from "./types";
 
 /**
- * B 介面的能力層（CONVERSATION.md §2.2）。
+ * B 介面的能力層（docs/CONVERSATION.md §2.2）。
  *
  * 每一個能力都回傳 Reply，而不是文字：組出來的內容一律只能來自
  * 規則包、公告庫、開課資料庫或審查引擎。查不到就回「不確定」，

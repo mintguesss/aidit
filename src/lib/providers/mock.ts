@@ -3,7 +3,7 @@ import type { Capabilities, CourseRecordProvider } from "./types";
 import { fixture, type FixtureId } from "./fixtures";
 
 /**
- * 合成資料 Provider。Demo 與評測都靠它（SPEC.md §4）。
+ * 合成資料 Provider。Demo 與評測都靠它（docs/SPEC.md §4）。
  * 不讀取任何外部系統，也不接受真實學號。
  */
 export class MockProvider implements CourseRecordProvider {

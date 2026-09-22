@@ -1,7 +1,7 @@
 import type { BlockedContent } from "@/lib/types";
 
 /**
- * 外部內容注入檢查（SPEC.md §9）。
+ * 外部內容注入檢查（docs/SPEC.md §9）。
  *
  * 網路討論一律視為不可信輸入：
  *   1. 包成資料區塊，永不進入指令通道

@@ -11,7 +11,7 @@
 |---|---|
 | 了解系統怎麼運作 | 本檔 §架構（往下捲） |
 | 參與開發 | [CONTRIBUTING.md](CONTRIBUTING.md) —— 規則、CI、不要做的事 |
-| 接手後端 | [HANDOVER.md](HANDOVER.md)，再讀上一列 |
+| 接手後端 | [docs/HANDOVER.md](docs/HANDOVER.md)，再讀上一列 |
 | 串接 API | [docs/API.md](docs/API.md) —— 前後端分界線 |
 | 部署公開 demo | [docs/DEPLOY.md](docs/DEPLOY.md) —— Vercel |
 | 自架跑本機模型 | [docs/SELFHOST.md](docs/SELFHOST.md) —— Ollama、Tailscale |
@@ -22,10 +22,10 @@
 
 | 文件 | 內容 |
 |---|---|
-| [SPEC.md](SPEC.md) | 系統規格。§9 是隱私邊界，解釋了為什麼很多東西刻意不存伺服器 |
-| [BACKEND.md](BACKEND.md) | 後端實作細節。**§1 學分歸屬是全專案最容易算錯的地方** |
-| [CONVERSATION.md](CONVERSATION.md) | 兩個對話介面的規則 |
-| [SPEC-CHANGES.md](SPEC-CHANGES.md) | 所有與規格不一致之處，逐項記錄原因 |
+| [docs/SPEC.md](docs/SPEC.md) | 系統規格。§9 是隱私邊界，解釋了為什麼很多東西刻意不存伺服器 |
+| [docs/BACKEND.md](docs/BACKEND.md) | 後端實作細節。**§1 學分歸屬是全專案最容易算錯的地方** |
+| [docs/CONVERSATION.md](docs/CONVERSATION.md) | 兩個對話介面的規則 |
+| [docs/SPEC-CHANGES.md](docs/SPEC-CHANGES.md) | 所有與規格不一致之處，逐項記錄原因 |
 
 ---
 
@@ -46,7 +46,7 @@ Demo、評測、注入測試與 CI 都跑得完整。要接真實服務時複製
 npm run test         # 181 項單元測試
 npm run eval         # 評測報告（35 個 golden 案例 + 基準比較）
 npm run eval:injection   # 提示注入攔截率／誤攔率
-npm run ci           # BACKEND.md §10 的 7 項 CI 檢查
+npm run ci           # docs/BACKEND.md §10 的 7 項 CI 檢查
 npm run ui:check     # 版面檢查：13 頁 × 5 種寬度，不得出現橫向捲動（需 dev 已啟動）
 npm run shots        # 產生 docs/screenshots/ 全系統截圖與 SPEC-CHANGES 快照（需 dev 已啟動）
 npm run build
@@ -62,9 +62,9 @@ npm run build
 | `/` | 首頁：判定結論、修業進度尺、五格數字、「接下來」該做什麼 |
 | `/audit` | 修業明細：逐類別學分比對，每一列可展開看採計了哪些課與引用原文 |
 | `/holds` | 待確認事項：系統停止自動推論的地方，可一鍵寄信給承辦窗口 |
-| `/plan` | 選課建議：週課表格線＋清單，課表微調對話（CONVERSATION.md A 介面） |
+| `/plan` | 選課建議：週課表格線＋清單，課表微調對話（docs/CONVERSATION.md A 介面） |
 | `/syllabus/<code>` | 課綱：系統手上的開課欄位、先修條件來源信心、原始檔下載 |
-| `/assistant` | 修業問答：問題先分類再交給對應能力（CONVERSATION.md B 介面） |
+| `/assistant` | 修業問答：問題先分類再交給對應能力（docs/CONVERSATION.md B 介面） |
 | `/scenario` | 情境試算：七個情境分四組，標明哪些可推算、哪些要先收錄規定 |
 | `/profile` | 個人資料（唯讀）、選課傾向與額外修業目標（可編輯） |
 | `/rulepack` | 適用規劃表：目前套用哪一版，以及上傳自己的那一版 |
@@ -130,7 +130,7 @@ totalEarned === countable + overflow
 
 ### 4. 對話介面的每一個字都不是模型寫的
 
-`CONVERSATION.md` §0.1：LLM 只輸出**意圖與參數**。這不是提示詞的約定 ——
+`docs/CONVERSATION.md` §0.1：LLM 只輸出**意圖與參數**。這不是提示詞的約定 ——
 `src/lib/chat/intent.ts` 的 output schema 裡結構上就沒有 `answer` 或 `reply` 欄位，
 模型即使想下判斷也沒有地方可以寫。回覆文字一律由 `compose.ts` 依 §3 的模板
 從引擎輸出組出來，所以對話裡出現的每一個學分數字都等於審查引擎算的數字。
@@ -192,7 +192,7 @@ src/
       schedule.ts               選課組合求解
     verify/citation.ts          引用回查
     safety/scan.ts              外部內容注入檢查
-    chat/                       兩個對話介面（CONVERSATION.md）
+    chat/                       兩個對話介面（docs/CONVERSATION.md）
       types.ts                  三種回答類型、約束集合、上限
       intent.ts                 LLM 輸出（只有意圖與參數）
       apply.ts                  約束集合的建立與套用
@@ -273,15 +273,15 @@ detectConflicts → reconcileConflicts
 「重來」            → 回到基本資料填寫的原始傾向
 ```
 
-**對話的狀態是約束集合，不是訊息歷史**（`CONVERSATION.md` §1.1）。
+**對話的狀態是約束集合，不是訊息歷史**（`docs/CONVERSATION.md` §1.1）。
 每輪把 `ConstraintDelta` 疊到 `ConstraintSet` 上再重跑求解，所以對話再長也不會漂移，
 使用者也隨時看得到目前生效的條件清單。
 
 每一輪一定回報三件事（§1.3）：**改了什麼／課表差異／代價**。
 求得的方案無解時**不自動放寬**（§1.4）—— 可以放寬的方向以按鈕列出，由使用者決定。
-BACKEND.md §5 的自動放寬只留給第一版課表，因為那時還沒有人可以問。
+docs/BACKEND.md §5 的自動放寬只留給第一版課表，因為那時還沒有人可以問。
 
-硬限制與軟偏好的界線寫在 `SPEC-CHANGES.md` §E1：
+硬限制與軟偏好的界線寫在 `docs/SPEC-CHANGES.md` §E1：
 `avoidDays` 是硬限制；`avoidEarly` 是偏好，做不到時照排並明講「這個類別只有早八可選」。
 **學則的學期學分下限（9）是硬規定不是偏好**：只要湊得到，交出的課表一律達標（§E12）。
 
@@ -310,7 +310,7 @@ open http://localhost:3000/review/im-111
 
 > 目前 `src/lib/rules/packs/im-111.json` 是 **合成規則包**（`provenance: "synthetic"`），
 > 搭配合成的規劃表與學則原文語料，讓系統在沒有真實 PDF 的情況下能完整執行。
-> UI 的學籍卡會明白標示「不得作為實際審查依據」。詳見 `SPEC-CHANGES.md` §D1。
+> UI 的學籍卡會明白標示「不得作為實際審查依據」。詳見 `docs/SPEC-CHANGES.md` §D1。
 
 ---
 

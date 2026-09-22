@@ -1,5 +1,5 @@
 /**
- * Aidit 核心型別。SPEC.md §3 的型別在此為唯一定義來源，
+ * Aidit 核心型別。docs/SPEC.md §3 的型別在此為唯一定義來源，
  * 其他模組一律 import，不得各自重宣告。
  */
 
@@ -291,7 +291,7 @@ export const DEFAULT_PREFERENCES: CoursePreferences = {
 
 export type Constraints = {
   avoidDays?: number[];
-  /** 指定要空出的節次（CONVERSATION.md §1.1 的 avoidPeriods） */
+  /** 指定要空出的節次（docs/CONVERSATION.md §1.1 的 avoidPeriods） */
   avoidPeriods?: { day: number; periods: number[] }[];
   /** 早八：第 1 節 */
   avoidEarly?: boolean;
@@ -308,7 +308,7 @@ export type Constraints = {
 };
 
 /**
- * 某一門課為什麼沒有被排進來（CONVERSATION.md §1.6）。
+ * 某一門課為什麼沒有被排進來（docs/CONVERSATION.md §1.6）。
  * 這是使用者最常問的問題，也是求解器可以直接回答的 ——
  * 做好這一條，整個系統的可信度會明顯不同。
  */

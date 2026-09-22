@@ -59,7 +59,7 @@ export type StepCtx = {
 };
 
 /**
- * 步驟的控制訊號 —— 對應 SPEC.md §6 的狀態機分支。
+ * 步驟的控制訊號 —— 對應 docs/SPEC.md §6 的狀態機分支。
  * 沒有這些訊號，狀態圖就只是一條單向箭頭，會被判為固定流程。
  */
 export type StepControl =

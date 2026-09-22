@@ -3,7 +3,7 @@ import { structured, type LlmBudget } from "@/lib/llm/client";
 import type { AskIntent, ChatMessage, ForbiddenTopic, PlanIntent } from "./types";
 
 /**
- * 意圖解析（CONVERSATION.md §0.1）。
+ * 意圖解析（docs/CONVERSATION.md §0.1）。
  *
  * LLM 的輸出 schema **只允許意圖與參數**，不允許出現任何判定結果。
  * 沒有 `answer` 欄位、沒有 `reply` 欄位、沒有任何可以塞學分數字的地方 ——

@@ -1,7 +1,7 @@
 # 開發與協作
 
 這份是**常駐規則**，任何人參與開發都適用。
-要接手後端的人另看 [HANDOVER.md](HANDOVER.md)（短，講你的任務）。
+要接手後端的人另看 [docs/HANDOVER.md](docs/HANDOVER.md)（短，講你的任務）。
 
 ---
 
@@ -64,7 +64,7 @@ Vercel 公開 demo、家用主機（跑本機模型）、本機開發。**各自
 | [store/index.ts](src/lib/store/index.ts) | 沒憑證時走檔案替身 | `SupabaseTraceStore` 已寫好，跑 `supabase/migrations/` 就生效 |
 | [store/prefs-store.ts](src/lib/store/prefs-store.ts) | 只有檔案實作 | **最急**：線上存到 `/tmp`，換實例就沒了 |
 | [rules/](src/lib/rules/) | 語料與規則包是 repo 裡的檔案 | 搬到儲存層；鎖版現在會寫進原始碼目錄，serverless 上必然失敗 |
-| [offerings/](src/lib/offerings/) | 合成開課資料 | 抓取與正規化，BACKEND.md §4 |
+| [offerings/](src/lib/offerings/) | 合成開課資料 | 抓取與正規化，docs/BACKEND.md §4 |
 
 ## 5. 分支與 PR
 
@@ -112,11 +112,11 @@ Vercel 公開 demo、家用主機（跑本機模型）、本機開發。**各自
 ## 7. 讀碼順序
 
 1. [README.md](README.md) §架構 —— 十分鐘看懂資料怎麼流
-2. [BACKEND.md](BACKEND.md) §1 學分歸屬 —— 全專案最容易算錯的地方，**先讀這個**
+2. [docs/BACKEND.md](docs/BACKEND.md) §1 學分歸屬 —— 全專案最容易算錯的地方，**先讀這個**
 3. [docs/API.md](docs/API.md) —— 你和另一邊的合約
-4. [SPEC.md](SPEC.md) §9 —— 隱私邊界，決定了為什麼很多東西刻意不存伺服器
-5. [CONVERSATION.md](CONVERSATION.md) —— 只在你要碰對話路徑時才需要
+4. [docs/SPEC.md](docs/SPEC.md) §9 —— 隱私邊界，決定了為什麼很多東西刻意不存伺服器
+5. [docs/CONVERSATION.md](docs/CONVERSATION.md) —— 只在你要碰對話路徑時才需要
 
-BACKEND.md §1 講的是：一門課可能同時符合多個類別，貪婪指派會產生**假的未修**，
+docs/BACKEND.md §1 講的是：一門課可能同時符合多個類別，貪婪指派會產生**假的未修**，
 讓一個本來能畢業的學生多讀一學期。那是這個系統最不能犯的錯，也是
 [audit/assign.ts](src/lib/audit/assign.ts) 為什麼要做回溯搜尋而不是直接塞。

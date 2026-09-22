@@ -6,7 +6,7 @@ import { scanText, wrapExternal } from "@/lib/safety/scan";
 import { INJECTION_CORPUS } from "./corpus";
 
 /**
- * 注入測試執行器（SPEC.md §10）。
+ * 注入測試執行器（docs/SPEC.md §10）。
  *
  * 同時量測攔截率與誤攔率。只報攔截率是沒有意義的 ——
  * 把所有外部內容都丟掉也能得到 100% 攔截率。

@@ -1,7 +1,7 @@
 import { createHmac, randomUUID } from "node:crypto";
 
 /**
- * 去識別工具（BACKEND.md §6）。
+ * 去識別工具（docs/BACKEND.md §6）。
  * trace 一律只存 HMAC 後的學生代號，原始識別資訊不得落地。
  */
 

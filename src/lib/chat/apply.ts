@@ -4,7 +4,7 @@ import type { ConstraintDelta, ConstraintSet } from "./types";
 import type { PlanParams } from "./intent";
 
 /**
- * 約束集合的建立與套用（CONVERSATION.md §1.1）。
+ * 約束集合的建立與套用（docs/CONVERSATION.md §1.1）。
  *
  * 對話狀態是約束集合，不是訊息歷史。對話可以很長，但狀態永遠是這個小物件，
  * 不會因為歷史變長而漂移；使用者也能隨時看到目前的條件清單並直接編輯。

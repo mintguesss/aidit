@@ -27,7 +27,7 @@ type Body = {
 };
 
 /**
- * POST /api/chat —— 兩個對話介面共用的入口（CONVERSATION.md）。
+ * POST /api/chat —— 兩個對話介面共用的入口（docs/CONVERSATION.md）。
  *
  * §0.1　LLM 只輸出意圖與參數；回覆文字由 compose.ts 從引擎結果組出來。
  * §0.6　每輪都寫 trace：意圖、呼叫了哪些工具、耗時、是否轉人工。

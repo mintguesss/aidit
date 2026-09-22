@@ -1,7 +1,7 @@
 import type { Citation } from "@/lib/types";
 
 /**
- * 對話的型別定義（CONVERSATION.md）。
+ * 對話的型別定義（docs/CONVERSATION.md）。
  *
  * 兩個介面的共同底線（§0.1）：
  *   LLM 只負責理解問題與組織措辭，一切判定由確定性引擎產出。

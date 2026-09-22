@@ -107,7 +107,7 @@ LLM 只負責把自然語言解析成結構化 `scenario`；試算本身由引�
 ```
 
 `scope: "plan"` 是課表微調，`"ask"` 是修業問答。契約細節見
-[CONVERSATION.md](../CONVERSATION.md)，其中三條對後端最要緊：
+[CONVERSATION.md](CONVERSATION.md)，其中三條對後端最要緊：
 
 - **§0.1** LLM 只輸出意圖與參數；回覆文字一律由 `compose.ts` 從引擎結果組出來。
   回應裡的 `text` 不是模型寫的。

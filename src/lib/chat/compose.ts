@@ -2,7 +2,7 @@ import type { Citation } from "@/lib/types";
 import { FORBIDDEN_REPLY, type ForbiddenTopic, type Reply } from "./types";
 
 /**
- * 回答格式（CONVERSATION.md §3）。
+ * 回答格式（docs/CONVERSATION.md §3）。
  *
  * 三種回答各有固定形狀，而且都**短** ——
  * 長篇大論會讓人以為系統在掩飾不確定。

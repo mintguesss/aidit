@@ -4,7 +4,7 @@ import { execSync } from "node:child_process";
 import { checkBoundaries, scanSecrets, GUARDED } from "./lib/checks";
 
 /**
- * CI 檢查（BACKEND.md §10）。
+ * CI 檢查（docs/BACKEND.md §10）。
  *
  * 第 4 條（模組邊界）是整個專案最重要的一條，因為它用機械方式保證了
  * 「算數的那層沒有模型」這個技術主張。答詢時可以直接把這支腳本調出來給評審看。

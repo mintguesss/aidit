@@ -8,7 +8,7 @@ import { normalize, fuzzyBestMatch } from "@/lib/util/text";
 import { contentHash } from "@/lib/util/identity";
 
 /**
- * 規則包抽取（BACKEND.md §2）。
+ * 規則包抽取（docs/BACKEND.md §2）。
  *
  * 離線批次，不是執行期解析。輸出是**草稿**（provenance=draft），
  * 必須經過自動驗證與人工校對頁確認後才會被 loader 接受。

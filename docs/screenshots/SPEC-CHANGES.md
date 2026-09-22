@@ -1,13 +1,13 @@
 > **這是快照，不是正本。**
-> 正本在專案根目錄的 `SPEC-CHANGES.md`；本檔隨截圖一併留存，
+> 正本在專案根目錄的 `../SPEC-CHANGES.md`；本檔隨截圖一併留存，
 > 擷取於 2026-09-18。
 > 要修改請改正本，再重跑 `npm run shots` 更新這份副本。
 
 # SPEC-CHANGES —— 規格異動與實作偏差紀錄
 
-本檔記錄實作過程中，對 `SPEC.md`、`BACKEND.md` 與 `CONVERSATION.md` 的**所有**偏差、
+本檔記錄實作過程中，對 `../SPEC.md`、`../BACKEND.md` 與 `../CONVERSATION.md` 的**所有**偏差、
 擴充與待決事項。三份規格書維持原樣不動；凡與其不一致之處，一律在此留下條目與理由。
-（`CONVERSATION.md` 於開發中補上，自 §E11 起納入本檔的記錄範圍。）
+（`../CONVERSATION.md` 於開發中補上，自 §E11 起納入本檔的記錄範圍。）
 
 規則：
 
@@ -24,7 +24,7 @@
 
 ### A1　`temperature: 0` 在現行 Claude 模型已移除
 
-- **規格**：BACKEND.md §7 要求執行期 LLM 呼叫使用 `temperature: 0`。
+- **規格**：../BACKEND.md §7 要求執行期 LLM 呼叫使用 `temperature: 0`。
 - **實作**：未送出 `temperature`。
 - **理由**：Claude Opus 5、Sonnet 5 等現行模型已移除取樣參數，送出 `temperature` 會得到
   HTTP 400。這不是選擇，是 API 契約變更。
@@ -39,18 +39,18 @@
 
 ### A2　`response_format` 改為 `output_config.format`
 
-- **規格**：BACKEND.md §7 寫 `response_format: structured`。
+- **規格**：../BACKEND.md §7 寫 `response_format: structured`。
 - **實作**：`client.messages.parse({ output_config: { format: zodOutputFormat(schema) } })`。
 - **理由**：Anthropic SDK 的參數名稱與呼叫方式已改版；`output_format` 為已棄用參數。
 - **位置**：`src/lib/llm/client.ts`
 
 ### A3　規則抽取的 PDF 解析拆成獨立的 Python 步驟
 
-- **規格**：BACKEND.md §2 的流程圖把 pdfplumber 畫在同一條管線內。
+- **規格**：../BACKEND.md §2 的流程圖把 pdfplumber 畫在同一條管線內。
 - **實作**：拆成兩支程式：
   - `scripts/pdf-to-segments.py`（Python + pdfplumber，輸出分段文字 JSON）
   - `scripts/extract-rulepack.ts`（Node，讀 JSON → LLM 抽取 → 草稿 + 語料檔）
-- **理由**：SPEC.md §1 明定「避免引入 Python 依賴」，但 pdfplumber 本身就是 Python。
+- **理由**：../SPEC.md §1 明定「避免引入 Python 依賴」，但 pdfplumber 本身就是 Python。
   拆開後 Node 端沒有 Python 依賴，PDF 解析是一次性的離線前處理，可在任何有 Python 的機器上跑。
 - **影響**：匯入真實 PDF 時多一個指令；換來的是主程式零 Python 依賴。
 
@@ -60,7 +60,7 @@
 
 ### B1　`ambiguity.affects` 欄位
 
-- **規格**：SPEC.md §5 的 `ambiguities` 沒有描述「影響範圍」。
+- **規格**：../SPEC.md §5 的 `ambiguities` 沒有描述「影響範圍」。
 - **擴充**：新增 `affects: "thisCategory" | "undetermined"`。
 - **理由**：兩種待確認事項的性質不同：
   - 跨院選修 → 解消後確定落在系專業選修（`thisCategory`），可算出「採計後未修 3 → 0」；
@@ -71,7 +71,7 @@
 ### B2　`RulePack.provenance` 與 `approvedBy`
 
 - **擴充**：新增 `provenance: "approved" | "draft" | "synthetic"`、`approvedBy`、`contentHash`。
-- **理由**：BACKEND.md §2 要求「鎖定版本 + content hash」與人工校對紀錄，但 §5 的規則包
+- **理由**：../BACKEND.md §2 要求「鎖定版本 + content hash」與人工校對紀錄，但 §5 的規則包
   schema 沒有對應欄位。沒有 provenance 就無法在執行期擋下「未校對的草稿」。
 - **行為**：`provenance === "draft"` 的規則包，`resolveRulePack()` 直接拒絕，整案中止。
   `synthetic` 可用於 Demo 與評測，但 UI 會在學籍卡明白標示「不得作為實際審查依據」。
@@ -85,7 +85,7 @@
 ### B4　`StudentRecord.plannedCommitments`
 
 - **理由**：Demo 的「與校外實習登記時段（五 2-4）重疊」需要一個資料來源。
-  沒有這欄，求解器就無從說明「哪兩個條件在打架」——而那是 SPEC.md §12 指定的賣點。
+  沒有這欄，求解器就無從說明「哪兩個條件在打架」——而那是 ../SPEC.md §12 指定的賣點。
 
 ### B5　`GraduationEvidence.label`
 
@@ -94,14 +94,14 @@
 
 ### B6　`Plan.warnings` 與 `Plan.appliedConstraints`
 
-- **理由**：SPEC.md §5 只要求把「放寬了什麼」寫出來。實作發現還有兩類同樣重要的資訊：
+- **理由**：../SPEC.md §5 只要求把「放寬了什麼」寫出來。實作發現還有兩類同樣重要的資訊：
   - `warnings`：做不到的偏好、低於學期學分下限、含時段未知的課程；
   - `appliedConstraints`：這份課表究竟是照哪些條件排出來的。
     兩者都是「使用者要能檢查系統」的必要資訊。
 
 ### B7　`overflowInProgress` 的處理
 
-- **規格**：SPEC.md §3 只定義 `overflow`（超修）。
+- **規格**：../SPEC.md §3 只定義 `overflow`（超修）。
 - **實作**：修課中學分若超出該類別應修學分，另計為 `overflowInProgress`，寫進類別 `notes`，
   但**不**計入 `overflow`。
 - **理由**：不變式 `totalEarned === countable + overflow` 要求 `overflow` 只能是「已修得」的超出部分。
@@ -113,7 +113,7 @@
 
 ### C1　`fewest-courses` 不得交出補不完未修學分的方案
 
-- **規格**：BACKEND.md §5 的 `OBJECTIVES` 寫 `"fewest-courses": s => [s.courseCount, s.unmetAfter]`。
+- **規格**：../BACKEND.md §5 的 `OBJECTIVES` 寫 `"fewest-courses": s => [s.courseCount, s.unmetAfter]`。
 - **問題**：照字面實作，「一門課都不選」的 courseCount = 0 最小，會勝過任何補足未修的方案。
   實測時確實跑出「1 門課、仍差 3 學分」的建議。
 - **實作**：先把候選解限縮到「能達到的最小未修學分」那一群，再套 preset 的目標函數。
@@ -121,7 +121,7 @@
 
 ### C2　求解器的「無解」包含「補不完」
 
-- **規格**：BACKEND.md §5 的 infeasible 定義為「任一 unmet 類別的候選集為空」。
+- **規格**：../BACKEND.md §5 的 infeasible 定義為「任一 unmet 類別的候選集為空」。
 - **實作**：候選集非空但最佳解仍有未修學分時，也先走放寬流程；全部放寬過仍補不完，
   才回傳最佳的部分方案，並在 `warnings` 標明「執行後仍有未修學分」。
 - **理由**：條件太緊（如學分上限 2）時，候選集不空但湊不出完整方案。
@@ -129,10 +129,10 @@
 
 ### C3　放寬順序的第三順位改為「避開早八」
 
-- **規格**：BACKEND.md §5 的放寬順序是 `maxCredits → avoidDays → 允許 extracted 先修未過`。
+- **規格**：../BACKEND.md §5 的放寬順序是 `maxCredits → avoidDays → 允許 extracted 先修未過`。
 - **實作**：`maxCredits → avoidDays → avoidEarly`。
 - **理由**：第三項在本實作中是 no-op —— `extracted` 信心的先修**本來就不是硬限制**
-  （BACKEND.md §4 明定「不要讓低信心的抽取結果去排除課程」），所以沒有東西可以放寬。
+  （../BACKEND.md §4 明定「不要讓低信心的抽取結果去排除課程」），所以沒有東西可以放寬。
   改為放寬「避開早八」這個真正會造成無解的軟條件。
 
 ### C4　`fill-unmet` 的第二順位加入「達學期學分下限」
@@ -143,7 +143,7 @@
 
 ### C5　同一 ambiguity 的多門課合併為一則 HoldItem
 
-- **規格**：SPEC.md §5 說「命中 trigger 時產生一個 HoldItem」，讀起來像逐課一則。
+- **規格**：../SPEC.md §5 說「命中 trigger 時產生一個 HoldItem」，讀起來像逐課一則。
 - **實作**：同一條 ambiguity 命中多門課時，合併為一則，列出所有涉及科目。
 - **理由**：規則的洞只有一個，洽詢對象與依據也只有一份。逐課一則會讓待確認分頁被洗版，
   而且學生拿著三張內容幾乎相同的洽詢單去系辦並沒有比較好。
@@ -164,7 +164,7 @@
 
 ### C8　模糊比對的滑動視窗步長改為 1
 
-- **規格**：BACKEND.md §3 的 `fuzzyBestMatch` 未規定步長。
+- **規格**：../BACKEND.md §3 的 `fuzzyBestMatch` 未規定步長。
 - **實作**：needle ≤ 200 字時逐字滑動。
 - **理由**：原本用 `n/4` 當步長，會錯過最佳對齊位置，讓只差一個字的引用被判成「原文查無」，
   進而把一條正確的結論誤降為待確認。引用片段一般 < 60 字，逐字滑動的成本可忽略。
@@ -192,7 +192,7 @@
 
 ### D2　基準 A（人工計算）與基準 C（單次 LLM）尚未實測
 
-- **基準 A**：SPEC.md §10 要求「請同學對照規劃表自行計算，記錄耗時與錯誤率」。
+- **基準 A**：../SPEC.md §10 要求「請同學對照規劃表自行計算，記錄耗時與錯誤率」。
   這需要真人實測，程式無法代勞。已在評測報告留欄位，待實測後填入 `eval/manual-baseline.md`。
 - **基準 C**：需要 `ANTHROPIC_API_KEY`。目前無金鑰，評測報告明確標示「未執行」，
   不填入任何未實測的數字。
@@ -201,13 +201,13 @@
 
 ### D3　`session` provider 未啟用
 
-- SPEC.md §4 將其列為「後續」。目前呼叫 `fetch()` 會明確拋錯，不回傳半套資料。
+- ../SPEC.md §4 將其列為「後續」。目前呼叫 `fetch()` 會明確拋錯，不回傳半套資料。
   設計約束（憑證不離開瀏覽器、伺服器不持有可代為登入的材料）已寫在
   `src/lib/providers/session.ts` 的檔頭，避免日後有人「順便」把憑證送到伺服器。
 
 ### D4　`api` provider 不實作
 
-- SPEC.md §0 明定「不代為登入」。`createProvider("api")` 直接拋錯，
+- ../SPEC.md §0 明定「不代為登入」。`createProvider("api")` 直接拋錯，
   且 `tests/boundaries.test.ts` 會檢查沒有任何 `kind = "api"` 的實作與對外寫入的 endpoint。
 
 ---
@@ -234,7 +234,7 @@
 ### E1　選課建議改為「先依選課傾向產生，再以對話微調」
 
 - **提出時間**：2026-09-14，開發中。
-- **原規格**：SPEC.md §8 的 `/api/plan` 以 `preset: "fill-unmet" | "no-early" | "fewest-courses"`
+- **原規格**：../SPEC.md §8 的 `/api/plan` 以 `preset: "fill-unmet" | "no-early" | "fewest-courses"`
   三選一，UI 上是三顆方案按鈕（見 `aidit-demo-v5.html`）。
 - **變更後**：
   1. 學生在**基本資料**填寫選課傾向（修課目標、是否排早八、要空出的星期、期望堂數、
@@ -258,11 +258,11 @@
     把「不要早八」做成硬限制，會讓「唯一開課就是早八」的情況變成無解；
     正確的回答是照排、並在 `warnings` 說明「你設定了不排早八，但這個類別只有早八可選」。
 - **preset 的去留**：`Preset` 型別與 `/api/plan` 的契約保留，由 `PRESET_OF_GOAL` 從目標推導，
-  維持 SPEC.md §8 的 API 形狀不變。
+  維持 ../SPEC.md §8 的 API 形狀不變。
 
 ### E2　新增第三處執行期 LLM 用途
 
-- **原規格**：BACKEND.md §7 明列「只有三處允許呼叫 LLM」：規則抽取（離線）、
+- **原規格**：../BACKEND.md §7 明列「只有三處允許呼叫 LLM」：規則抽取（離線）、
   `rule.reconcile`、情境試算意圖解析。
 - **變更**：新增第四處 —— 選課建議的對話式微調意圖解析（`parseAdjustment`）。
 - **理由**：E1 的對話式微調需要把「少一堂課」對應到結構化調整。
@@ -282,7 +282,7 @@
 ### E3　單頁改為多頁功能導覽
 
 - **提出時間**：2026-09-14，開發中。
-- **原規格**：SPEC.md §11 指定「單頁 `/`，區塊順序固定」，四個分頁以同頁 tab 切換。
+- **原規格**：../SPEC.md §11 指定「單頁 `/`，區塊順序固定」，四個分頁以同頁 tab 切換。
 - **變更後**：六個功能各自有網址與導覽列。
 
   | 路徑 | 內容 |
@@ -297,14 +297,14 @@
 - **理由（使用者原話）**：內容很擁擠，把所有東西擠在同一頁好像很白痴，這應該更像一個系統。
 - **額外得到的好處**：承辦人可以把「待確認事項」那一頁的網址直接貼給學生；
   每一頁的網址帶著 `?fixture=&term=`，評測難例可以逐案分享與重現。
-- **保留的規格要求**：SPEC.md §11 的九個元件全數保留，只是分配到不同頁面；
+- **保留的規格要求**：../SPEC.md §11 的九個元件全數保留，只是分配到不同頁面；
   design token、視覺原則（無圓角卡片／漸層／emoji／聊天泡泡）完全不變。
 
 ### E4　手機版重新規劃
 
 - **提出時間**：2026-09-14，開發中。
 - **理由（使用者原話）**：手機版畫面要好好重新規劃，東西太多。
-- **原規格**：SPEC.md §11 的 RWD 只規定斷點與表格轉 grid。
+- **原規格**：../SPEC.md §11 的 RWD 只規定斷點與表格轉 grid。
 - **變更後的原則**：窄螢幕不是把桌機版等比縮小，而是**把次要脈絡收起來**，讓主要內容佔滿畫面。
   - 左欄在 `≤940px` 收成一條可展開的學籍列；「適用課程規劃表版本」是關鍵資訊，永遠留在收合狀態之外
   - 主導覽在窄螢幕改為可橫向捲動的 sticky 列
@@ -320,7 +320,7 @@
 - **提出時間**：2026-09-14，開發中。
 - **理由（使用者原話）**：對話畫面也記得做好。
 - **做法**：兩處對話都做成**可逐筆查核的查詢紀錄**，不是聊天泡泡
-  （SPEC.md §11 視覺原則明文禁止聊天泡泡，而且承辦人需要能逐筆核對）。
+  （../SPEC.md §11 視覺原則明文禁止聊天泡泡，而且承辦人需要能逐筆核對）。
   - 每一筆有編號、時間、使用者原話、判定結果、依據展開
   - 情境試算：結果依 feasible／conditional／infeasible 三色帶區分，附條件衝突與替代路徑
   - 選課微調：額外顯示**課表差異**（移除了哪幾門、加入了哪幾門），
@@ -333,14 +333,14 @@
 - **背景**：拆成多頁後發現 `/api/plan` 與 `/api/whatif` 取不到審查結果。
   原因是審查結果存在模組層級的記憶體 Map，而 page 與 route handler 在不同模組實例，
   正式環境多副本部署時也會壞。
-- **不採用的解法**：把 StudentRecord 落地到檔案或 DB —— 那會直接違反 SPEC.md §9
+- **不採用的解法**：把 StudentRecord 落地到檔案或 DB —— 那會直接違反 ../SPEC.md §9
   「修課紀錄僅於單次 request 生命週期處理，不落地」。
 - **採用的解法**：API 端以**相同輸入重新推導**審查結果，受 `src/lib/audit/session.ts`
-  的 10 分鐘快取保護（正是 BACKEND.md §8 指定的「審查結果快取 TTL 10 分鐘」）。
+  的 10 分鐘快取保護（正是 ../BACKEND.md §8 指定的「審查結果快取 TTL 10 分鐘」）。
   請求改為攜帶資料來源識別（demo 是 `fixture`＋`term`；正式環境會是使用者重新提交的匯出檔），
   而不是一個指向伺服器端狀態的 `traceId`。
 - **連帶移除**：`TraceStore` 的 `saveSession` / `loadSession`。
-  落地的只剩去識別後的 trace，與 SPEC.md §9 一致。
+  落地的只剩去識別後的 trace，與 ../SPEC.md §9 一致。
 
 ### E7　選課建議表格的欄寬
 
@@ -369,7 +369,7 @@
 - **學籍資料為什麼不開放編輯**：改了也不會改變事實，只會做出一份假的判定。
   尤其「學籍入學學年」直接決定適用哪一版規劃表 —— 讓使用者自己填等於讓他挑一個對自己有利的版本。
 - **選課傾向存在哪裡**：使用者自己的瀏覽器（`localStorage`），不上傳伺服器。
-  SPEC.md §9 要求修課紀錄不落地；選課傾向雖然不是修課紀錄，但同樣是個人資料，
+  ../SPEC.md §9 要求修課紀錄不落地；選課傾向雖然不是修課紀錄，但同樣是個人資料，
   沒有理由留在伺服器上。每次排課由前端帶上，API 維持無狀態。
   寫入失敗（私密視窗、停用站台資料）時明白告知，不靜默失敗。
 - **位置**：`src/components/ProfileForm.tsx`、`src/lib/ui/prefs.ts`、`src/components/Shell.tsx`
@@ -381,7 +381,7 @@
 - **原本的做法**：把每次提問做成「查詢紀錄」條目，一問一答互不相連。
 - **變更後**：`ChatPanel` 是真正的多輪對話 —— 前端保留對話歷史、每次請求整串送出，
   助理能承接上一輪的話題繼續回答。使用者訊息靠右、助理訊息靠左並帶左側色帶。
-- **與 SPEC.md §11「不用聊天泡泡」的關係**：使用者明確要求對話介面，這是他的決定。
+- **與 ../SPEC.md §11「不用聊天泡泡」的關係**：使用者明確要求對話介面，這是他的決定。
   折衷是**視覺上是對話、材質上仍是校務系統**：直角、同一套色票、等寬字仍只用於課號與時間，
   沒有頭像、沒有漸層、沒有圓角泡泡。助理的每則回覆都能展開依據，這一點比原本的查詢紀錄更強。
 - **位置**：`src/components/ChatPanel.tsx`
@@ -399,7 +399,7 @@
      模型只負責辨識意圖，實際推算由 `simulate()` 與 `solveWithRelaxation()` 執行，
      結果由路由算完後附回，模型的回覆只寫一句引導語；
   4. 成績預測、被當機率、教師評價、錄取機會一律拒答，且回傳拒答分類。
-- **偏差**：BACKEND.md §7 明列「只有三處允許呼叫 LLM」。本次新增第四處。
+- **偏差**：../BACKEND.md §7 明列「只有三處允許呼叫 LLM」。本次新增第四處。
   §7 真正的主張是「`credit.audit` / `schedule.solve` / `citation.verify` 不得有模型」，
   這條完全沒有鬆動：`tests/boundaries.test.ts` 的受保護模組清單不變，CI 第 4 項照常通過。
 - **離線替身**：以關鍵詞比對 + 事實模板回答，涵蓋還差多少學分、超修為何不能算、
@@ -410,17 +410,17 @@
   （c）需要推算的題目確實交給確定性程式且回覆不自行下結論。
 - **位置**：`src/lib/chat/`、`src/app/api/chat/route.ts`、`src/app/assistant/page.tsx`
 
-### E11　依 `CONVERSATION.md` 重寫兩個對話介面（取代 §E5、§E9、§E10 的實作）
+### E11　依 `../CONVERSATION.md` 重寫兩個對話介面（取代 §E5、§E9、§E10 的實作）
 
 - **提出時間**：2026-09-14，開發中。
 - **理由（使用者原話）**：我補上兩個對話的規則了 重新改 畫面也可以看需求改。
-- **新增的規格文件**：`CONVERSATION.md`（使用者撰寫）。它與 `SPEC.md`、`BACKEND.md`
+- **新增的規格文件**：`../CONVERSATION.md`（使用者撰寫）。它與 `../SPEC.md`、`../BACKEND.md`
   同為必須遵守的規格；本檔自本條起一併記錄對它的偏差。
 - **這一條取代了什麼**：§E5、§E9 建立的對話畫面與 §E10 建立的「事實底稿 → 模型組織語言」
   作法，全部改寫。舊條目依規則 3 不刪除，以本條取代。
 - **最關鍵的一項改動 —— LLM 不再寫任何一個字的回覆**：
   §E10 的作法是「事實底稿由引擎產生，模型負責組織語言」，模型仍然產出面向使用者的句子。
-  `CONVERSATION.md` §0.1 要求更嚴：LLM 只輸出**意圖與參數**。
+  `../CONVERSATION.md` §0.1 要求更嚴：LLM 只輸出**意圖與參數**。
   現在的 schema 裡**結構上就沒有** `answer` 或 `reply` 欄位 ——
   模型即使想寫判斷也沒有地方可以寫。所有回覆文字由 `src/lib/chat/compose.ts`
   依 §3 的模板從引擎輸出組出來。
@@ -436,7 +436,7 @@
   `computeCosts()` 算出，前端以三列卡片呈現。
 - **無解時不自動放寬（§1.4）**：對話式求解改用嚴格版 `solve()`。
   可放寬的方向以按鈕列出，由使用者點選；系統不替使用者決定。
-  BACKEND.md §5 的自動放寬僅保留給**第一版課表**（`/api/plan`），因為那時還沒有人可以問。
+  ../BACKEND.md §5 的自動放寬僅保留給**第一版課表**（`/api/plan`），因為那時還沒有人可以問。
 - **上限（§0.7）**：每輪 LLM ≤ 2 次（`LlmBudget`）、澄清只問一次、單一 session ≤ 20 輪，
   均為程式強制而非提示詞約定。
 - **禁止主題（§2.4）**：六項（成績預測、被當機率、教師評價、代為選課、代為送件、
@@ -446,7 +446,7 @@
 - **`/api/chat` 契約改變**：改以 `scope: "plan" | "ask"` 分流，回傳
   `{reply, text, intent, clarifying, tools, traceId, llm, plan?…}`。
   前端送上來的 `ConstraintSet` 視為不可信輸入，經 `sanitise()` 白名單過濾。
-- **驗證**：`tests/chat.test.ts` 由 14 項擴為 25 項，逐條對應 `CONVERSATION.md`
+- **驗證**：`tests/chat.test.ts` 由 14 項擴為 25 項，逐條對應 `../CONVERSATION.md`
   的規則而非對應實作。
 - **位置**：`src/lib/chat/`（`types` / `intent` / `apply` / `capabilities` / `compose` /
   `plan-turn` / `route`）、`src/app/api/chat/route.ts`、`src/components/ChatPanel.tsx`
@@ -524,7 +524,7 @@
   3. 常用問法移到輸入框**上方**並加上「可以這樣問」標籤，成為引導而不是殘留的按鈕列；
      送出鍵與鍵盤提示同一列，靠右。
   4. 對話面板本身加重：上緣 4px、標題 16.5px、訊息區最小高度 330px（手機 240px），
-     標題列右側顯示 `第 N / 20 輪`（CONVERSATION.md §0.7 的上限既然是規則，就該看得到）。
+     標題列右側顯示 `第 N / 20 輪`（../CONVERSATION.md §0.7 的上限既然是規則，就該看得到）。
   5. `/assistant` 移除重複的頁首標題區塊 —— 那一頁只有對話，
      再加一層「修業問答」標題只是把同一件事講兩次；判定戳記與導言併入對話面板。
 - **位置**：`src/components/ChatPanel.tsx`、`src/components/AssistantChat.tsx`、
@@ -643,7 +643,7 @@
 
 - **提出時間**：2026-09-14，開發中。
 - **理由（使用者原話）**：適用規則表應該也要有可以自己上傳的選項 以免錯誤。
-- **規格關係**：SPEC.md §6 step 2 以「學籍入學學年」綁定規則包，兩個學年不一致即轉人工；
+- **規格關係**：../SPEC.md §6 step 2 以「學籍入學學年」綁定規則包，兩個學年不一致即轉人工；
   但規格沒有提供「學生手上有正確版本」時的出口。本條補上這個出口，
   且**不鬆動「未校對不得用於判定」這條線**。
 - **改法**：新增 `/rulepack` 頁與 `POST /api/rulepack`：
@@ -670,7 +670,7 @@
 ### E25　版面檢查放行「自帶橫捲容器」的寬內容
 
 - **提出時間**：2026-09-14，開發中。
-- **理由**：週課表在 360px 必然比畫面寬。SPEC.md §11 允許寬內容在自己的
+- **理由**：週課表在 360px 必然比畫面寬。../SPEC.md §11 允許寬內容在自己的
   `overflow-x` 容器裡橫捲，只要**頁面本身**不橫捲；原本的檢查沒有區分這兩件事。
 - **改法**：`ui-check` 在判定溢出時，往上找最近的 `overflow-x: auto|scroll` 祖先，
   若該容器本身沒有超出畫面就放行。同時把 `/rulepack` 與 `/syllabus/[code]` 納入檢查
@@ -956,7 +956,7 @@
   推算器都逐一分開，system prompt 也明寫「三者不得互相代用」。
 - **轉系的處理原則**：不做任何「轉過去大概還差幾學分」的推估。
   轉系會改變適用的規劃表版本，而版本綁定是這套系統最不能含糊的一件事
-  （SPEC.md §6 step 2：兩個入學學年不一致即轉人工）。系統只講清楚
+  （../SPEC.md §6 step 2：兩個入學學年不一致即轉人工）。系統只講清楚
   「會影響什麼、需要哪些依據」：目標系的課程規劃表、轉系錄取後的學分採計辦法、申請資格與時程。
   若目標系的規則包已載入，則改回報 `conditional`，說明學分採計在轉系案中是逐案認定的，
   不是規則包能推導出來的。
@@ -1059,7 +1059,7 @@
 
 - **提出時間**：2026-09-15，開發中。
 - **理由（使用者原話）**：轉系生怎麼還是無法判定。
-- **原本的行為**：`admissionYear !== actualAdmissionYear` 一律全案轉人工（SPEC.md §6 step 2）。
+- **原本的行為**：`admissionYear !== actualAdmissionYear` 一律全案轉人工（../SPEC.md §6 step 2）。
   這在「還沒認定」時是對的，但它把**已經完成認定**的轉系生也一起擋住了 ——
   規劃表要求的那道人工程序已經做完，系統沒有理由再停一次。
 - **改法**：`StudentRecord` 新增 `transferApproval`（來源系、轉入系、核定日期、核定單位、
@@ -1194,7 +1194,7 @@
 ### E58　偏好的隱私分層與使用者控制
 
 - **提出時間**：2026-09-17，使用者指定的規則。
-- **規格關係**：SPEC.md §9 只規定「修課紀錄不落地」與「trace 去識別」，
+- **規格關係**：../SPEC.md §9 只規定「修課紀錄不落地」與「trace 去識別」，
   對**使用者自填的偏好**沒有任何規定。本條補上分層、控制與自動過期。
 - **欄位分層**：
   - **必填**（規劃所需，正常儲存）：修課目標、避開時段、期望堂數、學期學分上限、
@@ -1230,7 +1230,7 @@
   同時補上一列說明**送進語言模型的只有使用者打的那句話** ——
   偏好、學號、成績從未進入任何 prompt（`parsePlanIntent` / `parseAskIntent` 的
   user 訊息只有 `renderHistory(messages)`；情境試算另加學期代號與未修課程名稱）。
-  這是 CONVERSATION.md §0.1「LLM 只輸出意圖與參數」的副產品：
+  這是 ../CONVERSATION.md §0.1「LLM 只輸出意圖與參數」的副產品：
   模型要的是意圖，求解器要的是條件，兩者本來就分開。
 - **入口**：頁尾加連結，並收進「更多」選單；不佔主導覽。
 - **位置**：`src/lib/ui/prefs.ts`、`src/lib/solver/schedule.ts`、`src/app/privacy/page.tsx`、
@@ -1292,7 +1292,7 @@
   `prefs-store.ts` 與 `/api/preferences` 的註解同步改為只陳述自身範圍，
   不再拿修課紀錄作對比。
 - **其餘不變**：欄位分層、選填標示、四項使用者控制、自動過期、頁尾入口。
-- **註**：修課紀錄不落地這件事本身沒有改變（SPEC.md §9 仍然成立），
+- **註**：修課紀錄不落地這件事本身沒有改變（../SPEC.md §9 仍然成立），
   只是不在這一頁陳述 —— 它由 Provider 每次讀取，不屬於本頁管轄的資料。
 - **位置**：`src/app/privacy/page.tsx`、`src/components/PrivacyPanel.tsx`、
   `src/lib/store/prefs-store.ts`、`src/app/api/preferences/route.ts`
@@ -1332,7 +1332,7 @@
   比沒有圖更誤導 —— 看的人會以為那就是現況。
 - **截圖時的兩個處理**：sticky 頂條改為 static（否則會壓在長截圖的中間）、
   對話區的內捲關掉（否則只截得到最後一輪）。這兩項只影響截圖，不改動系統。
-- **`SPEC-CHANGES.md` 一併複製進去**，並在檔頭標明「這是快照，不是正本」與擷取日期 ——
+- **`../SPEC-CHANGES.md` 一併複製進去**，並在檔頭標明「這是快照，不是正本」與擷取日期 ——
   不標的話，之後一定有人改到副本。
 - **`README.md` 索引**由腳本產生，列出每張圖在拍什麼。
 - **位置**：`scripts/screenshots.mjs`、`docs/screenshots/`、`package.json`
@@ -1398,11 +1398,11 @@
 | BACKEND §5 求解器 | `src/lib/solver/schedule.ts` |
 | BACKEND §6 trace 儲存與去識別 | `src/lib/store/`、`src/lib/agent/trace.ts` |
 | BACKEND §7 LLM 邊界 | `src/lib/llm/client.ts`；執行期用途見 §E2、§E10 |
-| 對話介面 | `src/lib/chat/`（見下方 CONVERSATION.md 對照表） |
+| 對話介面 | `src/lib/chat/`（見下方 ../CONVERSATION.md 對照表） |
 | BACKEND §9 錯誤處理 | `src/lib/agent/runner.ts`、各 API route |
 | BACKEND §10 CI 檢查 | `scripts/ci.ts`（7 項全數可執行） |
 
-### CONVERSATION.md 條文對照
+### ../CONVERSATION.md 條文對照
 
 | 條文 | 落實位置 | 機械驗證 |
 |---|---|---|

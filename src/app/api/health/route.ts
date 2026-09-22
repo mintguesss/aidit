@@ -32,6 +32,12 @@ export async function GET() {
       ok: storeHealth.ok,
       detail: storeHealth.detail,
       dataDir: store.kind === "file" ? dataDir() : null,
+      // 兩個都設定才會啟用 Supabase。只回報「有沒有設」，不回報值 ——
+      // 少一個就退回檔案替身，而那是靜默的，從頁面上看不出來。
+      configured: {
+        SUPABASE_URL: Boolean(process.env.SUPABASE_URL),
+        SUPABASE_SERVICE_ROLE_KEY: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+      },
     },
     llm: {
       provider: LLM.provider,

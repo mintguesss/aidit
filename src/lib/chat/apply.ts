@@ -31,6 +31,39 @@ function clamp(v: unknown, lo: number, hi: number): number | undefined {
   return typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : undefined;
 }
 
+/**
+ * 「早上」＝第 1–4 節（第 5 節 13:20 已是下午，見 lib/offerings/periods.ts），週一至週五。
+ *
+ * 這與「早八」是兩件不同的事，不得互相代用：
+ *   - avoidEarly 只涵蓋第 1 節，而且是**軟**偏好 —— 唯一開課就是早八時照排並標示，
+ *     正確的回答是「只剩早八這一門，你自己決定」而不是回報無解（schedule.ts §排除）。
+ *   - 不排早上是使用者明確畫掉一段時間，走 avoidPeriods，是**硬**限制；
+ *     排不出來時由 §1.4 回報衝突並提出放寬選項，不自動放寬。
+ */
+const MORNING_PERIODS = [1, 2, 3, 4];
+const WEEKDAYS = [1, 2, 3, 4, 5];
+
+function isMorningEntry(a: { day: number; periods: number[] }): boolean {
+  return (
+    WEEKDAYS.includes(a.day) &&
+    a.periods.length === MORNING_PERIODS.length &&
+    MORNING_PERIODS.every((p) => a.periods.includes(p))
+  );
+}
+
+/** avoidPeriods 是否正好涵蓋週一至週五的整個早上 */
+export function isMorningBlock(avoidPeriods: ConstraintSet["avoidPeriods"]): boolean {
+  return WEEKDAYS.every((d) => avoidPeriods.some((a) => a.day === d && isMorningEntry(a)));
+}
+
+/** 設定或解除「不排早上」，不影響使用者另外指定的其他節次 */
+function setMorningBlock(c: ConstraintSet, on: boolean): void {
+  const others = c.avoidPeriods.filter((a) => !isMorningEntry(a));
+  c.avoidPeriods = on
+    ? [...others, ...WEEKDAYS.map((day) => ({ day, periods: [...MORNING_PERIODS] }))]
+    : others;
+}
+
 export function constraintSetFrom(p: CoursePreferences): ConstraintSet {
   return {
     goal: p.goal,
@@ -126,6 +159,7 @@ export function applyParams(
   }
 
   if (params.avoidEarly !== null) next.avoidEarly = params.avoidEarly;
+  if (params.avoidMorning !== null) setMorningBlock(next, params.avoidMorning);
   if (params.preferCompactDays !== null) next.preferCompactDays = params.preferCompactDays;
   if (params.maxCredits !== null) {
     next.maxCredits = params.maxCredits;
@@ -179,10 +213,14 @@ export function applyParams(
 /** 把約束集合寫成人看得懂的條件清單，UI 與回覆共用同一份 */
 export function describeSet(c: ConstraintSet): string[] {
   const out: string[] = [];
-  out.push({ asap: "以最快畢業為目標", balanced: "維持正常修課進度", light: "這學期修少一點" }[c.goal]);
-  if (c.avoidEarly) out.push("不排早八（第 1 節）");
+  out.push(GOAL_LABEL[c.goal]);
+  const morning = isMorningBlock(c.avoidPeriods);
+  // 不排早上已經涵蓋第 1 節，兩條並列只是噪音
+  if (morning) out.push("不排早上的課（第 1–4 節）");
+  else if (c.avoidEarly) out.push("不排早八（第 1 節）");
   if (c.avoidDays.length > 0) out.push(`空出星期${c.avoidDays.map((d) => "一二三四五六日"[d - 1]).join("、")}`);
   for (const a of c.avoidPeriods) {
+    if (morning && isMorningEntry(a)) continue;
     out.push(`空出星期${"一二三四五六日"[a.day - 1]} 第 ${a.periods.join("、")} 節`);
   }
   if (c.targetCourseCount !== undefined) out.push(`期望 ${c.targetCourseCount} 堂課`);
@@ -192,6 +230,77 @@ export function describeSet(c: ConstraintSet): string[] {
   for (const code of c.excludeCourses) out.push(`排除 ${nameOf(code)}`);
   if (c.goals.includes("minor")) out.push("另有輔系需求（尚未收錄規定）");
   if (c.goals.includes("cert-program")) out.push("另有學程需求（尚未收錄規定）");
+  return out;
+}
+
+const GOAL_LABEL = {
+  asap: "以最快畢業為目標",
+  balanced: "維持正常修課進度",
+  light: "這學期修少一點",
+} as const;
+
+/**
+ * 「改了什麼」——由前後約束集合的**實際差異**產生。
+ *
+ * README §4 的主張是「對話介面的每一個字都不是模型寫的」。先前這一行直接印
+ * LLM 的 `reason` 欄位，於是模型可以宣稱一個它其實沒有套用的改動：實測
+ * qwen3:14b 對「不要早上的課」寫出「調整時段：避免早上時段的課程」，
+ * 但它唯一能設的參數是只涵蓋第 1 節的 avoidEarly，而且那個值本來就已經是
+ * true —— 畫面因此同時出現「已調整時段：避免早上時段的課程」與
+ * 「目前條件：不排早八（第 1 節）」兩行互相矛盾的字，且模型那行是錯的。
+ *
+ * 改成只描述真正生效的差異。沒有差異就回空陣列，由呼叫端據實說明，
+ * 絕不把「宣稱有改」和「實際沒改」這兩件事混為一談。
+ */
+export function describeDelta(before: ConstraintSet, after: ConstraintSet): string[] {
+  const out: string[] = [];
+
+  if (before.goal !== after.goal) out.push(`改為${GOAL_LABEL[after.goal]}`);
+
+  const wasMorning = isMorningBlock(before.avoidPeriods);
+  const nowMorning = isMorningBlock(after.avoidPeriods);
+  if (wasMorning !== nowMorning) out.push(nowMorning ? "不排早上的課（第 1–4 節）" : "恢復可排早上的課");
+  // 早上已涵蓋第 1 節，同一輪兩者都變時只講範圍較大的那個
+  if (before.avoidEarly !== after.avoidEarly && !nowMorning) {
+    out.push(after.avoidEarly ? "不排早八（第 1 節）" : "接受早八");
+  }
+
+  const dayName = (d: number) => "一二三四五六日"[d - 1];
+  const addedDays = after.avoidDays.filter((d) => !before.avoidDays.includes(d));
+  const freedDays = before.avoidDays.filter((d) => !after.avoidDays.includes(d));
+  if (addedDays.length > 0) out.push(`空出星期${addedDays.map(dayName).join("、")}`);
+  if (freedDays.length > 0) out.push(`開放星期${freedDays.map(dayName).join("、")}`);
+
+  // 早上那一組已由上面描述，這裡只講使用者另外指定的節次
+  const others = (c: ConstraintSet) =>
+    c.avoidPeriods.filter((a) => !isMorningEntry(a)).map((a) => `${a.day}:${a.periods.join(",")}`);
+  const beforeOthers = new Set(others(before));
+  for (const key of others(after)) {
+    if (beforeOthers.has(key)) continue;
+    const [day, periods] = key.split(":");
+    out.push(`空出星期${dayName(Number(day))} 第 ${periods!.split(",").join("、")} 節`);
+  }
+
+  if (before.targetCourseCount !== after.targetCourseCount && after.targetCourseCount !== undefined) {
+    out.push(`改為期望 ${after.targetCourseCount} 堂課`);
+  }
+  if (before.preferCompactDays !== after.preferCompactDays) {
+    out.push(after.preferCompactDays ? "課程盡量集中在少數幾天" : "不再要求課程集中");
+  }
+  if (before.maxCredits !== after.maxCredits && after.maxCredits !== undefined) {
+    out.push(`學期學分上限改為 ${after.maxCredits}`);
+  }
+
+  for (const code of after.pinCourses.filter((c) => !before.pinCourses.includes(c))) {
+    out.push(`保留 ${nameOf(code)}`);
+  }
+  for (const code of after.excludeCourses.filter((c) => !before.excludeCourses.includes(c))) {
+    out.push(`排除 ${nameOf(code)}`);
+  }
+  for (const g of after.goals.filter((x) => !before.goals.includes(x))) {
+    out.push({ "early-graduation": "加入提前畢業目標", minor: "加入輔系需求", "cert-program": "加入學程需求" }[g]);
+  }
+
   return out;
 }
 

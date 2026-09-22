@@ -50,7 +50,10 @@ const zPlanIntent = z.object({
     .object({
       avoidDays: z.array(z.number().int().min(1).max(7)).max(7),
       allowDays: z.array(z.number().int().min(1).max(7)).max(7),
+      /** 只涵蓋第 1 節 */
       avoidEarly: z.boolean().nullable(),
+      /** 整個早上（第 1–4 節）；與 avoidEarly 是兩件事，不得互相代用 */
+      avoidMorning: z.boolean().nullable(),
       preferCompactDays: z.boolean().nullable(),
       maxCredits: z.number().int().min(0).max(30).nullable(),
       courseCountDelta: z.number().int().min(-6).max(6).nullable(),
@@ -65,7 +68,13 @@ const zPlanIntent = z.object({
     .nullable(),
   /** intent=explain 時，使用者問的是哪一門課（課號或課名） */
   explainCourse: z.string().max(40).nullable(),
-  /** 這次改了什麼、為什麼 —— 只描述條件，不得描述結果 */
+  /**
+   * 供 trace 稽核用：模型自述它認為自己改了什麼。
+   *
+   * **不會顯示給使用者。** 畫面上的「改了什麼」由 apply.ts 的 describeDelta
+   * 從前後約束集合的實際差異產生 —— 模型的自述與實際套用的參數可能不一致
+   * （見 describeDelta 的註解），留著是為了讓 trace 能對照出這種落差。
+   */
   reason: z.string().max(80),
 });
 
@@ -87,7 +96,7 @@ const PLAN_SYSTEM = [
   "你不知道也不需要知道任何學分數字、課表內容或判定結果 —— 那些由確定性求解器負責。",
   "",
   "允許的意圖只有這些：",
-  "  adjust-time   調整時段（不要早八、把週五的課拿掉、空出某節）",
+  "  adjust-time   調整時段（不要早八、不要早上、把週五的課拿掉、空出某節）",
   "  adjust-load   調整堂數（輕鬆一點、多修一點、幾學分以內）",
   "  swap-course   換掉某一門課",
   "  pin-course    某一門課一定要留",
@@ -100,7 +109,11 @@ const PLAN_SYSTEM = [
   "1. 只輸出使用者明確說出口的參數，不得推測。",
   "2. 缺少必要參數時（例如說要換掉某課卻沒說是哪一門），回傳 clarify 並只問一個問題。",
   "3. 問到成績預測、教師評價、代為選課等，回傳對應的 forbidden 分類。",
-  "4. reason 只描述「改了什麼條件」，不得描述課表會變成什麼樣子。",
+  "   使用者陳述自己的時段偏好（例如「不要早八」「早上沒有課」）是 adjust-time，",
+  "   不是代為選課，也不是在查他人資料。",
+  "4. avoidEarly 只是第 1 節；整個早上（第 1–4 節）要用 avoidMorning。",
+  "   說「早八」設 avoidEarly，說「早上」「上午」設 avoidMorning，兩者不得互相代用。",
+  "5. reason 只描述「改了什麼條件」，不得描述課表會變成什麼樣子。",
 ].join("\n");
 
 export async function parsePlanIntent(
@@ -277,6 +290,7 @@ function emptyDelta() {
     avoidDays: [] as number[],
     allowDays: [] as number[],
     avoidEarly: null as boolean | null,
+    avoidMorning: null as boolean | null,
     preferCompactDays: null as boolean | null,
     maxCredits: null as number | null,
     courseCountDelta: null as number | null,
@@ -320,9 +334,15 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
   const d = emptyDelta();
   const reasons: string[] = [];
 
+  // 「早上」（第 1–4 節）比「早八」（第 1 節）範圍大，先比對具體的再比對一般的 ——
+  // 順序顛倒的話，「不要早上的課」會被只涵蓋第 1 節的 avoidEarly 吃掉，
+  // 而使用者看到的條件會與他說的話不符。
   if (/早八|第一節|太早/.test(t)) {
     d.avoidEarly = !/可以早八|接受早八|不介意早八/.test(t);
     reasons.push(d.avoidEarly ? "不排早八" : "接受早八");
+  } else if (/早上|上午/.test(t)) {
+    d.avoidMorning = !/可以早上|接受早上|不介意早上|可以上午|接受上午/.test(t);
+    reasons.push(d.avoidMorning ? "不排早上的課" : "接受早上的課");
   }
   for (const [re, day] of DAY_WORDS) {
     if (!re.test(t)) continue;
@@ -407,7 +427,11 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
         ? "pin-course"
         : d.goal !== null || d.goals.length > 0
           ? "change-goal"
-          : d.avoidDays.length > 0 || d.allowDays.length > 0 || d.avoidEarly !== null || d.preferCompactDays !== null
+          : d.avoidDays.length > 0 ||
+              d.allowDays.length > 0 ||
+              d.avoidEarly !== null ||
+              d.avoidMorning !== null ||
+              d.preferCompactDays !== null
             ? "adjust-time"
             : "adjust-load";
 

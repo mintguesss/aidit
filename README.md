@@ -15,6 +15,8 @@
 | 串接 API | [docs/API.md](docs/API.md) —— 前後端分界線 |
 | 部署公開 demo | [docs/DEPLOY.md](docs/DEPLOY.md) —— Vercel |
 | 自架跑本機模型 | [docs/SELFHOST.md](docs/SELFHOST.md) —— Ollama、Tailscale |
+| 知道有哪些資料、放在哪 | [docs/DATA.md](docs/DATA.md) |
+| 看還有什麼沒做 | [docs/TODO.md](docs/TODO.md) |
 
 規格文件（改動前先讀）：
 

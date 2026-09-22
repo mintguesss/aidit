@@ -115,7 +115,36 @@ export type ApplyResult = {
   delta: ConstraintDelta;
   /** 課名查不到課號的項目，要向使用者說明而不是默默忽略 */
   unresolved: string[];
+  /** 模型推測出來、但使用者沒說出口而被擋下的參數，寫進 trace 供稽核 */
+  refusedParams: string[];
 };
+
+/**
+ * 放寬既有偏好需要使用者明確說出口的依據。
+ *
+ * §1.4 訂的是「無解時不自動放寬」，但放寬還有另一條路會溜進來：意圖解析把
+ * 使用者沒提到的欄位填成 false，而 schema 裡 null 才是「不變」、false 是「關掉」。
+ * 實測 qwen3:14b 對「空出星期五」送出 avoidDays=[]、avoidEarly=false、
+ * avoidMorning=false、preferCompactDays=false —— 它自己的 reason 寫著
+ * "avoidFriday"，卻一個字都沒填進參數，反而把使用者原本設好的「不排早八」關掉了。
+ *
+ * 增加約束出錯，使用者看得到（課變少了）；解除約束出錯是**無聲**的，
+ * 偏好就這樣消失。所以只對「解除」這個方向要求依據，加嚴不受影響。
+ */
+const RELAX_CUE = /可以|接受|不介意|沒關係|無所謂|都行|開放|取消|解除|恢復|不用|不需要|拿掉限制|放寬/;
+
+/**
+ * 數值參數必須在原句裡找得到帶單位的數字。
+ *
+ * 這是把系統提示第 1 條「只輸出使用者明確說出口的參數，不得推測」用程式執行。
+ * 實測 qwen3:14b 對「空出星期五」送出 courseCountTarget=0、maxCredits=0，
+ * 把條件設成「期望 0 堂課、學分上限 0」—— 與學則的學期下限直接衝突，必然無解。
+ * 它填 0 的意思是「沒提到」，但 schema 裡 null 才是沒提到。
+ *
+ * 要求單位而不只是數字：「空出星期五」的「五」是星期，不是堂數。
+ */
+const COUNT_CUE = /(\d+|[一二兩三四五六七八九十]+)\s*[堂門]/;
+const CREDIT_CUE = /(\d+|[一二兩三四五六七八九十]+)\s*學分/;
 
 /**
  * 把 LLM 解析出的參數套用到目前的約束集合。
@@ -129,14 +158,26 @@ export function applyParams(
   original: ConstraintSet,
   params: PlanParams,
   reason: string,
+  /** 使用者這一句的原文，用來判定「解除某項偏好」是不是他真的說出口的 */
+  raw = "",
 ): ApplyResult {
   if (params.reset) {
     return {
       next: { ...original, avoidDays: [...original.avoidDays], avoidPeriods: [], excludeCourses: [], pinCourses: [], goals: [] },
       delta: { reason: "重設為個人資料的原始設定" },
       unresolved: [],
+      refusedParams: [],
     };
   }
+
+  const refusedParams: string[] = [];
+  const mayRelax = RELAX_CUE.test(raw);
+  /** 解除既有偏好需要依據；沒有依據就擋下並記錄，不動原本的設定 */
+  const allowTurnOff = (label: string): boolean => {
+    if (mayRelax) return true;
+    refusedParams.push(label);
+    return false;
+  };
 
   const next: ConstraintSet = {
     ...current,
@@ -149,24 +190,51 @@ export function applyParams(
   const delta: ConstraintDelta = { reason };
   const unresolved: string[] = [];
 
+  const dayName = (d: number) => "一二三四五六日"[d - 1];
+
   if (params.avoidDays.length > 0) {
     const set = new Set([...next.avoidDays, ...params.avoidDays]);
-    for (const d of params.allowDays) set.delete(d);
+    for (const d of params.allowDays) {
+      if (!set.has(d)) continue;
+      if (allowTurnOff(`開放星期${dayName(d)}`)) set.delete(d);
+    }
     next.avoidDays = [...set].sort((a, b) => a - b);
     delta.avoidDays = params.avoidDays;
   } else if (params.allowDays.length > 0) {
-    next.avoidDays = next.avoidDays.filter((d) => !params.allowDays.includes(d));
+    const freed = params.allowDays.filter((d) => next.avoidDays.includes(d));
+    if (freed.length > 0 && allowTurnOff(`開放星期${freed.map(dayName).join("、")}`)) {
+      next.avoidDays = next.avoidDays.filter((d) => !params.allowDays.includes(d));
+    }
   }
 
-  if (params.avoidEarly !== null) next.avoidEarly = params.avoidEarly;
-  if (params.avoidMorning !== null) setMorningBlock(next, params.avoidMorning);
-  if (params.preferCompactDays !== null) next.preferCompactDays = params.preferCompactDays;
-  if (params.maxCredits !== null) {
-    next.maxCredits = params.maxCredits;
-    delta.maxCredits = params.maxCredits;
+  if (params.avoidEarly !== null) {
+    // 關掉既有的「不排早八」要有依據；設定或維持則照做
+    if (params.avoidEarly || !current.avoidEarly || allowTurnOff("接受早八")) {
+      next.avoidEarly = params.avoidEarly;
+    }
   }
-  if (params.courseCountTarget !== null) next.targetCourseCount = params.courseCountTarget;
-  else if (params.courseCountDelta !== null) {
+  if (params.avoidMorning !== null) {
+    if (params.avoidMorning || !isMorningBlock(current.avoidPeriods) || allowTurnOff("恢復可排早上的課")) {
+      setMorningBlock(next, params.avoidMorning);
+    }
+  }
+  if (params.preferCompactDays !== null) {
+    if (params.preferCompactDays || !current.preferCompactDays || allowTurnOff("不再要求課程集中")) {
+      next.preferCompactDays = params.preferCompactDays;
+    }
+  }
+  if (params.maxCredits !== null) {
+    if (CREDIT_CUE.test(raw)) {
+      next.maxCredits = params.maxCredits;
+      delta.maxCredits = params.maxCredits;
+    } else {
+      refusedParams.push(`學期學分上限改為 ${params.maxCredits}（原句沒有提到學分數）`);
+    }
+  }
+  if (params.courseCountTarget !== null) {
+    if (COUNT_CUE.test(raw)) next.targetCourseCount = params.courseCountTarget;
+    else refusedParams.push(`期望 ${params.courseCountTarget} 堂課（原句沒有提到堂數）`);
+  } else if (params.courseCountDelta !== null && params.courseCountDelta !== 0) {
     next.targetCourseCount = Math.max(0, (current.targetCourseCount ?? 0) + params.courseCountDelta);
   }
   if (params.goal !== null) next.goal = params.goal;
@@ -207,7 +275,7 @@ export function applyParams(
   if (next.excludeCourses.length > 0) delta.excludeCourses = next.excludeCourses;
   if (next.pinCourses.length > 0) delta.pinCourses = next.pinCourses;
 
-  return { next, delta, unresolved };
+  return { next, delta, unresolved, refusedParams };
 }
 
 /** 把約束集合寫成人看得懂的條件清單，UI 與回覆共用同一份 */
@@ -285,10 +353,11 @@ export function describeDelta(before: ConstraintSet, after: ConstraintSet): stri
     out.push(`改為期望 ${after.targetCourseCount} 堂課`);
   }
   if (before.preferCompactDays !== after.preferCompactDays) {
-    out.push(after.preferCompactDays ? "課程盡量集中在少數幾天" : "不再要求課程集中");
+    // 這些字會被套進「已…。」的句型，所以寫成動詞開頭
+    out.push(after.preferCompactDays ? "盡量把課集中在少數幾天" : "不再要求課程集中");
   }
   if (before.maxCredits !== after.maxCredits && after.maxCredits !== undefined) {
-    out.push(`學期學分上限改為 ${after.maxCredits}`);
+    out.push(`把學期學分上限改為 ${after.maxCredits}`);
   }
 
   for (const code of after.pinCourses.filter((c) => !before.pinCourses.includes(c))) {

@@ -25,6 +25,8 @@ export async function GET() {
 
   const body = {
     ok: storeHealth.ok && traceSecretSet,
+    // Node 22 之前沒有原生 WebSocket，supabase-js 的 client 建構會因此失敗
+    node: process.version,
     store: {
       kind: store.kind,
       ok: storeHealth.ok,

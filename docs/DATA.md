@@ -34,8 +34,9 @@
 
 | 資料 | 現在放哪 | 備註 |
 |---|---|---|
-| **人工校對紀錄** | `.data/reviews/`、`.data/drafts/` | 含**校對人姓名或代號**，是承辦人員的個資 |
-| **規則包上傳暫存** | `.data/rulepack-uploads/` | 原始 PDF 與檔案指紋 |
+| **人工校對紀錄** | `review_records` 或 `.data/reviews/` | 含**校對人姓名或代號**，是承辦人員的個資 |
+| **規則包草稿與語料** | `rulepack_drafts` 或 `.data/drafts/` | 抽取在本機、校對在線上，兩者必須存在一起 |
+| **上傳的原始 PDF** | Supabase Storage（非公開）或 `.data/rulepack-uploads/` | 中繼資料另存 `rulepack_uploads` |
 | **評測報告** | `.data/eval-report.*` | 合成資料 |
 
 ## 四、三個地方，別搞混

@@ -1,6 +1,7 @@
 import { mkdirSync, readFileSync, writeFileSync, existsSync, readdirSync, unlinkSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { dataDir } from "./paths";
+import { supabaseClient, supabaseConfigured } from "./supabase";
 import type { Trace } from "@/lib/types";
 
 /**
@@ -113,25 +114,8 @@ class FileTraceStore implements TraceStore {
 class SupabaseTraceStore implements TraceStore {
   readonly kind = "supabase" as const;
 
-  constructor(
-    private readonly url: string,
-    private readonly key: string,
-  ) {}
-
-  private async client() {
-    // supabase-js 的 Realtime 需要全域 WebSocket，而 Node 22 之前沒有。
-    // 本模組只用 PostgREST（from().select/insert/delete），一次 Realtime 都沒有，
-    // 但 client 建構時就會檢查，所以在 Node 20 上得先補上。
-    if (typeof globalThis.WebSocket === "undefined") {
-      const ws = await import("ws");
-      (globalThis as { WebSocket?: unknown }).WebSocket = ws.default;
-    }
-    const { createClient } = await import("@supabase/supabase-js");
-    return createClient(this.url, this.key, { auth: { persistSession: false } });
-  }
-
   async saveTrace(trace: Trace): Promise<void> {
-    const db = await this.client();
+    const db = await supabaseClient();
     await db.from("traces").insert({
       id: trace.id,
       created_at: trace.createdAt,
@@ -184,7 +168,7 @@ class SupabaseTraceStore implements TraceStore {
   }
 
   async loadTrace(id: string): Promise<Trace | null> {
-    const db = await this.client();
+    const db = await supabaseClient();
     const { data: head } = await db.from("traces").select("*").eq("id", id).maybeSingle();
     if (!head) return null;
     const { data: steps } = await db.from("trace_steps").select("*").eq("trace_id", id).order("idx");
@@ -231,7 +215,7 @@ class SupabaseTraceStore implements TraceStore {
 
   async purgeByStudent(studentHash: string): Promise<number> {
     if (!/^[0-9a-f]{32}$/.test(studentHash)) return 0;
-    const db = await this.client();
+    const db = await supabaseClient();
     const { count } = await db
       .from("traces")
       .delete({ count: "exact" })
@@ -241,7 +225,7 @@ class SupabaseTraceStore implements TraceStore {
 
   async health(): Promise<{ ok: boolean; detail: string }> {
     try {
-      const db = await this.client();
+      const db = await supabaseClient();
       const { error } = await db.from("traces").select("id").limit(1);
       if (error) {
         // 最常見的是 migration 沒跑：relation "traces" does not exist
@@ -254,7 +238,7 @@ class SupabaseTraceStore implements TraceStore {
   }
 
   async purgeExpired(): Promise<number> {
-    const db = await this.client();
+    const db = await supabaseClient();
     const cutoff = new Date(Date.now() - TRACE_TTL_DAYS * 24 * 3600 * 1000).toISOString();
     const { count } = await db.from("traces").delete({ count: "exact" }).lt("created_at", cutoff);
     return count ?? 0;
@@ -265,8 +249,6 @@ let store: TraceStore | null = null;
 
 export function traceStore(): TraceStore {
   if (store) return store;
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  store = url && key ? new SupabaseTraceStore(url, key) : new FileTraceStore();
+  store = supabaseConfigured() ? new SupabaseTraceStore() : new FileTraceStore();
   return store;
 }

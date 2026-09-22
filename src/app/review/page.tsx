@@ -3,8 +3,10 @@ import { listDrafts, loadDraft } from "@/lib/review/store";
 export const dynamic = "force-dynamic";
 
 /** 人工校對頁的入口：列出待校對的規則包草稿。 */
-export default function ReviewIndex() {
-  const drafts = listDrafts();
+export default async function ReviewIndex() {
+  const drafts = await listDrafts();
+  // 先全部解析完再進 JSX：server component 的 render 不能 await
+  const views = await Promise.all(drafts.map(async (id) => ({ id, v: await loadDraft(id) })));
 
   return (
     <>
@@ -49,8 +51,7 @@ export default function ReviewIndex() {
               </p>
             ) : (
               <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14 }}>
-                {drafts.map((id) => {
-                  const v = loadDraft(id);
+                {views.map(({ id, v }) => {
                   const total = v?.items.length ?? 0;
                   const done = v?.record.decisions.filter((d) => d.status !== "rejected").length ?? 0;
                   return (

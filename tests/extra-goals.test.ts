@@ -7,10 +7,7 @@ import { solve, requirementsFrom, reservedFrom, constraintsFrom } from "@/lib/so
 import { offeringsFor } from "@/lib/offerings";
 import { preferencesOf } from "@/lib/chat/apply";
 import {
-  savePrefs,
-  loadPrefs,
-  deleteOptional,
-  deletePrefs,
+  prefsStore,
   isExpired,
 } from "@/lib/store/prefs-store";
 import { fixture } from "@/lib/providers/fixtures";
@@ -22,7 +19,7 @@ async function demo() {
 }
 
 describe("額外修業目標", () => {
-  it("系所對照：代碼、簡稱、全名都查得到；查不到就回 undefined，不猜", () => {
+  it("系所對照：代碼、簡稱、全名都查得到；查不到就回 undefined，不猜", async () => {
     expect(resolveDept("FN")?.code).toBe("FN");
     expect(resolveDept("財金")?.code).toBe("FN");
     expect(resolveDept("財務金融學系")?.code).toBe("FN");
@@ -142,7 +139,7 @@ describe("轉系生", () => {
     }
   });
 
-  it("認定結果只在轉入學系相符時才生效，不得用來繞過版本綁定", () => {
+  it("認定結果只在轉入學系相符時才生效，不得用來繞過版本綁定", async () => {
     const rec = fixture("transfer-approved").record;
     const wrong = { ...rec.transferApproval!, toDept: "FN" };
     expect(resolveRulePack(rec.student, wrong).ok).toBe(false);
@@ -232,50 +229,50 @@ describe("偏好的伺服器端儲存與刪除", () => {
     lastUsedAt: new Date().toISOString(),
   };
 
-  it("存得進去、讀得回來", () => {
-    expect(savePrefs(hash, base)).toBe(true);
-    const v = loadPrefs(hash);
+  it("存得進去、讀得回來", async () => {
+    expect(await prefsStore().save(hash, base)).toBe(true);
+    const v = await prefsStore().load(hash);
     expect(v?.optional.careerDirection).toBe("資料分析");
-    deletePrefs(hash);
+    await prefsStore().delete(hash);
   });
 
-  it("只刪選填：必填保留，系統仍可正常使用", () => {
-    savePrefs(hash, base);
-    expect(deleteOptional(hash)).toBe(true);
-    const v = loadPrefs(hash);
+  it("只刪選填：必填保留，系統仍可正常使用", async () => {
+    await prefsStore().save(hash, base);
+    expect(await prefsStore().deleteOptional(hash)).toBe(true);
+    const v = await prefsStore().load(hash);
     expect(v?.optional.careerDirection).toBeUndefined();
     expect(v?.optional.interestAreas).toEqual([]);
     expect(v?.required.goal).toBe("balanced");
-    deletePrefs(hash);
+    await prefsStore().delete(hash);
   });
 
-  it("全部刪除是真的刪掉，不是標記為已刪除", () => {
-    savePrefs(hash, base);
-    expect(deletePrefs(hash)).toBe(true);
-    expect(loadPrefs(hash)).toBeNull();
+  it("全部刪除是真的刪掉，不是標記為已刪除", async () => {
+    await prefsStore().save(hash, base);
+    expect(await prefsStore().delete(hash)).toBe(true);
+    expect(await prefsStore().load(hash)).toBeNull();
   });
 
-  it("畢業或離校時讀取即刪除", () => {
-    savePrefs(hash, { ...base, status: "graduated" });
-    expect(loadPrefs(hash)).toBeNull();
-    savePrefs(hash, { ...base, status: "leave" });
-    expect(loadPrefs(hash)).toBeNull();
+  it("畢業或離校時讀取即刪除", async () => {
+    await prefsStore().save(hash, { ...base, status: "graduated" });
+    expect(await prefsStore().load(hash)).toBeNull();
+    await prefsStore().save(hash, { ...base, status: "leave" });
+    expect(await prefsStore().load(hash)).toBeNull();
   });
 
-  it("12 個月未使用即刪除", () => {
+  it("12 個月未使用即刪除", async () => {
     const old = new Date();
     old.setMonth(old.getMonth() - 13);
-    savePrefs(hash, base);
+    await prefsStore().save(hash, base);
     // savePrefs 會蓋掉 lastUsedAt，所以直接驗判定函式
     expect(isExpired(old.toISOString())).toBe(true);
     expect(isExpired(new Date().toISOString())).toBe(false);
-    deletePrefs(hash);
+    await prefsStore().delete(hash);
   });
 
-  it("鍵必須是合法的 studentHash —— 不接受路徑穿越", () => {
-    expect(savePrefs("../../etc/passwd", base)).toBe(false);
-    expect(loadPrefs("../../etc/passwd")).toBeNull();
-    expect(deletePrefs("not-a-hash")).toBe(false);
+  it("鍵必須是合法的 studentHash —— 不接受路徑穿越", async () => {
+    expect(await prefsStore().save("../../etc/passwd", base)).toBe(false);
+    expect(await prefsStore().load("../../etc/passwd")).toBeNull();
+    expect(await prefsStore().delete("not-a-hash")).toBe(false);
   });
 });
 
@@ -289,7 +286,7 @@ describe("額外修業目標的來源", () => {
     expect(summariseExtraGoals([], rec.courses, run.audit, registeredGoals(rec.student))).toEqual([]);
   });
 
-  it("有註冊的案例由學籍資料推導，不需要學生自己再宣告一次", () => {
+  it("有註冊的案例由學籍資料推導，不需要學生自己再宣告一次", async () => {
     const minor = fixture("minor-student").record.student;
     expect(registeredGoals(minor)).toEqual([
       { kind: "minor", target: "FN" },

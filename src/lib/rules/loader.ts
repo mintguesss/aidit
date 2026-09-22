@@ -15,6 +15,37 @@ const CORPUS_DIR = join(process.cwd(), "src", "lib", "rules", "corpus");
 let packsCache: RulePack[] | null = null;
 let corpusCache: Map<string, string> | null = null;
 
+/**
+ * 執行期發布的規則包與語料，由 `preloadPublishedRules()` 填入。
+ *
+ * **刻意保持同步介面。** `loadCorpus()` 與 `citationVerify()` 目前都是同步的，
+ * 改成 async 會一路傳染到審查引擎。所以資料庫那一側在非同步的入口點先載入
+ * 記憶體，同步存取照舊 —— 這也符合 docs/BACKEND.md §8「啟動時一次載入記憶體」。
+ */
+let published: { packs: RulePack[]; corpus: Map<string, string> } = { packs: [], corpus: new Map() };
+let preloadedAt = 0;
+const PRELOAD_TTL_MS = 10 * 60 * 1000;
+
+/**
+ * 從資料庫載入已發布的規則包。沒有設定 Supabase 時是 no-op。
+ *
+ * 由非同步的入口點呼叫（`getAuditSession`）。失敗不中斷 —— repo 裡的基準
+ * 版本仍然可用，退化成「看不到新發布的規則包」，而不是整個系統停擺。
+ */
+export async function preloadPublishedRules(force = false): Promise<void> {
+  if (!force && Date.now() - preloadedAt < PRELOAD_TTL_MS) return;
+  try {
+    const { fetchPublishedRules } = await import("./published");
+    published = await fetchPublishedRules();
+    preloadedAt = Date.now();
+    packsCache = null;
+    corpusCache = null;
+  } catch (e) {
+    console.warn(`[aidit][rules] 讀取已發布規則包失敗，改用 repo 版本：${String(e)}`);
+    preloadedAt = Date.now();
+  }
+}
+
 export function loadRulePacks(): RulePack[] {
   if (packsCache) return packsCache;
   const files = existsSync(PACK_DIR) ? readdirSync(PACK_DIR).filter((f) => f.endsWith(".json")) : [];
@@ -26,8 +57,12 @@ export function loadRulePacks(): RulePack[] {
     }
     return { ...parsed.data, contentHash: parsed.data.contentHash ?? contentHash(raw) };
   });
-  packsCache = packs;
-  return packs;
+  // 同 id 以資料庫版本為準：它較新，而且經過人工校對鎖版
+  const byId = new Map<string, RulePack>(packs.map((p) => [p.id, p]));
+  for (const p of published.packs) byId.set(p.id, p);
+
+  packsCache = [...byId.values()];
+  return packsCache;
 }
 
 function formatIssues(err: { issues: { path: (string | number | symbol)[]; message: string }[] }): string {
@@ -50,6 +85,9 @@ export function loadCorpus(): Map<string, string> {
     const path = join(CORPUS_DIR, file);
     if (existsSync(path)) map.set(id, readFileSync(path, "utf8"));
   }
+  // 資料庫版本覆寫同 id 的 repo 版本
+  for (const [id, body] of published.corpus) map.set(id, body);
+
   corpusCache = map;
   return map;
 }
@@ -118,4 +156,6 @@ export function resolveRulePack(student: Student, transfer?: TransferApproval): 
 export function __resetRuleCache(): void {
   packsCache = null;
   corpusCache = null;
+  published = { packs: [], corpus: new Map() };
+  preloadedAt = 0;
 }

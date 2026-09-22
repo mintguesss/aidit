@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
  */
 export default async function ReviewPack({ params }: { params: Promise<{ packId: string }> }) {
   const { packId } = await params;
-  const view = loadDraft(packId);
+  const view = await loadDraft(packId);
 
   if (!view) {
     return (

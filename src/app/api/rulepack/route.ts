@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { inspectUploadedPack } from "@/lib/rules/inspect";
 import { dataDir } from "@/lib/store/paths";
+import { supabaseClient, supabaseConfigured } from "@/lib/store/supabase";
 import { contentHash } from "@/lib/util/identity";
 
 export const runtime = "nodejs";
@@ -53,6 +54,24 @@ export async function POST(req: Request) {
     // 收件即留存檔案指紋，之後校對頁才對得上是哪一份
     const hash = contentHash(buf.toString("base64")).slice(0, 12);
     const safe = file.name.replace(/[^\w.\-]/g, "_").slice(0, 60);
+    // 中繼資料進資料庫（留得住），檔案本身仍落在暫存區。
+    // 暫存區在 serverless 上是 /tmp，換實例就沒了 —— PDF 原檔要真的留存
+    // 需要 Supabase Storage，見 docs/TODO.md B5。
+    if (supabaseConfigured()) {
+      try {
+        const db = await supabaseClient();
+        await db.from("rulepack_uploads").upsert({
+          receipt: hash,
+          filename: safe,
+          bytes: buf.length,
+          uploaded_at: new Date().toISOString(),
+        });
+      } catch {
+        // 中繼資料寫不進去不該擋住上傳，但要留下痕跡
+        console.warn(`[aidit][rulepack] 上傳紀錄寫入失敗 receipt=${hash}`);
+      }
+    }
+
     try {
       mkdirSync(UPLOAD_DIR, { recursive: true });
       writeFileSync(join(UPLOAD_DIR, `${hash}-${safe}`), buf);

@@ -1,5 +1,5 @@
 import { traceStore, TRACE_TTL_DAYS } from "./index";
-import { purgeExpiredPrefs, PREF_TTL_MONTHS } from "./prefs-store";
+import { prefsStore, PREF_TTL_MONTHS } from "./prefs-store";
 
 /**
  * 每日一次的 trace 清理。
@@ -29,7 +29,7 @@ export async function purgeDaily(): Promise<number> {
   running = (async () => {
     try {
       const n = await traceStore().purgeExpired();
-      const p = purgeExpiredPrefs();
+      const p = await prefsStore().purgeExpired();
       if (n > 0 || p > 0) {
         console.info(
           `[aidit][retention] ${new Date().toISOString()} ` +

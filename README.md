@@ -1,14 +1,29 @@
 # Aidit
 
-修業規劃與畢業審查輔助系統。實作規格見 `SPEC.md`、`BACKEND.md` 與
-`CONVERSATION.md`（兩個對話介面的規則）；所有與規格不一致之處記錄在 `SPEC-CHANGES.md`。
+修業規劃與畢業審查輔助系統。
 
 **本系統的核心主張：在畢業審查場域，答錯的代價遠高於不答。**
 優化目標是零錯答，接受較高的轉人工率。
 
-線上 Demo 的部署方式與已知限制見 [docs/DEPLOY.md](docs/DEPLOY.md)；
-要參與開發先讀 [CONTRIBUTING.md](CONTRIBUTING.md)，前後端分界線見
-[docs/API.md](docs/API.md)。
+## 文件索引
+
+| 你想做什麼 | 讀哪份 |
+|---|---|
+| 了解系統怎麼運作 | 本檔 §架構（往下捲） |
+| 參與開發 | [CONTRIBUTING.md](CONTRIBUTING.md) —— 規則、CI、不要做的事 |
+| 接手後端 | [HANDOVER.md](HANDOVER.md)，再讀上一列 |
+| 串接 API | [docs/API.md](docs/API.md) —— 前後端分界線 |
+| 部署公開 demo | [docs/DEPLOY.md](docs/DEPLOY.md) —— Vercel |
+| 自架跑本機模型 | [docs/SELFHOST.md](docs/SELFHOST.md) —— Ollama、Tailscale |
+
+規格文件（改動前先讀）：
+
+| 文件 | 內容 |
+|---|---|
+| [SPEC.md](SPEC.md) | 系統規格。§9 是隱私邊界，解釋了為什麼很多東西刻意不存伺服器 |
+| [BACKEND.md](BACKEND.md) | 後端實作細節。**§1 學分歸屬是全專案最容易算錯的地方** |
+| [CONVERSATION.md](CONVERSATION.md) | 兩個對話介面的規則 |
+| [SPEC-CHANGES.md](SPEC-CHANGES.md) | 所有與規格不一致之處，逐項記錄原因 |
 
 ---
 

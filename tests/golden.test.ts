@@ -6,7 +6,7 @@ import { activeCourseCodes } from "@/lib/offerings";
 import { GOLDEN_CASES } from "@/eval/golden/cases";
 import { generatedCases } from "@/eval/golden/generated";
 
-/** golden set 回歸：正確率不得下降（BACKEND.md §10 第 3 條） */
+/** golden set 回歸：正確率不得下降（docs/BACKEND.md §10 第 3 條） */
 
 describe("golden set（人工標準答案）", () => {
   for (const c of GOLDEN_CASES) {

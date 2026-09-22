@@ -4,7 +4,7 @@ import { dataDir } from "@/lib/store/paths";
 import { contentHash } from "@/lib/util/identity";
 
 /**
- * 人工校對紀錄（BACKEND.md §2）。
+ * 人工校對紀錄（docs/BACKEND.md §2）。
  *
  * 「校對紀錄要留（誰、何時），決賽可作為資料品質的證據。」
  * 因此本檔只負責：讀草稿、記錄逐條 approve／修正、在全數通過後鎖版。

@@ -13,7 +13,7 @@ import { describeSet, toSolverConstraints } from "./apply";
 import type { ConstraintSet } from "./types";
 
 /**
- * A 介面的一輪（CONVERSATION.md §1.3、§1.4）。
+ * A 介面的一輪（docs/CONVERSATION.md §1.3、§1.4）。
  *
  * 每輪必須回報三件事：改了什麼條件、課表差異、**代價**。
  * 第三點最重要 —— 只回新課表而不講代價，就跟一般的篩選器沒兩樣。

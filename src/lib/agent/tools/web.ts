@@ -1,7 +1,7 @@
 import type { Discussion } from "@/lib/types";
 
 /**
- * web.retrieve —— 課程公開討論（SPEC.md §9）。
+ * web.retrieve —— 課程公開討論（docs/SPEC.md §9）。
  *
  * 治理約束（寫在程式裡，不是寫在簡報裡）：
  *   - 使用搜尋 API 取得公開結果後讀取單頁，不對論壇做大量擷取
@@ -9,7 +9,7 @@ import type { Discussion } from "@/lib/types";
  *   - 取得之內容一律視為不可信輸入，先過 safety.scan 才允許呈現
  *   - 不產生教師層級的評分或評價結論
  *
- * 離線模式使用預熱快照（BACKEND.md §8「Demo 前預熱離線快照」），
+ * 離線模式使用預熱快照（docs/BACKEND.md §8「Demo 前預熱離線快照」），
  * 快照內刻意包含含指令樣式的貼文，用來證明攔截機制真的會動。
  */
 

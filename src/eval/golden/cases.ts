@@ -1,7 +1,7 @@
 import type { FixtureId } from "@/lib/providers/fixtures";
 
 /**
- * Golden set（SPEC.md §10）—— 人工計算的標準答案。
+ * Golden set（docs/SPEC.md §10）—— 人工計算的標準答案。
  *
  * 這裡的每一個數字都是對照 src/lib/rules/corpus/plan-im-111.txt 手算出來的，
  * 不得由 engine 反推，否則回歸測試只會證明「引擎和自己一致」。

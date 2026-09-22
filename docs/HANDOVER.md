@@ -1,7 +1,7 @@
 # 後端交接
 
 寫給接手後端的人與其 AI 助理。這份很短，講的是**你的任務**；
-規則、CI、模組邊界、不要做的事一律在 [CONTRIBUTING.md](CONTRIBUTING.md)，
+規則、CI、模組邊界、不要做的事一律在 [CONTRIBUTING.md](../CONTRIBUTING.md)，
 開工前整份讀完，那是必要的。
 
 ---
@@ -34,7 +34,7 @@ trace 的 Supabase 實作已經寫好了，跑 `supabase/migrations/0001_traces.
 ## 動工前要先談的一件事
 
 `fixture` 這個查詢參數現在同時扮演「選哪份測試案例」和「選哪個學生」。
-接上真實資料源後這兩件事會分家，而它牽動 [docs/API.md](docs/API.md) 裡
+接上真實資料源後這兩件事會分家，而它牽動 [docs/API.md](API.md) 裡
 大部分端點。**先跟前端談定再動。**
 
 ## 開場

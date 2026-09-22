@@ -3,7 +3,7 @@ import type { IntentResult, Scenario } from "@/lib/types";
 import { structured, type LlmBudget } from "@/lib/llm/client";
 
 /**
- * 情境試算的意圖解析（SPEC.md §12）。
+ * 情境試算的意圖解析（docs/SPEC.md §12）。
  *
  * 這不是聊天機器人：LLM 只做意圖解析，輸出結構化 scenario，
  * 之後一律交給確定性推算。意圖不明時回問一個澄清問題，不猜。

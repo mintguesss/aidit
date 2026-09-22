@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync, existsSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
 /**
- * CI 檢查的共用實作（BACKEND.md §10）。
+ * CI 檢查的共用實作（docs/BACKEND.md §10）。
  * 同時被 scripts/ci.ts 與 tests/boundaries.test.ts 使用，
  * 避免 CI 與測試各自維護一份規則而漸漸走鐘。
  */

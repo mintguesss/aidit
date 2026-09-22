@@ -1,7 +1,7 @@
 import type { Citation } from "@/lib/types";
 
 /**
- * 公告庫（BACKEND.md §2）。
+ * 公告庫（docs/BACKEND.md §2）。
  *
  * `rule.conflict` 需要一個可比對的對象。正式環境為 Postgres 的 announcements 表；
  * 離線模式下以本檔的固定資料替身，欄位形狀與 SQL schema 一致。

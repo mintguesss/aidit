@@ -5,8 +5,8 @@ import type { Student, TransferApproval } from "@/lib/types";
 import { contentHash } from "@/lib/util/identity";
 
 /**
- * 規則包載入與版本判定（SPEC.md §6 step 2）。
- * 啟動時一次載入記憶體（BACKEND.md §8），執行期只查表。
+ * 規則包載入與版本判定（docs/SPEC.md §6 step 2）。
+ * 啟動時一次載入記憶體（docs/BACKEND.md §8），執行期只查表。
  */
 
 const PACK_DIR = join(process.cwd(), "src", "lib", "rules", "packs");

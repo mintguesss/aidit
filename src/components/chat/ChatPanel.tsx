@@ -7,7 +7,7 @@ import { LIMITS, type ConstraintSet, type Reply, type ReplyKind } from "@/lib/ch
 import { CitationToggle } from "../sources/CitationToggle";
 
 /**
- * 對話框（CONVERSATION.md §3）。
+ * 對話框（docs/CONVERSATION.md §3）。
  *
  * 三種回答各有固定的視覺：
  *   決定     藍色左帶，附依據

@@ -3,7 +3,7 @@ import { parseSlots } from "@/lib/solver/slots";
 import { RAW_OFFERINGS, type RawOffering } from "./raw";
 
 /**
- * 開課資料正規化（BACKEND.md §4）。
+ * 開課資料正規化（docs/BACKEND.md §4）。
  *
  * 兩個關鍵行為：
  *   1. 時段解析失敗的課程要「標記」而不是丟棄

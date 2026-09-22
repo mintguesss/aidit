@@ -11,7 +11,7 @@ import { ChatPanel, type PlanUpdate } from "../chat/ChatPanel";
 import { loadStored } from "@/lib/ui/prefs";
 
 /**
- * A 介面：課表微調（CONVERSATION.md §1）。
+ * A 介面：課表微調（docs/CONVERSATION.md §1）。
  *
  * 第一份課表依「個人資料與選課傾向」排出；下方的對話框逐輪調整約束集合。
  * 對話狀態是 ConstraintSet，不是訊息歷史 —— 對話可以很長，

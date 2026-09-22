@@ -14,7 +14,7 @@ import { fixture } from "@/lib/providers/fixtures";
 import type { AuditResult } from "@/lib/types";
 
 /**
- * 評測執行器（SPEC.md §10）。
+ * 評測執行器（docs/SPEC.md §10）。
  *
  * 產出附件二要求的指標：正確率、成功率、平均與最大延遲、每次成本、
  * 工具調用成功率、重試次數、人工介入率、中止率、錯誤分類。

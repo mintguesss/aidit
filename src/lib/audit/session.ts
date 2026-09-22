@@ -8,13 +8,13 @@ import type { FixtureId } from "@/lib/providers/fixtures";
 import type { CoursePreferences } from "@/lib/types";
 
 /**
- * 審查結果快取（BACKEND.md §8）。
+ * 審查結果快取（docs/BACKEND.md §8）。
  *
  * 拆成多頁之後，每換一個分頁都重跑一次 agent 是不對的：
  *   1. traceId 會變，情境試算與選課微調就找不到同一份審查結果；
  *   2. 同一份資料在同一段時間內應該得到同一個答案，這是可溯源的前提。
  *
- * 因此以 (fixture, term) 為 key 快取 10 分鐘，與 BACKEND.md §8 的
+ * 因此以 (fixture, term) 為 key 快取 10 分鐘，與 docs/BACKEND.md §8 的
  * 「key = hash(studentRecord) + rulePackVersion、TTL 10 分鐘」同一個意思。
  */
 

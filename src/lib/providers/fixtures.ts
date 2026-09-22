@@ -3,7 +3,7 @@ import type { CoursePreferences, CourseRecord, StudentRecord, Student, Term } fr
 /**
  * 合成學籍與修課資料。
  *
- * Demo 與評測一律使用本檔（SPEC.md §9），不得出現真實學號、姓名或校名。
+ * Demo 與評測一律使用本檔（docs/SPEC.md §9），不得出現真實學號、姓名或校名。
  * 每一份 fixture 的學分數都能以手算驗證，golden set 的標準答案即由人工對照而來。
  */
 

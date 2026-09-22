@@ -1,7 +1,7 @@
--- 執行紀錄（BACKEND.md §6）
+-- 執行紀錄（docs/BACKEND.md §6）
 --
 -- 欄位完全對應 src/lib/store/index.ts 的 SupabaseTraceStore，改任何一邊都要改另一邊。
--- 這裡只存去識別後的 trace。修課紀錄不落地（SPEC.md §9），所以沒有對應的資料表，
+-- 這裡只存去識別後的 trace。修課紀錄不落地（docs/SPEC.md §9），所以沒有對應的資料表，
 -- 這是設計，不是還沒做。
 
 create table traces (

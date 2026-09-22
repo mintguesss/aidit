@@ -4,7 +4,7 @@ import { ReviewBoard } from "@/components/trace/ReviewBoard";
 export const dynamic = "force-dynamic";
 
 /**
- * 人工校對頁（BACKEND.md §2）。
+ * 人工校對頁（docs/BACKEND.md §2）。
  * 左邊原文（高亮 quote 位置），右邊抽取結果，逐條 approve／修正。
  */
 export default async function ReviewPack({ params }: { params: Promise<{ packId: string }> }) {

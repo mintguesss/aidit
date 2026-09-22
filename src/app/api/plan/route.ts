@@ -33,11 +33,11 @@ type Body = {
  * POST /api/plan —— 依選課傾向產生第一版課表。
  *
  * 這條路徑完全不含 LLM：輸入是結構化的選課傾向，輸出是求解器的結果。
- * 對話式的逐輪調整走 /api/chat（CONVERSATION.md A 介面）。
+ * 對話式的逐輪調整走 /api/chat（docs/CONVERSATION.md A 介面）。
  *
- * 審查結果由相同輸入重新推導（受 BACKEND.md §8 的 10 分鐘快取保護），
+ * 審查結果由相同輸入重新推導（受 docs/BACKEND.md §8 的 10 分鐘快取保護），
  * 而不是從伺服器端的 session 撈回來 ——
- * 修課紀錄僅於單次 request 生命週期處理、不落地（SPEC.md §9）。
+ * 修課紀錄僅於單次 request 生命週期處理、不落地（docs/SPEC.md §9）。
  */
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as Body | null;

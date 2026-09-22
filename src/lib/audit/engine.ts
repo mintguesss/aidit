@@ -14,7 +14,7 @@ import { assign, type AssignableCourse, type CategoryDemand, type AssignmentResu
 import { cmp } from "@/lib/util/text";
 
 /**
- * 確定性學分比對（SPEC.md §6 step 5）。
+ * 確定性學分比對（docs/SPEC.md §6 step 5）。
  *
  * 本檔任何情況下都不得呼叫 LLM。學分加總是確定性運算，
  * 這是整個系統「不幻覺」的技術保證，CI 會掃描本檔的 import。
@@ -187,7 +187,7 @@ function prepare(input: AuditInput): Prepared {
     const key = recordKey(c, i);
     byKey.set(key, c);
 
-    // 命中 ambiguity trigger 的課程整個移出指派問題（BACKEND.md §1）
+    // 命中 ambiguity trigger 的課程整個移出指派問題（docs/BACKEND.md §1）
     let hit: { ambiguity: RuleAmbiguity; category: RuleCategory } | null = null;
     for (const cat of pack.categories) {
       for (const amb of cat.ambiguities) {
@@ -378,7 +378,7 @@ export function auditCredits(input: AuditInput): AuditResult {
   const overflow = categories.reduce((a, c) => a + c.overflow, 0);
   const totalEarned = countable + overflow;
 
-  // ---- 不變式（SPEC.md §3）。失敗即中止，絕不輸出可能錯誤的結果 ----
+  // ---- 不變式（docs/SPEC.md §3）。失敗即中止，絕不輸出可能錯誤的結果 ----
   if (countable + inProgress + unmet !== pack.minCredits) {
     throw new InvariantError("countable + inProgress + unmet !== minCredits", {
       countable,

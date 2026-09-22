@@ -3,7 +3,7 @@ import type { RulePack, RuleCategory } from "@/lib/rules/schema";
 import { cmp } from "@/lib/util/text";
 
 /**
- * 基準方案（SPEC.md §10）。
+ * 基準方案（docs/SPEC.md §10）。
  *
  * 核心論述：在畢業審查場域，答錯的代價遠高於不答。
  * 因此比較的重點不是「誰答得多」，而是**誰在不確定時仍然給了數字**。
@@ -39,7 +39,7 @@ export function fixedWorkflow(record: StudentRecord, pack: RulePack): BaselineOu
   const filled: Record<string, number> = {};
   for (const cat of pack.categories) filled[cat.id] = 0;
 
-  // 貪婪：課程依課號升冪，指派到第一個符合的類別。這正是 BACKEND.md §1 警告的做法。
+  // 貪婪：課程依課號升冪，指派到第一個符合的類別。這正是 docs/BACKEND.md §1 警告的做法。
   for (const c of [...unique].sort((a, b) => cmp(a.code, b.code))) {
     const cat = pack.categories.find((x) => greedyMatch(x, c, pack));
     if (cat) filled[cat.id] = (filled[cat.id] ?? 0) + c.credits;

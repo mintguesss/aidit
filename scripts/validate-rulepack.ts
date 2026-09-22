@@ -5,7 +5,7 @@ import { normalize, fuzzyBestMatch } from "@/lib/util/text";
 import { contentHash } from "@/lib/util/identity";
 
 /**
- * 規則包自動驗證（BACKEND.md §2）。
+ * 規則包自動驗證（docs/BACKEND.md §2）。
  *
  * 不通過就不進人工校對頁。抽取時沒留 quote 的欄位，後面就無法驗證，
  * 等同於沒有依據 —— 因此缺 quote 在此直接視為錯誤，而不是警告。

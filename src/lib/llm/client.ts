@@ -4,13 +4,13 @@ import { z } from "zod/v4";
 import type { LlmUsage } from "@/lib/types";
 
 /**
- * LLM 呼叫邊界（BACKEND.md §7）。
+ * LLM 呼叫邊界（docs/BACKEND.md §7）。
  *
  * 只有三處允許呼叫 LLM：規則抽取（離線）、rule.reconcile、情境試算意圖解析。
  * credit.audit / schedule.solve / citation.verify 不得 import 本檔 —— CI 會掃描。
  *
- * 規格偏差（詳見 SPEC-CHANGES.md）：
- *   - BACKEND.md 要求 temperature: 0，但現行 Claude 模型（Opus 5 等）已移除取樣參數，
+ * 規格偏差（詳見 docs/SPEC-CHANGES.md）：
+ *   - docs/BACKEND.md 要求 temperature: 0，但現行 Claude 模型（Opus 5 等）已移除取樣參數，
  *     送出 temperature 會得到 400。改以 structured output + schema 驗證 + 上限重試
  *     達成「輸出形狀確定」，並以 output_config.effort 控制推理深度。
  *   - response_format 改為 output_config.format（messages.parse）。
@@ -106,7 +106,7 @@ export const LLM_CALL_LIMIT = 3;
 /**
  * 單次呼叫逾時。
  *
- * 8 秒是照 BACKEND.md §8 的 P95 目標訂的，對託管 API 合理；本機模型的
+ * 8 秒是照 docs/BACKEND.md §8 的 P95 目標訂的，對託管 API 合理；本機模型的
  * 首 token 延遲高得多，所以 openai-compatible 預設放寬到 30 秒。
  */
 export const LLM_TIMEOUT_MS = (() => {
@@ -125,7 +125,7 @@ export const LLM_MAX_TOKENS = 1024;
 
 export class LlmBudgetExceeded extends Error {
   constructor(readonly limit: number) {
-    super(`本次審查的 LLM 呼叫已達上限 ${limit} 次，依 BACKEND.md §7 中止。`);
+    super(`本次審查的 LLM 呼叫已達上限 ${limit} 次，依 docs/BACKEND.md §7 中止。`);
     this.name = "LlmBudgetExceeded";
   }
 }

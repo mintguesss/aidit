@@ -17,7 +17,7 @@ import { clashes, formatSlots, isEarlyMorning, parseSlots } from "./slots";
 import { cmp } from "@/lib/util/text";
 
 /**
- * 選課組合求解（BACKEND.md §5）。
+ * 選課組合求解（docs/BACKEND.md §5）。
  *
  * 純確定性 backtracking，不得呼叫 LLM（CI 會掃描本檔的 import）。
  * preset 是不同的目標函數，不是不同演算法。
@@ -391,7 +391,7 @@ function lexCompare(a: number[], b: number[]): number {
 // ------------------------------------------------------------------ 求解
 
 /**
- * 嚴格求解：**不自動放寬**使用者設定的條件（CONVERSATION.md §1.4）。
+ * 嚴格求解：**不自動放寬**使用者設定的條件（docs/CONVERSATION.md §1.4）。
  *
  * 對話中每一輪都走這條路徑。補不完未修學分時仍回傳最佳的部分方案並在 warnings 說明，
  * 但絕不偷偷解除使用者指定的條件再交出一份看起來可行的課表 ——
@@ -752,7 +752,7 @@ function pinnedInfeasibility(code: string, ctx: SolveContext, exclusions: Exclus
 }
 
 /**
- * 某一門課為什麼沒被排進來（CONVERSATION.md §1.6）。
+ * 某一門課為什麼沒被排進來（docs/CONVERSATION.md §1.6）。
  * 依序回答：沒開課／類別不需要／擋修／額滿／衝堂／被你排除／有資格但沒被選上。
  */
 export function explainCourse(query: string, ctx: SolveContext, chosen: string[]): ExclusionReason {

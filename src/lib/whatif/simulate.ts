@@ -20,7 +20,7 @@ import { offeringsFor, activeCourseCodes } from "@/lib/offerings";
 import { loadRulePacks } from "@/lib/rules/loader";
 
 /**
- * 情境試算的確定性推算（SPEC.md §12 步驟 3）。
+ * 情境試算的確定性推算（docs/SPEC.md §12 步驟 3）。
  *
  * 每一種 scenario 都是「改變輸入條件後重跑既有引擎」，不是另外問一次模型。
  * 無解時必須說明哪兩個條件在打架，而不是只回一句做不到。
@@ -278,7 +278,7 @@ function anotherRuleSet(input: SimulateInput, kind: string, name: string): WhatI
  * 轉系。
  *
  * 轉系與加修不同：它會**改變適用的課程規劃表版本**，而版本綁定是這套系統
- * 最不能含糊的一件事（SPEC.md §6 step 2：學籍入學學年與實際入學學年不一致即轉人工）。
+ * 最不能含糊的一件事（docs/SPEC.md §6 step 2：學籍入學學年與實際入學學年不一致即轉人工）。
  * 因此這裡不做任何「轉過去大概還差幾學分」的推估，
  * 只把「會影響什麼、需要哪些依據」講清楚。
  */
@@ -336,7 +336,7 @@ function changeMajor(input: SimulateInput, dept: string): WhatIfResult {
 // ---------------------------------------------------------- 成績門檻
 
 /**
- * 系統不預測成績、不預測是否被當（SPEC.md §0）。
+ * 系統不預測成績、不預測是否被當（docs/SPEC.md §0）。
  * 因此本情境只回報「已確定的事實」：已修科目之加權平均與可採計學分數。
  */
 function gradeThreshold(input: SimulateInput, target: string): WhatIfResult {

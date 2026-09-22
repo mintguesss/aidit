@@ -3,7 +3,7 @@ import { DEFAULT_PREFERENCES, type CoursePreferences, type ExtraGoal } from "@/l
 /**
  * 偏好的保存位置：使用者自己的瀏覽器。
  *
- * SPEC.md §9 要求修課紀錄不落地；偏好雖然不是修課紀錄，
+ * docs/SPEC.md §9 要求修課紀錄不落地；偏好雖然不是修課紀錄，
  * 但它同樣是個人資料，沒有理由留在伺服器上。存在 localStorage 有兩個好處：
  *   1. 伺服器完全不持有這份資料，也就沒有外洩的可能
  *   2. 每次請求由前端帶上，API 維持無狀態，與 /api/plan、/api/chat 的設計一致

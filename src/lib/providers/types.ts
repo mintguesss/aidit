@@ -1,7 +1,7 @@
 import type { ProviderKind, StudentRecord } from "@/lib/types";
 
 /**
- * 三種資料來源實作同一個介面（SPEC.md §4）。
+ * 三種資料來源實作同一個介面（docs/SPEC.md §4）。
  * 上層不得知道自己拿到的是哪一種 —— 這讓 Demo、評測與真實資料走完全相同的程式路徑。
  */
 export interface CourseRecordProvider {

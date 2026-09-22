@@ -1,0 +1,7 @@
+# 統一換行為 LF：協作者若在 Windows 以外的環境，避免整檔假 diff
+* text=auto eol=lf
+
+# 二進位檔不做轉換
+*.png  binary
+*.pdf  binary
+*.zip  binary

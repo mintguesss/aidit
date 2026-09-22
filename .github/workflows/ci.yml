@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # scripts/ci.ts 的七項檢查：vitest、tsc、評測回歸、模組邊界、注入測試、
+      # 金鑰掃描、規則包驗證。
+      # 全部在離線模式下跑得完，不需要任何金鑰。
+      - run: npm run ci
+
+      # 部署前最後一道：production build 真的建得起來
+      - run: npm run build

@@ -1,0 +1,251 @@
+{
+  "id": "im-111",
+  "dept": "IM",
+  "admissionYear": 111,
+  "program": "day",
+  "version": "1.2",
+  "approvedAt": "2023-06-14",
+  "provenance": "synthetic",
+  "approvedBy": null,
+  "minCredits": 128,
+  "college": "MGT",
+  "documents": [
+    {
+      "id": "plan-im-111",
+      "title": "111 學年度資訊管理學系課程規劃表",
+      "publishedAt": "2023-06-14",
+      "corpusFile": "plan-im-111.txt"
+    },
+    {
+      "id": "regulation",
+      "title": "學則",
+      "publishedAt": "2022-08-01",
+      "corpusFile": "regulation.txt"
+    }
+  ],
+  "categories": [
+    {
+      "id": "common-required",
+      "name": "校訂共同必修",
+      "shortName": "共同必修",
+      "credits": 20,
+      "order": 1,
+      "match": {
+        "type": "courseList",
+        "codes": [
+          "GC1001",
+          "GC1002",
+          "GC1101",
+          "GC1102",
+          "GC1201",
+          "GC1301",
+          "GC1302",
+          "GC1401",
+          "GC1501",
+          "GC1601"
+        ]
+      },
+      "citation": {
+        "docId": "plan-im-111",
+        "locator": "第 2 頁「校訂共同必修科目表」",
+        "quote": "校訂共同必修科目共二十學分，各科目均為必修，不得以其他科目抵充"
+      }
+    },
+    {
+      "id": "general",
+      "name": "通識涵養課程",
+      "shortName": "通識涵養",
+      "credits": 12,
+      "order": 2,
+      "match": { "type": "selectType", "value": "general" },
+      "subRules": [
+        {
+          "type": "domainCoverage",
+          "id": "domain-coverage",
+          "name": "四大領域分布",
+          "domains": ["人文藝術", "社會科學", "自然科技", "生命探索"],
+          "minPerDomain": 1,
+          "citation": {
+            "docId": "plan-im-111",
+            "locator": "第 3 頁「通識涵養修習規定」",
+            "quote": "學生應於四大領域各至少修習一門課程，未達領域分布規定者，縱學分已足仍不得視為滿足本類別"
+          }
+        }
+      ],
+      "citation": {
+        "docId": "plan-im-111",
+        "locator": "第 3 頁「通識涵養修習規定」",
+        "quote": "通識涵養課程應修滿十二學分"
+      }
+    },
+    {
+      "id": "college-core",
+      "name": "院基礎必修",
+      "shortName": "院基礎",
+      "credits": 12,
+      "order": 3,
+      "match": { "type": "courseList", "codes": ["BM2001", "BM2002", "BM2003", "BM2004"] },
+      "citation": {
+        "docId": "plan-im-111",
+        "locator": "第 3 頁「管理學院基礎必修」",
+        "quote": "管理學院基礎必修科目共十二學分"
+      }
+    },
+    {
+      "id": "major-required",
+      "name": "系專業必修",
+      "shortName": "系專必修",
+      "credits": 48,
+      "order": 4,
+      "match": {
+        "type": "courseList",
+        "codes": [
+          "IM2001",
+          "IM2002",
+          "IM2003",
+          "IM2004",
+          "IM2005",
+          "IM3001",
+          "IM3002",
+          "IM3003",
+          "IM3004",
+          "IM3005",
+          "IM3006",
+          "IM3007",
+          "IM3008",
+          "IM4003",
+          "IM4001",
+          "IM4002"
+        ]
+      },
+      "citation": {
+        "docId": "plan-im-111",
+        "locator": "第 4 頁「系專業必修科目表」",
+        "quote": "系專業必修科目共四十八學分"
+      }
+    },
+    {
+      "id": "major-elective",
+      "name": "系專業選修",
+      "shortName": "系專選修",
+      "credits": 24,
+      "order": 5,
+      "match": { "type": "deptElective", "dept": "IM" },
+      "ambiguities": [
+        {
+          "id": "cross-college",
+          "description": "附註 3 允許跨院選修經認定後採計，但未列明得採計之開課單位與科目範圍",
+          "trigger": { "type": "courseFromOtherCollege" },
+          "affects": "thisCategory",
+          "citation": {
+            "docId": "plan-im-111",
+            "locator": "第 4 頁附註 3",
+            "quote": "學生修習他院開設且與本系專業領域相關之課程，得經認定後採計為系專業選修"
+          },
+          "contact": "系辦公室課務承辦人",
+          "searchedSources": [
+            "系網公告（近三年）",
+            "教務處選課規定",
+            "111 至 114 學年度課程規劃表修訂紀錄"
+          ]
+        }
+      ],
+      "citation": {
+        "docId": "plan-im-111",
+        "locator": "第 4 頁「系專業選修規定」",
+        "quote": "系專業選修應修滿二十四學分，以本系開設之選修科目為限"
+      }
+    },
+    {
+      "id": "free-elective",
+      "name": "自由選修",
+      "shortName": "自由選修",
+      "credits": 12,
+      "order": 6,
+      "match": { "type": "anyPassed" },
+      "ambiguities": [
+        {
+          "id": "retired-waiver-code",
+          "description": "抵免科目之課號已停開，且查無公告之對照新課號，無法判定其歸屬類別",
+          "trigger": { "type": "waiverWithoutMapping" },
+          "affects": "undetermined",
+          "citation": {
+            "docId": "plan-im-111",
+            "locator": "第 5 頁「停開科目對照」",
+            "quote": "未經公告對照者，其學分歸屬應個案認定"
+          },
+          "contact": "教務處註冊組",
+          "searchedSources": [
+            "113-1 至 115-1 開課資料",
+            "課程規劃表停開科目對照表",
+            "教務處抵免學分辦法"
+          ]
+        }
+      ],
+      "citation": {
+        "docId": "plan-im-111",
+        "locator": "第 5 頁「自由選修」",
+        "quote": "自由選修應修滿十二學分"
+      }
+    }
+  ],
+  "overflowPolicy": {
+    "free-elective": {
+      "countsToTotal": true,
+      "transferable": false,
+      "citation": {
+        "docId": "regulation",
+        "locator": "第 24 條",
+        "quote": "自由選修超過應修學分之部分，計入修得總學分，但不得流用至其他類別"
+      }
+    }
+  },
+  "graduationChecks": [
+    {
+      "id": "chinese",
+      "name": "中文能力",
+      "rule": "evidence",
+      "contact": "教務處註冊組",
+      "citation": {
+        "docId": "plan-im-111",
+        "locator": "第 1 頁第三點",
+        "quote": "中文能力、資訊能力之檢定標準依學校共同規定辦理"
+      }
+    },
+    {
+      "id": "computing",
+      "name": "資訊能力",
+      "rule": "evidence",
+      "contact": "教務處註冊組",
+      "citation": {
+        "docId": "plan-im-111",
+        "locator": "第 1 頁第三點",
+        "quote": "中文能力、資訊能力之檢定標準依學校共同規定辦理"
+      }
+    },
+    {
+      "id": "english",
+      "name": "英文能力",
+      "rule": "deptDefined",
+      "contact": "系辦公室",
+      "searchedSources": ["系網英文檢定公告", "教務處畢業資格審查規定", "系課程委員會會議紀錄"],
+      "citation": {
+        "docId": "plan-im-111",
+        "locator": "第 1 頁第四點",
+        "quote": "英文能力檢定之通過標準由各系自訂"
+      }
+    },
+    {
+      "id": "service",
+      "name": "服務學習",
+      "rule": "evidence",
+      "contact": "學務處課外活動組",
+      "citation": {
+        "docId": "plan-im-111",
+        "locator": "第 1 頁第五點",
+        "quote": "服務學習課程應修畢二學期，成績及格"
+      }
+    }
+  ],
+  "termLimits": { "maxCredits": 25, "minCredits": 9 }
+}

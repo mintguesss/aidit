@@ -16,10 +16,41 @@ import type { LlmUsage } from "@/lib/types";
  *   - response_format 改為 output_config.format（messages.parse）。
  */
 
-export const MODEL = "claude-opus-5";
+/**
+ * 可選模型。
+ *
+ * 開發期間用便宜的模型跑，最後要出驗證數據時再換回 Opus 5 —— 但**換模型就要
+ * 重跑整份評測**，不同模型的數字不能混在同一張表上比較。
+ *
+ * 定價（USD / 1M tokens）必須跟著模型走：trace 的成本欄位與評測報告都讀這裡，
+ * 寫死一組價格再換模型，報表會理直氣壯地給出錯的數字。
+ *
+ * supportsEffort：Haiku 4.5 不支援 output_config.effort，送出會得到 400。
+ */
+const MODELS = {
+  "claude-opus-5": { inputPerMTok: 5.0, outputPerMTok: 25.0, supportsEffort: true },
+  "claude-sonnet-5": { inputPerMTok: 2.0, outputPerMTok: 10.0, supportsEffort: true },
+  "claude-haiku-4-5": { inputPerMTok: 1.0, outputPerMTok: 5.0, supportsEffort: false },
+} as const;
 
-/** claude-opus-5 定價（USD / 1M tokens），用於 trace 的成本欄位 */
-export const PRICING = { inputPerMTok: 5.0, outputPerMTok: 25.0 } as const;
+export type ModelId = keyof typeof MODELS;
+
+function resolveModel(): ModelId {
+  const want = process.env.AIDIT_LLM_MODEL;
+  if (want && want in MODELS) return want as ModelId;
+  if (want) {
+    // 打錯字就靜靜退回預設是最糟的：帳單和評測數據會對不上你以為在跑的模型
+    throw new Error(
+      `AIDIT_LLM_MODEL="${want}" 不是支援的模型。可選：${Object.keys(MODELS).join("、")}`,
+    );
+  }
+  return "claude-opus-5";
+}
+
+export const MODEL: ModelId = resolveModel();
+
+/** 定價（USD / 1M tokens），用於 trace 的成本欄位。隨 MODEL 變動。 */
+export const PRICING = MODELS[MODEL];
 
 export const LLM_CALL_LIMIT = 3;
 export const LLM_TIMEOUT_MS = 8000;
@@ -125,7 +156,8 @@ export async function structured<S extends z.ZodType>(
         max_tokens: LLM_MAX_TOKENS,
         system: req.system,
         output_config: {
-          effort: req.effort ?? "low",
+          // Haiku 4.5 不支援 effort，送出會 400，所以依模型決定要不要帶
+          ...(PRICING.supportsEffort ? { effort: req.effort ?? "low" } : {}),
           format: zodOutputFormat(req.schema),
         },
         messages: [{ role: "user", content: req.user }],

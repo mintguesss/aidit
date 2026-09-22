@@ -138,7 +138,11 @@ function computeCosts(
   const lowSeat = after.courses.filter((c) => c.remaining <= 5);
   for (const c of lowSeat) costs.push(`${c.name} 餘額只剩 ${c.remaining}，選上的把握不高。`);
 
-  for (const w of after.warnings) costs.push(w);
+  // 只列這一輪新出現的警告。上一版就已經存在的是**常駐狀態**，不是這次調整的代價 ——
+  // 例如「期望 2 堂但下限要 3 堂」會在每一輪重印，使用者調時段時看到它只會困惑。
+  // 本函式開頭的註解本來就寫「不是把 warnings 抄一遍」，先前的實作與之相反。
+  const standing = new Set(before?.warnings ?? []);
+  for (const w of after.warnings) if (!standing.has(w)) costs.push(w);
 
   return costs;
 }

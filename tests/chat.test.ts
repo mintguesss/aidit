@@ -265,3 +265,75 @@ describe("§0.6 每輪都要能寫進 trace", () => {
     expect(r.tools).toContain("rule.lookup");
   });
 });
+
+describe("§0.1 「改了什麼」必須是程式產生的，不得採用模型的自述", () => {
+  it("條件與目前設定相同時，不宣稱改了什麼", async () => {
+    const c = await ctx();
+    // 第一輪先把「不排早八」設起來
+    const first = await planTurn(msgs("不要早八"), c, new LlmBudget(LIMITS.llmCallsPerTurn));
+    expect(first.plan!.constraintSet.avoidEarly).toBe(true);
+
+    // 第二輪再說一次同一件事 —— 約束集合沒有差異，就不能說「已調整…」
+    const again = await planTurn(
+      msgs("不要早八"),
+      { ...c, constraints: first.plan!.constraintSet },
+      new LlmBudget(LIMITS.llmCallsPerTurn),
+    );
+    expect(again.plan!.changed).toEqual([]);
+    expect(again.reply.headline.startsWith("已")).toBe(false);
+    expect(again.reply.headline).toContain("沒有變動");
+  });
+
+  it("changed 的每一句都對得上實際生效的約束", async () => {
+    const r = await plan("空出星期五");
+    expect(r.plan!.constraintSet.avoidDays).toContain(5);
+    expect(r.plan!.changed).toContain("空出星期五");
+  });
+});
+
+describe("§1.1 「早上」與「早八」是兩件事，不得互相代用", () => {
+  it("不要早上 → 擋掉第 1–4 節，而不是只擋第 1 節", async () => {
+    const r = await plan("不要早上的課");
+    // 意圖要落在 adjust-time：參數套用正確但意圖標成 adjust-load 的話，trace 會失真
+    expect(r.intent).toBe("adjust-time");
+    const set = r.plan!.constraintSet;
+    // 週一至週五每一天的第 1–4 節都要被排除
+    for (const day of [1, 2, 3, 4, 5]) {
+      const entry = set.avoidPeriods.find((a) => a.day === day);
+      expect(entry, `星期${day} 應有排除節次`).toBeDefined();
+      expect(entry!.periods).toEqual(expect.arrayContaining([1, 2, 3, 4]));
+    }
+  });
+
+  it("不要早八 → 只設 avoidEarly，不碰 avoidPeriods", async () => {
+    const r = await plan("不要早八");
+    expect(r.plan!.constraintSet.avoidEarly).toBe(true);
+    expect(r.plan!.constraintSet.avoidPeriods).toEqual([]);
+  });
+
+  it("條件清單上講的是早上，不是早八", async () => {
+    const r = await plan("不要早上的課");
+    expect(r.plan!.constraints.some((s) => s.includes("早上"))).toBe(true);
+    // 兩條並列會互相矛盾：早上已經涵蓋第 1 節
+    expect(r.plan!.constraints.some((s) => s.includes("早八"))).toBe(false);
+  });
+});
+
+describe("§1.3 代價只列這一輪換來的變化", () => {
+  it("常駐警告不會被當成這次調整的代價重複列出", async () => {
+    const c = await ctx();
+    const first = await planTurn(msgs("空出星期五"), c, new LlmBudget(LIMITS.llmCallsPerTurn));
+    if (!first.plan!.solve.ok) return;
+    const carried = first.plan!.solve.plans[0]!.warnings;
+    if (carried.length === 0) return;
+
+    const second = await planTurn(
+      msgs("課盡量集中"),
+      { ...c, constraints: first.plan!.constraintSet, currentPlan: first.plan!.solve.plans[0] },
+      new LlmBudget(LIMITS.llmCallsPerTurn),
+    );
+    for (const w of carried) {
+      expect(second.plan!.costs, `「${w}」是上一輪就有的常駐警告`).not.toContain(w);
+    }
+  });
+});

@@ -1,5 +1,7 @@
 // 必須排在其他 import 之前：下面的模組在載入時就會讀 process.env
 import "@/lib/util/env";
+import { draftStore } from "@/lib/review/drafts";
+import { supabaseConfigured } from "@/lib/store/supabase";
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { z } from "zod/v4";
@@ -144,6 +146,21 @@ async function main() {
 
   console.log(`草稿已寫入　${outPath}`);
   console.log(`語料已寫入　${corpusPath}`);
+
+  // 設定了 Supabase 就一併上傳。抽取需要金鑰、跑在本機，校對卻是線上作業 ——
+  // 少了這一步，線上的校對頁永遠是空的。
+  if (supabaseConfigured()) {
+    try {
+      await draftStore().save(args.id!, {
+        draft: draft as Record<string, unknown>,
+        corpus: new Map([[segments.docId, fullText]]),
+      });
+      console.log(`草稿已上傳　rulepack_drafts/${args.id}（校對頁可直接開啟）`);
+    } catch (e) {
+      // 上傳失敗不該讓整支腳本白跑，本機檔案已經寫好了
+      console.warn(`草稿上傳失敗（本機檔案仍在）：${String(e)}`);
+    }
+  }
   console.log(`LLM 用量　　${budget.usage.calls} 次呼叫、US$${budget.usage.costUsd.toFixed(6)}`);
   console.log("");
   console.log("引用回查結果：");

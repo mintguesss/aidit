@@ -1,15 +1,12 @@
 import { NextResponse } from "next/server";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { inspectUploadedPack } from "@/lib/rules/inspect";
-import { dataDir } from "@/lib/store/paths";
 import { supabaseClient, supabaseConfigured } from "@/lib/store/supabase";
+import { putUpload } from "@/lib/review/uploads";
 import { contentHash } from "@/lib/util/identity";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const UPLOAD_DIR = dataDir("rulepack-uploads");
 const MAX_BYTES = 8 * 1024 * 1024;
 
 /**
@@ -73,10 +70,9 @@ export async function POST(req: Request) {
     }
 
     try {
-      mkdirSync(UPLOAD_DIR, { recursive: true });
-      writeFileSync(join(UPLOAD_DIR, `${hash}-${safe}`), buf);
-    } catch {
-      return NextResponse.json({ error: "檔案無法寫入伺服器暫存區。" }, { status: 500 });
+      await putUpload(hash, safe, buf);
+    } catch (e) {
+      return NextResponse.json({ error: `原始檔案無法留存：${String(e)}` }, { status: 500 });
     }
     return NextResponse.json({
       kind: "pdf",

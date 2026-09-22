@@ -1,10 +1,11 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { dataDir } from "@/lib/store/paths";
 import { contentHash } from "@/lib/util/identity";
 import { supabaseClient, supabaseConfigured } from "@/lib/store/supabase";
 import { publishRulePack } from "@/lib/rules/published";
 import { zRulePack } from "@/lib/rules/schema";
+import { draftStore } from "./drafts";
 
 /**
  * 人工校對紀錄（docs/BACKEND.md §2）。
@@ -13,10 +14,8 @@ import { zRulePack } from "@/lib/rules/schema";
  * 因此本檔只負責：讀草稿、記錄逐條 approve／修正、在全數通過後鎖版。
  */
 
-const DRAFT_DIR = dataDir("drafts");
 const REVIEW_DIR = dataDir("reviews");
 const PACK_DIR = join(process.cwd(), "src", "lib", "rules", "packs");
-const CORPUS_DIR = join(process.cwd(), "src", "lib", "rules", "corpus");
 
 export type ReviewDecision = {
   itemId: string;
@@ -53,24 +52,30 @@ export type ReviewItem = {
 export type DraftView = {
   packId: string;
   draft: Record<string, unknown>;
+  /** docId → 原文。跟草稿一起載入，避免出現「草稿在、語料不在」的半套狀態 */
+  corpus: Map<string, string>;
   draftHash: string;
   items: ReviewItem[];
   record: ReviewRecord;
 };
 
 export async function listDrafts(): Promise<string[]> {
-  if (!existsSync(DRAFT_DIR)) return [];
-  return readdirSync(DRAFT_DIR)
-    .filter((f) => f.endsWith(".json"))
-    .map((f) => f.replace(/\.json$/, ""));
+  return draftStore().list();
 }
 
 export async function loadDraft(packId: string): Promise<DraftView | null> {
-  const p = join(DRAFT_DIR, `${packId}.json`);
-  if (!/^[a-z0-9-]+$/i.test(packId) || !existsSync(p)) return null;
-  const draft = JSON.parse(readFileSync(p, "utf8")) as Record<string, unknown>;
-  const draftHash = contentHash(draft);
-  return { packId, draft, draftHash, items: toItems(draft), record: await loadRecord(packId, draftHash) };
+  const bundle = await draftStore().load(packId);
+  if (!bundle) return null;
+
+  const draftHash = contentHash(bundle.draft);
+  return {
+    packId,
+    draft: bundle.draft,
+    corpus: bundle.corpus,
+    draftHash,
+    items: toItems(bundle.draft, bundle.corpus),
+    record: await loadRecord(packId, draftHash),
+  };
 }
 
 /**
@@ -160,8 +165,7 @@ export async function lockPack(
     if (!parsed.success) {
       return { ok: false, reason: `鎖版前的最後驗證未通過：${parsed.error.issues[0]?.message ?? "未知"}` };
     }
-    const corpus = corpusOf(view.draft);
-    await publishRulePack({ ...parsed.data, contentHash: pack.contentHash as string }, corpus, reviewer);
+    await publishRulePack({ ...parsed.data, contentHash: pack.contentHash as string }, view.corpus, reviewer);
     await saveRecord(packId, view.record);
     return { ok: true, path: `rule_packs/${packId}` };
   }
@@ -174,29 +178,10 @@ export async function lockPack(
   return { ok: true, path };
 }
 
-/** 草稿宣告的原文語料。鎖版時要一併發布，否則引用回查找不到原文。 */
-function corpusOf(draft: Record<string, unknown>): Map<string, string> {
-  const map = new Map<string, string>();
-  const docs = (draft.documents as { id: string; corpusFile?: string }[] | undefined) ?? [];
-  for (const d of docs) {
-    if (!d.corpusFile) continue;
-    const p = join(CORPUS_DIR, d.corpusFile);
-    if (existsSync(p)) map.set(d.id, readFileSync(p, "utf8"));
-  }
-  return map;
-}
-
 // ------------------------------------------------------- 草稿 → 校對項目
 
-function toItems(draft: Record<string, unknown>): ReviewItem[] {
+function toItems(draft: Record<string, unknown>, corpus: Map<string, string>): ReviewItem[] {
   const items: ReviewItem[] = [];
-  const docs = (draft.documents as { id: string; corpusFile?: string }[] | undefined) ?? [];
-  const corpus = new Map<string, string>();
-  for (const d of docs) {
-    if (!d.corpusFile) continue;
-    const p = join(CORPUS_DIR, d.corpusFile);
-    if (existsSync(p)) corpus.set(d.id, readFileSync(p, "utf8"));
-  }
 
   const push = (
     id: string,

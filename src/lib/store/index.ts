@@ -119,6 +119,13 @@ class SupabaseTraceStore implements TraceStore {
   ) {}
 
   private async client() {
+    // supabase-js 的 Realtime 需要全域 WebSocket，而 Node 22 之前沒有。
+    // 本模組只用 PostgREST（from().select/insert/delete），一次 Realtime 都沒有，
+    // 但 client 建構時就會檢查，所以在 Node 20 上得先補上。
+    if (typeof globalThis.WebSocket === "undefined") {
+      const ws = await import("ws");
+      (globalThis as { WebSocket?: unknown }).WebSocket = ws.default;
+    }
     const { createClient } = await import("@supabase/supabase-js");
     return createClient(this.url, this.key, { auth: { persistSession: false } });
   }

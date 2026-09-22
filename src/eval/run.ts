@@ -1,5 +1,6 @@
 // 必須排在其他 import 之前：下面的模組在載入時就會讀 process.env
 import "@/lib/util/env";
+import { MODEL_LABEL } from "@/lib/llm/client";
 import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { runAudit } from "@/lib/agent/runner";
@@ -225,7 +226,9 @@ function report(results: CaseResult[], baselineRows: string[]) {
   const lines: string[] = [];
   lines.push("Aidit 評測報告");
   lines.push(`產生時間　${new Date().toISOString()}`);
-  lines.push(`執行模式　${singleLlmAvailable() ? "已設定 ANTHROPIC_API_KEY" : "離線（規則解消使用確定性替身）"}`);
+  lines.push(`執行模式　${singleLlmAvailable() ? "真實模型" : "離線（規則解消使用確定性替身）"}`);
+  // 不同模型的數字不能放在同一張比較表上，所以報告一定要標明是誰跑的
+  lines.push(`模型　　　${singleLlmAvailable() ? MODEL_LABEL : "—"}`);
   lines.push("");
   lines.push("── 指標（對應競賽附件二）──────────────────────");
   lines.push(`案例數　　　　　${n}（人工標準答案 ${results.filter((r) => r.source === "manual").length}、程式生成 ${results.filter((r) => r.source === "generated").length}）`);

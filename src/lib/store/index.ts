@@ -29,6 +29,14 @@ export interface TraceStore {
    * 呼叫端必須把這件事講清楚，不能當成一個無害的清理動作。
    */
   purgeByStudent(studentHash: string): Promise<number>;
+  /**
+   * 連線／可寫檢查，供 /api/health 使用。
+   *
+   * 「設定了 Supabase」和「Supabase 真的能用」是兩件事：漏跑 migration 時
+   * insert 會失敗，而 saveTrace 的失敗是被呼叫端吞掉的（那是刻意的，
+   * 儲存失敗不該讓審查中止）。所以要有一條路徑把這個錯誤講出來。
+   */
+  health(): Promise<{ ok: boolean; detail: string }>;
 }
 
 /** trace 保留 90 天後自動刪除 */
@@ -71,6 +79,18 @@ class FileTraceStore implements TraceStore {
       }
     }
     return n;
+  }
+
+  async health(): Promise<{ ok: boolean; detail: string }> {
+    try {
+      this.ensure();
+      const probe = join(this.dir, ".health");
+      writeFileSync(probe, "", "utf8");
+      unlinkSync(probe);
+      return { ok: true, detail: `可寫入 ${this.dir}` };
+    } catch (e) {
+      return { ok: false, detail: `${this.dir} 無法寫入：${String(e)}` };
+    }
   }
 
   async purgeExpired(): Promise<number> {
@@ -210,6 +230,20 @@ class SupabaseTraceStore implements TraceStore {
       .delete({ count: "exact" })
       .eq("student_hash", studentHash);
     return count ?? 0;
+  }
+
+  async health(): Promise<{ ok: boolean; detail: string }> {
+    try {
+      const db = await this.client();
+      const { error } = await db.from("traces").select("id").limit(1);
+      if (error) {
+        // 最常見的是 migration 沒跑：relation "traces" does not exist
+        return { ok: false, detail: `查詢 traces 失敗：${error.message}` };
+      }
+      return { ok: true, detail: "traces 可查詢" };
+    } catch (e) {
+      return { ok: false, detail: `連線失敗：${String(e)}` };
+    }
   }
 
   async purgeExpired(): Promise<number> {

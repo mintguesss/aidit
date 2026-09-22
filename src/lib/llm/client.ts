@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
-import type { z } from "zod/v4";
+import { z } from "zod/v4";
 import type { LlmUsage } from "@/lib/types";
 
 /**
@@ -17,43 +17,109 @@ import type { LlmUsage } from "@/lib/types";
  */
 
 /**
- * 可選模型。
+ * 模型與供應商。
  *
- * 開發期間用便宜的模型跑，最後要出驗證數據時再換回 Opus 5 —— 但**換模型就要
- * 重跑整份評測**，不同模型的數字不能混在同一張表上比較。
+ * 兩條路：Anthropic 官方 API，或任何 OpenAI 相容端點（Ollama、vLLM、Groq、
+ * OpenRouter 都是這個形狀）。預設維持 Anthropic，不設任何東西時行為完全不變。
  *
- * 定價（USD / 1M tokens）必須跟著模型走：trace 的成本欄位與評測報告都讀這裡，
- * 寫死一組價格再換模型，報表會理直氣壯地給出錯的數字。
+ * 為什麼要能換：離線替身永遠回傳完美形狀，所以它從來沒有測到
+ * 「模型亂回 → schema 驗證失敗 → 重試 → 降級成待確認」這條路徑，
+ * 而那是「零錯答」主張的最後一道防線。接一個本機模型上去跑，才驗得到它。
  *
- * supportsEffort：Haiku 4.5 不支援 output_config.effort，送出會得到 400。
+ * 換了模型就要重跑整份評測：不同模型的數字不能放在同一張比較表上，
+ * 所以 MODEL_LABEL 會印進評測報告。
  */
-const MODELS = {
+const ANTHROPIC_MODELS = {
   "claude-opus-5": { inputPerMTok: 5.0, outputPerMTok: 25.0, supportsEffort: true },
   "claude-sonnet-5": { inputPerMTok: 2.0, outputPerMTok: 10.0, supportsEffort: true },
   "claude-haiku-4-5": { inputPerMTok: 1.0, outputPerMTok: 5.0, supportsEffort: false },
 } as const;
 
-export type ModelId = keyof typeof MODELS;
+export type Provider = "anthropic" | "openai-compatible";
 
-function resolveModel(): ModelId {
-  const want = process.env.AIDIT_LLM_MODEL;
-  if (want && want in MODELS) return want as ModelId;
-  if (want) {
+type LlmConfig = {
+  provider: Provider;
+  model: string;
+  baseUrl: string;
+  apiKey: string;
+  pricing: { inputPerMTok: number; outputPerMTok: number };
+  supportsEffort: boolean;
+};
+
+function resolveConfig(): LlmConfig {
+  const provider = (process.env.AIDIT_LLM_PROVIDER || "anthropic") as Provider;
+  const want = process.env.AIDIT_LLM_MODEL?.trim();
+
+  if (provider === "openai-compatible") {
+    const baseUrl = process.env.AIDIT_LLM_BASE_URL?.trim().replace(/\/$/, "") ?? "";
+    if (!baseUrl) {
+      throw new Error("AIDIT_LLM_PROVIDER=openai-compatible 需要同時設定 AIDIT_LLM_BASE_URL。");
+    }
+    if (!want) {
+      throw new Error("AIDIT_LLM_PROVIDER=openai-compatible 需要同時設定 AIDIT_LLM_MODEL（例如 qwen3:14b）。");
+    }
+    return {
+      provider,
+      model: want,
+      baseUrl,
+      apiKey: process.env.AIDIT_LLM_API_KEY?.trim() ?? "",
+      // 本機模型沒有每 token 成本。留 0 而不是沿用 Anthropic 費率 ——
+      // 報表寧可顯示 0，也不要顯示一個憑空算出來的金額。
+      pricing: { inputPerMTok: 0, outputPerMTok: 0 },
+      supportsEffort: false,
+    };
+  }
+
+  if (provider !== "anthropic") {
+    throw new Error(`AIDIT_LLM_PROVIDER="${provider}" 不支援。可選：anthropic、openai-compatible`);
+  }
+  if (want && !(want in ANTHROPIC_MODELS)) {
     // 打錯字就靜靜退回預設是最糟的：帳單和評測數據會對不上你以為在跑的模型
     throw new Error(
-      `AIDIT_LLM_MODEL="${want}" 不是支援的模型。可選：${Object.keys(MODELS).join("、")}`,
+      `AIDIT_LLM_MODEL="${want}" 不是支援的 Anthropic 模型。可選：${Object.keys(ANTHROPIC_MODELS).join("、")}`,
     );
   }
-  return "claude-opus-5";
+  // 用 || 而不是 ??：.env 裡留空會得到空字串，而空字串不是 nullish
+  const model = (want || "claude-opus-5") as keyof typeof ANTHROPIC_MODELS;
+  const spec = ANTHROPIC_MODELS[model];
+  return {
+    provider,
+    model,
+    baseUrl: "",
+    apiKey: "",
+    pricing: { inputPerMTok: spec.inputPerMTok, outputPerMTok: spec.outputPerMTok },
+    supportsEffort: spec.supportsEffort,
+  };
 }
 
-export const MODEL: ModelId = resolveModel();
+export const LLM: LlmConfig = resolveConfig();
+export const MODEL = LLM.model;
 
-/** 定價（USD / 1M tokens），用於 trace 的成本欄位。隨 MODEL 變動。 */
-export const PRICING = MODELS[MODEL];
+/** 定價（USD / 1M tokens），用於 trace 的成本欄位。隨模型變動。 */
+export const PRICING = LLM.pricing;
+
+/** 印進評測報告，避免不同模型的數字被混在同一張表上。 */
+export const MODEL_LABEL = `${LLM.provider}:${LLM.model}`;
 
 export const LLM_CALL_LIMIT = 3;
-export const LLM_TIMEOUT_MS = 8000;
+
+/**
+ * 單次呼叫逾時。
+ *
+ * 8 秒是照 BACKEND.md §8 的 P95 目標訂的，對託管 API 合理；本機模型的
+ * 首 token 延遲高得多，所以 openai-compatible 預設放寬到 30 秒。
+ */
+export const LLM_TIMEOUT_MS = (() => {
+  const raw = process.env.AIDIT_LLM_TIMEOUT_MS?.trim();
+  if (raw) {
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n <= 0) {
+      throw new Error(`AIDIT_LLM_TIMEOUT_MS="${raw}" 不是正數。`);
+    }
+    return n;
+  }
+  return LLM.provider === "openai-compatible" ? 30_000 : 8_000;
+})();
 /** 結構化輸出很小；刻意壓低上限以控成本，超過即視為輸出異常 */
 export const LLM_MAX_TOKENS = 1024;
 
@@ -105,7 +171,7 @@ export class LlmBudget {
 let client: Anthropic | null = null;
 
 export function llmAvailable(): boolean {
-  return Boolean(process.env.ANTHROPIC_API_KEY);
+  return LLM.provider === "anthropic" ? Boolean(process.env.ANTHROPIC_API_KEY) : Boolean(LLM.baseUrl);
 }
 
 function getClient(): Anthropic {
@@ -121,6 +187,88 @@ export type StructuredRequest<S extends z.ZodType> = {
   offline: () => z.infer<S>;
   effort?: "low" | "medium" | "high";
 };
+
+type ProviderResult = { output: unknown; inputTokens: number; outputTokens: number };
+
+async function callAnthropic<S extends z.ZodType>(req: StructuredRequest<S>): Promise<ProviderResult> {
+  const res = await getClient().messages.parse({
+    model: MODEL,
+    max_tokens: LLM_MAX_TOKENS,
+    system: req.system,
+    output_config: {
+      // Haiku 4.5 不支援 effort，送出會 400，所以依模型決定要不要帶
+      ...(LLM.supportsEffort ? { effort: req.effort ?? "low" } : {}),
+      format: zodOutputFormat(req.schema),
+    },
+    messages: [{ role: "user", content: req.user }],
+  });
+
+  if (res.stop_reason === "refusal") {
+    throw new Error(`模型拒絕回應：${res.stop_details?.category ?? "unknown"}`);
+  }
+  return {
+    output: res.parsed_output,
+    inputTokens: res.usage.input_tokens,
+    outputTokens: res.usage.output_tokens,
+  };
+}
+
+/**
+ * OpenAI 相容端點（Ollama、vLLM、Groq、OpenRouter…）。
+ *
+ * 用 fetch 而不是裝 openai 套件：這裡只需要 chat/completions 一條路徑，
+ * 多一個相依就多一組要跟的版本。
+ */
+async function callOpenAiCompatible<S extends z.ZodType>(
+  req: StructuredRequest<S>,
+): Promise<ProviderResult> {
+  // 部分伺服器會拒絕帶 $schema 的 payload
+  const { $schema: _drop, ...schema } = z.toJSONSchema(req.schema) as Record<string, unknown>;
+
+  const res = await fetch(`${LLM.baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      // Ollama 不檢查，但 Groq／OpenRouter 要
+      ...(LLM.apiKey ? { authorization: `Bearer ${LLM.apiKey}` } : {}),
+    },
+    body: JSON.stringify({
+      model: LLM.model,
+      max_tokens: LLM_MAX_TOKENS,
+      messages: [
+        { role: "system", content: req.system },
+        { role: "user", content: req.user },
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: { name: "output", strict: true, schema },
+      },
+    }),
+    signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+  });
+
+  if (!res.ok) {
+    throw new Error(`${LLM.baseUrl} 回應 ${res.status}：${(await res.text()).slice(0, 200)}`);
+  }
+
+  const body = (await res.json()) as {
+    choices?: { message?: { content?: string } }[];
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+  };
+  const content = body.choices?.[0]?.message?.content;
+  if (typeof content !== "string") throw new Error("回應中沒有 message.content");
+
+  return {
+    // 內容是 JSON 字串；解析失敗交給外層當成一次失敗處理（會重試一次）
+    output: JSON.parse(content) as unknown,
+    inputTokens: body.usage?.prompt_tokens ?? 0,
+    outputTokens: body.usage?.completion_tokens ?? 0,
+  };
+}
+
+function callProvider<S extends z.ZodType>(req: StructuredRequest<S>): Promise<ProviderResult> {
+  return LLM.provider === "anthropic" ? callAnthropic(req) : callOpenAiCompatible(req);
+}
 
 /**
  * 結構化輸出呼叫。
@@ -151,33 +299,19 @@ export async function structured<S extends z.ZodType>(
   for (let attempt = 0; attempt <= 1; attempt++) {
     budget.assertAvailable();
     try {
-      const res = await getClient().messages.parse({
-        model: MODEL,
-        max_tokens: LLM_MAX_TOKENS,
-        system: req.system,
-        output_config: {
-          // Haiku 4.5 不支援 effort，送出會 400，所以依模型決定要不要帶
-          ...(PRICING.supportsEffort ? { effort: req.effort ?? "low" } : {}),
-          format: zodOutputFormat(req.schema),
-        },
-        messages: [{ role: "user", content: req.user }],
-      });
+      const res = await callProvider(req);
 
-      const inputTokens = res.usage.input_tokens;
-      const outputTokens = res.usage.output_tokens;
+      const { inputTokens, outputTokens } = res;
       const costUsd = round6(
         (inputTokens / 1_000_000) * PRICING.inputPerMTok +
           (outputTokens / 1_000_000) * PRICING.outputPerMTok,
       );
       budget.consume({ inputTokens, outputTokens, costUsd });
 
-      if (res.stop_reason === "refusal") {
-        throw new Error(`模型拒絕回應：${res.stop_details?.category ?? "unknown"}`);
-      }
-      if (res.parsed_output === null || res.parsed_output === undefined) {
+      if (res.output === null || res.output === undefined) {
         throw new Error("結構化輸出解析失敗");
       }
-      const parsed = req.schema.safeParse(res.parsed_output);
+      const parsed = req.schema.safeParse(res.output);
       if (!parsed.success) throw new Error(`輸出未通過 schema 驗證：${parsed.error.message}`);
 
       return {

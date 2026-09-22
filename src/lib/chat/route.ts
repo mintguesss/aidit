@@ -9,7 +9,7 @@ import {
   type AskIntentResult,
   type PlanIntentResult,
 } from "./intent";
-import { applyParams, describeSet } from "./apply";
+import { applyParams, describeDelta, describeSet } from "./apply";
 import {
   answerCourseInfo,
   answerPersonalAudit,
@@ -133,7 +133,11 @@ export async function planTurn(
 
   const applied = applyParams(ctx.constraints, ctx.originalConstraints, intent.params, intent.reason);
   const solveCtx = buildContext(ctx.audit, ctx.record, ctx.pack, applied.next);
-  const outcome = runPlanTurn(solveCtx, applied.next, ctx.currentPlan, [applied.delta.reason]);
+  // 「改了什麼」只能由實際生效的差異產生，不採用模型自述的 reason（見 describeDelta）
+  const changed = intent.params.reset
+    ? ["重設為個人資料的原始設定"]
+    : describeDelta(ctx.constraints, applied.next);
+  const outcome = runPlanTurn(solveCtx, applied.next, ctx.currentPlan, changed);
   tools.push("schedule.solve");
 
   if (applied.unresolved.length > 0) {
@@ -174,6 +178,22 @@ function planReply(o: PlanTurnOutcome): Reply {
       searched: [`目前條件下的所有可行組合`],
       contact: "要放寬哪一項由你決定，直接告訴我即可",
     });
+  }
+
+  // 條件實際上沒有變動時，絕不宣稱改了什麼。
+  // 這一輪有沒有改由 describeDelta 依前後約束集合認定，不由模型的自述認定 ——
+  // 「說有改但其實沒改」比「沒改」更糟，使用者會據此以為條件已經套用。
+  if (o.changed.length === 0) {
+    return {
+      kind: "決定",
+      headline: "條件沒有變動，課表維持原樣。",
+      detail: [
+        "你說的條件與目前設定相同，所以沒有東西需要重算。",
+        `目前條件：${o.constraints.join("・")}`,
+        "想換個方向的話，可以改講堂數、星期或某一門課。",
+      ].join("\n"),
+      citations: [],
+    };
   }
 
   // 三件事由下方的結構化卡片完整呈現，泡泡裡只留一句結論 ——

@@ -1,0 +1,1096 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design token 沿用 aidit-demo-v5.html。
+ *
+ * 視覺原則：這是校務系統的一部分，不是 AI 產品。
+ * 不用圓角卡片、漸層、emoji、聊天泡泡；等寬字只用於課號、工具名、數值對齊。
+ *
+ * 版面原則：一頁只做一件事。功能各自有網址，不是同一頁裡的 tab。
+ * 窄螢幕不是把桌機版縮小，而是把次要脈絡收起來，讓主要內容佔滿畫面。
+ */
+:root{
+  --ink:#10243B; --ink-2:#22456E; --ink-3:#3E6693; --ink-4:#7FA0C0;
+  --paper:#FFF; --surface:#F4F6F8; --surface-2:#E7ECF0;
+  --line:#DCE1E6; --line-2:#BAC3CC;
+  --text:#1B2430; --text-2:#5B6775; --text-3:#8D97A3;
+  --link:#15559E;
+  --ok:#1C6B4F; --ok-bg:#EDF4F0; --ok-line:#BBD7C8;
+  --unmet:#A8342A; --unmet-bg:#F6E2DF; --unmet-line:#E3BEB8;
+  --hold:#87611A; --hold-bg:#FBF4E3; --hold-line:#DFCFA0;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+  --shell:1120px;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--surface);color:var(--text);
+  font-family:"Noto Sans TC",system-ui,sans-serif;font-size:15px;line-height:1.7}
+a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--link);outline-offset:2px}
+h1,h2,h3,h4{margin:0}
+img{max-width:100%}
+
+/* ===================================================== 頂條（含導覽）
+ *
+ * 全站只有這一條橫幅。導覽直接長在裡面 —— 品牌一條、導覽一條、身分一條、
+ * 資料一條再加頁面標題卡，等於在內容之前疊五層各有邊框底色的裝置。
+ */
+.topbar{background:var(--ink);color:#fff;position:sticky;top:0;z-index:30;
+  box-shadow:0 1px 0 rgba(0,0,0,.18)}
+.topbar-in{max-width:var(--shell);margin:0 auto;padding:0 28px;height:56px;display:flex;align-items:stretch}
+.brand-mark{display:flex;align-items:center;font-weight:700;font-size:17.5px;letter-spacing:.06em;
+  margin-right:28px;flex:0 0 auto;color:#fff}
+.brand-mark:hover{color:#fff;text-decoration:none;opacity:.85}
+
+/* 桌機不設 overflow：一設 overflow-x:auto，overflow-y 會跟著變成 auto，
+   「更多」的下拉選單就會被裁掉。窄螢幕的抽屜自己有捲動設定。 */
+.topnav{display:flex;align-items:stretch;min-width:0}
+.navlink{display:flex;align-items:center;gap:7px;white-space:nowrap;
+  padding:0 17px;font-size:14.5px;color:#C6D5E5;border-bottom:3px solid transparent}
+.navlink:hover{color:#fff;text-decoration:none;background:rgba(255,255,255,.07)}
+.navlink[aria-current="page"]{color:#fff;font-weight:700;
+  border-bottom-color:#7FA8D6;background:rgba(255,255,255,.09)}
+.navcount{font-family:var(--mono);font-size:11.5px;line-height:1.6;padding:0 6px;
+  background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.26)}
+.navcount.hold{background:var(--hold-bg);border-color:var(--hold-line);color:var(--hold)}
+
+.topbar-right{margin-left:auto;padding-left:24px;display:flex;align-items:center;gap:22px;
+  font-size:13px;color:#C6D5E5;flex:0 0 auto}
+.topbar-right a{color:#C6D5E5}
+.topbar-right a:hover{color:#fff}
+.topbar-right .who{color:#fff;font-weight:700;letter-spacing:.04em}
+.term{font-family:var(--mono);font-size:12.5px;color:#fff;background:rgba(255,255,255,.13);
+  border:1px solid rgba(255,255,255,.24);padding:2px 8px}
+
+/* 「更多」：桌機的次要入口，與抽屜的「其他」是同一批項目 */
+.navmore{position:relative;display:flex}
+.navmore-btn{background:none;border:0;font:inherit;cursor:pointer;gap:7px}
+.navmore-caret{width:6px;height:6px;border-right:1.5px solid currentColor;
+  border-bottom:1.5px solid currentColor;transform:rotate(45deg) translate(-2px,-2px)}
+.navmore-btn[aria-expanded="true"] .navmore-caret{transform:rotate(-135deg) translate(-2px,-2px)}
+.navmore-panel{position:absolute;top:100%;left:0;z-index:40;min-width:11em;
+  background:var(--ink);border:1px solid rgba(255,255,255,.18);
+  box-shadow:0 6px 18px rgba(0,0,0,.28);display:flex;flex-direction:column;padding:4px 0}
+.navmore-panel .navlink{padding:9px 16px;border-bottom:0;font-size:13.5px}
+.navmore-panel .navlink[aria-current="page"]{background:rgba(255,255,255,.1)}
+
+/* 抽屜（窄螢幕才出現） */
+.navtoggle{display:none}
+.drawer-hd,.drawer-sep,.drawer-more{display:none}
+.navscrim{display:none}
+
+/* 窄螢幕：導覽改為側邊抽屜 */
+@media(max-width:820px){
+  .topbar{position:sticky;top:0}
+  .topbar-in{height:52px;padding:0 12px;align-items:center}
+  .brand-mark{margin-right:auto;font-size:16.5px}
+  .topbar-right{padding-left:12px;gap:16px;font-size:12.5px}
+
+  /* 只有三條線，不加框也不加字 */
+  .navtoggle{display:flex;align-items:center;order:-1;margin-right:14px;
+    appearance:none;cursor:pointer;padding:6px 2px;
+    background:none;border:0;color:#fff}
+  .navtoggle-bars{display:flex;flex-direction:column;gap:4px}
+  .navtoggle-bars i{display:block;width:19px;height:2px;background:#fff}
+  .navmore{display:none}
+
+  .topnav{position:fixed;inset:0 auto 0 0;z-index:60;width:min(290px,84vw);
+    flex-direction:column;align-items:stretch;background:var(--ink);
+    box-shadow:2px 0 14px rgba(0,0,0,.3);overflow-y:auto;overflow-x:hidden;
+    transform:translateX(-100%);transition:transform .18s ease;visibility:hidden}
+  .topnav[data-open="true"]{transform:none;visibility:visible}
+  @media(prefers-reduced-motion:reduce){.topnav{transition:none}}
+
+  .drawer-hd{display:flex;align-items:center;justify-content:flex-end;
+    padding:10px 12px 8px;border-bottom:1px solid rgba(255,255,255,.14)}
+  .drawer-hd > span{display:none}
+  .drawer-x{appearance:none;border:0;background:none;font:inherit;font-size:17px;
+    color:#C6D5E5;cursor:pointer;padding:2px 6px;line-height:1}
+
+  /* 次要入口收成兩欄的小字。四個項目各佔一整列，抽屜就變成一面字牆 */
+  .drawer-more{display:grid;grid-template-columns:1fr 1fr;
+    border-top:1px solid rgba(255,255,255,.12);margin-top:10px;padding:6px 6px 10px}
+  .drawer-sep{display:block;grid-column:1/-1;padding:6px 10px 4px;
+    font-size:11px;color:#7E93AA;letter-spacing:.08em}
+  .drawer-more .navlink{padding:9px 10px;font-size:13px;color:#A9BFD8;border-left-width:2px}
+
+  .navlink{padding:12px 16px;font-size:15px;border-bottom:0;border-left:3px solid transparent}
+  .navlink[aria-current="page"]{border-bottom-color:transparent;border-left-color:#7FA8D6}
+
+  .navscrim{display:block;position:fixed;inset:0;z-index:55;
+    appearance:none;border:0;background:rgba(11,23,38,.5)}
+}
+
+/* ===================================================== 版面 */
+/* 單欄。個人資料不再佔用左欄 —— 那會讓每一頁都被同一批資訊吃掉三分之一畫面 */
+.wrap{max-width:var(--shell);margin:0 auto;padding:26px 28px}
+.content{min-width:0;display:flex;flex-direction:column;gap:22px}
+@media(max-width:820px){.wrap{padding:16px 14px}.content{gap:14px}}
+
+/* ===================================================== 本頁前提（不是第三條導覽列）
+ *
+ * 學生是誰、依哪一版規則、資料是不是合成的 —— 這些是內容的前提，
+ * 所以排在內容容器裡、與內容同一個左邊界，只用一條虛線與內容分開。
+ * 它刻意不做底色與滿版邊框，免得又變成一條橫幅。
+ */
+/* 評測案例切換是評測工具，不是產品介面 —— 放在頁尾，不與內容搶位置 */
+.foot-tools{max-width:var(--shell);margin:0 auto;padding:0 28px 36px}
+.foot-dot{color:var(--text-3)}
+.foot-dot::before{content:"・";margin:0 2px 0 6px;color:var(--line-2)}
+.notice-strong{margin:0 0 10px;font-size:15px;font-weight:700;color:var(--unmet);line-height:1.7}
+@media(max-width:820px){.foot-tools{padding:0 14px 30px}}
+.fixture{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-3)}
+.fixture select{font:inherit;font-size:12.5px;padding:4px 7px;max-width:22em;
+  border:1px solid var(--line-2);background:var(--paper);color:var(--text)}
+@media(max-width:700px){.fixture select{flex:1 1 auto;max-width:none;min-width:0}}
+
+.panel{background:var(--paper);border:1px solid var(--line)}
+.panel-hd{border-bottom:1px solid var(--line);padding:11px 18px;display:flex;
+  align-items:baseline;flex-wrap:wrap;gap:4px 12px}
+.panel-hd h2{font-size:15px;font-weight:700}
+.panel-hd .hint{font-size:12.5px;color:var(--text-3)}
+.panel-bd{padding:18px}
+.panel-foot{margin:10px 0 0;font-size:12px;color:var(--text-3);line-height:1.7}
+@media(max-width:700px){.panel-hd{padding:10px 14px}.panel-bd{padding:14px}}
+
+/* 功能頁標題 */
+/* 頁面標題就是標題本身，不是一張卡片 —— 卡片會讓它變成第 N 條橫幅 */
+.pagehead{padding:0}
+.head-top{display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 14px}
+.head-top h1{font-size:22px;font-weight:700;letter-spacing:.02em;
+  border-left:4px solid var(--ink);padding-left:12px;margin-left:-16px}
+.stamp{font-family:var(--mono);font-size:12px;color:var(--text-2);border:1px solid var(--line-2);padding:1px 7px}
+.pagehead .lead{margin:9px 0 0;font-size:13.5px;color:var(--text-2);line-height:1.8}
+@media(max-width:700px){.head-top h1{font-size:18.5px;margin-left:-10px;padding-left:9px;border-left-width:3px}}
+
+/* 畢業條件清單 */
+.checks{list-style:none;margin:0;padding:0;font-size:13.5px}
+.checks li{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.checks li:first-child{padding-top:0}
+.checks li:last-child{border-bottom:0;padding-bottom:0}
+.checks .lb{color:var(--text-2)}
+.checks .vl{margin-left:auto;font-weight:500}
+.dot{width:7px;height:7px;flex:0 0 7px;border-radius:50%}
+.dot.ok{background:var(--ok)}.dot.unmet{background:var(--unmet)}.dot.hold{background:var(--hold)}
+.checkline{display:flex;align-items:center;gap:9px;font-size:14px}
+.checkline .vl{margin-left:auto;color:var(--text-2);font-size:13px}
+.checkdetail{margin:5px 0 0;font-size:12.5px;color:var(--text-2);line-height:1.75}
+
+/* ===================================================== 判定結論 */
+.verdict{border-left:5px solid var(--unmet);background:var(--unmet-bg);padding:13px 17px}
+.verdict.ok{border-left-color:var(--ok);background:var(--ok-bg)}
+.verdict.blocked{border-left-color:transparent;background:var(--hold-bg)}
+.verdict .h{font-size:15.5px;font-weight:700;color:var(--unmet)}
+.verdict.ok .h{color:var(--ok)}
+.verdict.blocked .h{color:var(--hold)}
+.verdict .p{font-size:13.5px;color:var(--text-2);line-height:1.8;margin:4px 0 0}
+.verdict .p b{color:var(--text);font-weight:500}
+@media(max-width:700px){.verdict{padding:12px 14px}}
+
+/* ===================================================== 修業進度
+ *
+ * 顏色 = 哪一個類別，質地 = 修課狀態。
+ * 名稱列、條子、數值列三列共用同一組 flex 比例，所以永遠對得齊。
+ */
+.pg{padding:18px 18px 16px}
+.pg-hd{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 18px;margin-bottom:12px}
+.pg-hd h3{font-size:14px;font-weight:700;letter-spacing:.01em}
+.pg-key{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12px;color:var(--text-2)}
+.pg-key span{display:flex;align-items:center;gap:6px}
+.sw{width:17px;height:11px;flex:0 0 auto;--c:var(--text-2)}
+.pg-sum{margin-left:auto;display:flex;align-items:baseline;gap:3px;font-family:var(--mono)}
+.pg-sum b{font-size:19px;font-weight:500;color:var(--text)}
+.pg-sum em{font-style:normal;font-size:13px;color:var(--text-3)}
+
+/* 狀態＝質地。三種都吃 --c（該段的類別色），一套樣式在任何色上都成立 */
+.st-done{background:var(--c)}
+.st-now{background:var(--c);
+  background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.7) 0 3px,transparent 3px 7px)}
+/* 未修：同色系的淺底 ＋ 較明顯的內框。太淺會看不見，太深會被誤讀成已修 */
+.st-unmet{background:color-mix(in srgb,var(--c) 22%,#fff);
+  box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--c) 60%,#fff)}
+
+/* 類別＝顏色。亮一階，但仍是可以印出來的飽和度 */
+.pg [data-c="1"]{--c:#3F7FC4}
+.pg [data-c="2"]{--c:#26A3A8}
+.pg [data-c="3"]{--c:#68B05A}
+.pg [data-c="4"]{--c:#E0A63F}
+.pg [data-c="5"]{--c:#D06B87}
+.pg [data-c="6"]{--c:#8C86D8}
+
+.pg-rows{display:flex;flex-direction:column}
+.pg-row{display:flex;gap:3px;min-width:0}
+.pg-row > div{min-width:0}
+
+.pg-names{margin-bottom:5px}
+.pg-names .nm{display:block;font-size:12px;color:var(--text-2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  border-left:3px solid var(--c);padding-left:6px}
+a.nm:hover{color:var(--link);text-decoration:none;background:var(--surface)}
+.eg-name{font-size:14px;font-weight:700;color:var(--text)}
+.eg-name:hover{color:var(--link);text-decoration:none}
+/* 由首頁點過來時，被展開的那一列要看得出來 */
+.row-open > td{background:var(--surface)}
+
+.pg-bar{height:22px}
+.pg-seg{display:flex;background:var(--surface);overflow:hidden}
+.pg-seg i{display:block;height:100%;min-width:0}
+
+.pg-vals{margin-top:5px;align-items:baseline}
+.pg-vals > div{display:flex;align-items:baseline;gap:7px;padding-left:9px;
+  white-space:nowrap;overflow:hidden}
+.pg-vals .vl{font-family:var(--mono);font-size:12px;color:var(--text-3)}
+.pg-vals .vl b{font-size:13.5px;font-weight:500;color:var(--text-2)}
+.pg-vals .vl b.bad{color:var(--unmet)}
+.pg-vals .vl em{font-style:normal}
+.pg-vals .short{font-size:11.5px;color:var(--unmet)}
+
+/* 超修欄：三列都有，才對得齊 */
+.pg-ovcell{flex:0 0 56px;min-width:0}
+.pg-names .pg-ovcell .nm{border-left-color:var(--line-2);color:var(--text-3)}
+.pg-ovbar{background:repeating-linear-gradient(135deg,#F1F4F7 0 5px,#E4E9ED 5px 10px);
+  box-shadow:inset 0 0 0 1px var(--line-2)}
+.pg-vals .pg-ovcell .vl{color:var(--text-3)}
+
+.pg-list{display:none}
+
+.pg-foot{font-size:12.5px;color:var(--text-2);line-height:1.75;margin:14px 0 0;
+  padding-top:12px;border-top:1px dashed var(--line)}
+
+@media(max-width:760px){
+  .pg{padding:14px}
+  .pg-sum{margin-left:0;order:-1;width:100%}
+  .pg-bar{height:20px}
+  /* 段落只有十幾像素寬，字放不進去也切不乾淨 —— 改用下方清單 */
+  .pg-names,.pg-vals{display:none}
+  .pg-ovcell{flex:0 0 34px}
+
+  .pg-list{display:block;list-style:none;margin:11px 0 0;padding:0}
+  .pg-list li{display:flex;align-items:center;gap:9px;padding:7px 0;
+    border-bottom:1px solid var(--line);font-size:13px}
+  .pg-list li:last-child{border-bottom:0}
+  .pg-list .ix{flex:0 0 auto;width:4px;height:15px;background:var(--c)}
+  .pg-list li.ov .ix{background:var(--line-2)}
+  .pg-list .nm{flex:1 1 auto;min-width:0;color:var(--text-2);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pg-list .vl{flex:0 0 auto;font-family:var(--mono);font-size:12px;color:var(--text-3)}
+  .pg-list .vl b{font-size:13.5px;font-weight:500;color:var(--text-2)}
+  .pg-list .vl b.bad{color:var(--unmet)}
+  .pg-list .vl em{font-style:normal}
+  .pg-list .st{flex:0 0 6.4em;text-align:right;font-size:12px}
+  .pg-list .st .ok{color:var(--ok)}
+  .pg-list .st .now{color:var(--text-3)}
+  .pg-list .st .bad{color:var(--unmet);font-weight:500}
+}
+
+/* ===================================================== 數字列 */
+.figs{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--line);
+  border-top:1px solid var(--line)}
+@media(max-width:900px){.figs{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:560px){.figs{grid-template-columns:repeat(2,1fr)}}
+.fig{background:var(--paper);padding:12px 15px}
+.fig .n{font-family:var(--mono);font-size:23px;font-weight:500;line-height:1.25}
+.fig .n em{font-style:normal;font-size:13px;color:var(--text-3);margin-left:2px}
+.fig .lb{font-size:12.5px;color:var(--text-2)}
+.fig .sub{font-size:11.5px;color:var(--text-3);line-height:1.55;margin-top:2px}
+.fig.unmet .n{color:var(--unmet)}
+.fig.hold .n{color:var(--hold)}
+@media(max-width:560px){
+  .fig{padding:11px 13px}
+  .fig .n{font-size:20px}
+  /* 奇數格時最後一格跨滿整列，不留空白格 */
+  .fig:last-child:nth-child(odd){grid-column:1 / -1}
+}
+
+/* ===================================================== 接下來要做什麼 */
+/* 卡片數量填不滿最後一列時，格線背景會露出一塊灰色 —— 改用卡片自己的邊框，
+   多出來的 1px 由容器負邊界吃掉 */
+.next{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  background:var(--paper);border-top:1px solid var(--line);margin:0 -1px -1px 0;overflow:hidden}
+.nextcard{padding:14px 16px;display:flex;flex-direction:column;gap:4px;
+  border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.nextcard .k{font-size:12.5px;color:var(--text-3)}
+.nextcard .t{font-size:15px;font-weight:700}
+.nextcard .t.unmet{color:var(--unmet)}
+.nextcard .t.hold{color:var(--hold)}
+.nextcard .t.ok{color:var(--ok)}
+.nextcard .d{font-size:12.5px;color:var(--text-2);line-height:1.7}
+.nextcard .go{margin-top:auto;padding-top:8px;font-size:13px}
+
+/* ===================================================== 表格 */
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+/*
+ * 不使用 table-layout:fixed —— 表格的使用寬度永遠不低於 min-content，
+ * 百分比欄寬會被反推成「min-content ÷ 百分比」，反而把整張表撐到超出版面。
+ * 改以自動佈局，並讓短欄位不換行，避免採計類別被擠成一字一行的直排。
+ */
+td.nowrap,th.nowrap{white-space:nowrap}
+thead th{background:var(--ink-2);color:#fff;font-weight:500;text-align:left;padding:9px 11px;
+  border-right:1px solid rgba(255,255,255,.18);white-space:nowrap;font-size:13px}
+thead th:last-child{border-right:0}
+tbody td{padding:11px;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr:last-child td{border-bottom:0}
+.num{font-family:var(--mono);text-align:right;white-space:nowrap}
+.code{font-family:var(--mono);font-size:12.5px}
+.t-unmet{color:var(--unmet);font-weight:500}
+.t-mute{color:var(--text-3)}
+.cat{font-weight:500}
+.tag{display:inline-block;font-size:11.5px;line-height:1.75;padding:0 7px;border:1px solid;white-space:nowrap}
+.tag.ok{color:var(--ok);border-color:var(--ok-line);background:var(--ok-bg)}
+.tag.unmet{color:var(--unmet);border-color:var(--unmet-line);background:#FAEEEC}
+.tag.hold{color:var(--hold);border-color:var(--hold-line);background:var(--hold-bg)}
+.tag.plain{color:var(--text-2);border-color:var(--line-2);background:var(--surface)}
+.tags{display:flex;flex-wrap:wrap;gap:5px}
+
+/* 依據展開 */
+.src{appearance:none;background:none;border:0;padding:0;font:inherit;font-size:12px;color:var(--link);
+  cursor:pointer;border-bottom:1px dotted var(--link);margin-top:8px;display:inline-block}
+/* 依據展開區：原文是主角，出處是註腳 */
+.srcbox{margin-top:10px;background:var(--surface);border:1px solid var(--line);
+  padding:0;font-size:13px;line-height:1.8}
+/* 跨滿整列的展開區：不要再多一層外框與上邊距 */
+.detail-tr > td{padding:0 18px 16px!important;border-top:0!important}
+.detail-tr .srcbox{margin-top:0}
+.srcbox[hidden]{display:none}
+.src-sec{padding:12px 15px;border-bottom:1px solid var(--line)}
+.src-sec:last-child{border-bottom:0}
+.src-lb{font-size:11px;letter-spacing:.1em;color:var(--text-3);margin-bottom:8px}
+
+.quote{margin:0 0 10px}
+.quote:last-child{margin-bottom:0}
+.quote blockquote{margin:0;padding:9px 13px;background:var(--paper);
+  border-left:3px solid var(--ink-3);font-size:13.5px;color:var(--text);line-height:1.9}
+.quote blockquote::before{content:"「"}
+.quote blockquote::after{content:"」"}
+.quote figcaption{margin-top:5px;font-size:11.5px;color:var(--text-3)}
+.quote figcaption .loc{margin-left:9px;font-family:var(--mono);font-size:11px}
+.quote figcaption .loc.bad{color:var(--unmet)}
+.quote figcaption a.loc.dl{font-family:inherit;color:var(--link);border-bottom:1px dotted var(--line-2)}
+
+.src-row{display:flex;gap:11px;padding:4px 0;font-size:13px;color:var(--text-2)}
+.src-row b{flex:0 0 auto;min-width:5.5em;color:var(--text);font-weight:500}
+.src-row b.rsv{color:var(--ok)}
+.src-row b.hold{color:var(--hold)}
+.src-row span{min-width:0}
+.src-row .wide{flex:1 1 auto}
+.src-row .items{display:block;margin-top:3px;font-size:12.5px}
+.src-row .items span{margin-right:12px;white-space:nowrap}
+.src-row .items .yes{color:var(--ok)}
+.src-row .items .no{color:var(--unmet)}
+.src-row .items .now{color:var(--text-3)}
+.src-foot{margin:8px 0 0;font-size:12px;color:var(--text-3);line-height:1.7}
+
+/* 展開區裡的小表格 */
+table.mini{width:100%;border-collapse:collapse;background:var(--paper);
+  border:1px solid var(--line);font-size:12.5px}
+table.mini th,table.mini td{border-bottom:1px solid var(--line);padding:6px 9px;text-align:left}
+table.mini thead th{background:var(--surface);font-weight:500;color:var(--text-3);font-size:11.5px}
+table.mini tbody tr:last-child td{border-bottom:0}
+table.mini .num{text-align:center;font-family:var(--mono);padding-left:14px;padding-right:14px}
+table.mini thead .num{text-align:center}
+table.mini .code{font-family:var(--mono);font-size:12px;color:var(--text-2);white-space:nowrap}
+table.mini .meth{font-family:var(--mono);font-size:11px;color:var(--text-3);margin-left:5px}
+@media(max-width:560px){
+  .src-sec{padding:11px 12px}
+  .src-row{flex-direction:column;gap:1px}
+  .src-row b{min-width:0}
+  table.mini{font-size:12px}
+  table.mini th,table.mini td{padding:5px 6px}
+}
+
+/* 窄螢幕：整列轉區塊 */
+@media(max-width:720px){
+  table.resp,table.resp tbody,table.resp td{display:block;width:100%}
+  table.resp thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  table.resp tr{display:grid;border-bottom:1px solid var(--line);padding:13px 14px;
+    grid-template-columns:repeat(4,1fr);gap:11px 10px;align-items:start}
+  table.resp tr:last-child{border-bottom:0}
+  table.resp td{border:0;padding:0}
+  table.resp td.span{grid-column:1/-1}
+  table.resp tr.detail-tr{display:block;padding:0 14px 14px}
+  .detail-tr > td{padding:0!important}
+  table.resp td.num{text-align:left}
+  table.resp td[data-lb]::before{content:attr(data-lb);display:block;font-size:11px;color:var(--text-3);
+    line-height:1.5;font-family:"Noto Sans TC",sans-serif}
+  table.resp td.cell-main{font-size:15.5px;font-weight:500}
+  table.resp .num{font-size:15px}
+  .plan-tr{grid-template-columns:repeat(3,1fr)!important}
+}
+
+/* ===================================================== 說明區塊 */
+.note{border-top:1px solid var(--line);background:var(--surface);padding:13px 18px;
+  font-size:12.5px;color:var(--text-2);line-height:1.85}
+.note b{color:var(--text);font-weight:500}
+.note.warn{background:var(--hold-bg);border-top:1px solid var(--hold-line);
+  border-bottom:1px solid var(--hold-line)}
+.note.inset{border:1px solid var(--line);border-left:3px solid var(--line-2);margin-top:14px}
+@media(max-width:700px){.note{padding:12px 14px}}
+
+/* 可收合的補充說明：手機上不該被一大段規則說明卡住 */
+.explain{border-top:1px solid var(--line);background:var(--surface)}
+.explain>summary{cursor:pointer;padding:11px 18px;font-size:13px;font-weight:500;color:var(--ink);list-style:none}
+.explain>summary::-webkit-details-marker{display:none}
+.explain>summary::before{content:"＋ ";color:var(--text-3)}
+.explain[open]>summary::before{content:"－ "}
+.explain .bd{padding:0 18px 14px;font-size:12.5px;color:var(--text-2);line-height:1.85}
+.explain .bd b{color:var(--text);font-weight:500}
+@media(max-width:700px){.explain>summary{padding:11px 14px}.explain .bd{padding:0 14px 13px}}
+
+/* ===================================================== 待確認 */
+.holds{display:flex;flex-direction:column}
+.holditem{border-bottom:1px solid var(--line);padding:20px 22px}
+.holditem:last-child{border-bottom:0}
+.holditem-hd{display:flex;align-items:baseline;gap:11px}
+.holditem-n{flex:0 0 auto;font-family:var(--mono);font-size:12px;line-height:1.9;
+  min-width:22px;text-align:center;color:var(--hold);
+  background:var(--hold-bg);border:1px solid var(--hold-line)}
+.holditem-hd h3{font-size:16.5px;font-weight:700;line-height:1.6;letter-spacing:.01em}
+.holditem-body{margin:9px 0 0;padding-left:33px;
+  font-size:14.5px;color:var(--text-2);line-height:1.95}
+.holditem-facts{margin:14px 0 0;padding:0 0 0 33px;display:flex;flex-direction:column;gap:1px}
+.fact{display:flex;gap:14px;padding:7px 0;border-top:1px solid var(--line)}
+.fact dt{flex:0 0 5.5em;font-size:12.5px;color:var(--text-3);line-height:1.85}
+.fact dd{margin:0;min-width:0;font-size:13.5px;color:var(--text-2);line-height:1.85}
+.fact-sub{display:block;font-size:12.5px;color:var(--text-3);line-height:1.75}
+.holditem-act{margin:16px 0 0;padding-left:33px;display:flex;gap:9px;flex-wrap:wrap}
+@media(max-width:700px){
+  .holditem{padding:16px 14px}
+  .holditem-hd h3{font-size:15.5px}
+  .holditem-body,.holditem-facts,.holditem-act{padding-left:0}
+  .holditem-body{font-size:14px}
+  .fact{flex-direction:column;gap:2px}
+  .fact dt{flex:none}
+  .holditem-act .btn{flex:1 1 auto;text-align:center}
+}
+
+.btn{appearance:none;font:inherit;font-size:13px;cursor:pointer;background:var(--paper);
+  border:1px solid var(--line-2);color:var(--text);padding:7px 14px;
+  display:inline-block;text-decoration:none}
+.btn:hover{background:var(--surface);text-decoration:none}
+a.btn-primary:hover{color:#fff}
+.btn:disabled{color:var(--text-3);cursor:default}
+.btn-primary{background:var(--ink-2);border-color:var(--ink-2);color:#fff}
+.btn-primary:hover{background:var(--ink)}
+.btn-primary:disabled{background:var(--line-2);border-color:var(--line-2)}
+
+/* ===================================================== 選課建議 */
+.prefbar{border-bottom:1px solid var(--line);background:var(--surface)}
+.prefbar-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;padding:10px 18px}
+.prefbar-lb{flex:0 0 auto;font-size:13px;font-weight:700;color:var(--text-2)}
+.prefbar-row .tags{flex:1 1 auto;min-width:0;display:flex;flex-wrap:wrap;gap:6px}
+.prefbar-edit{flex:0 0 auto;font-size:12.5px;white-space:nowrap}
+.tag.has-warn{padding-right:4px}
+/* 展開箭號：跟標籤同一列（省掉整整一行），靠最右，收合時朝下 */
+.chev{appearance:none;cursor:pointer;margin-left:auto;width:24px;height:24px;padding:0;
+  border:1px solid var(--line-2);background:var(--paper);position:relative}
+.chev::before{content:"";position:absolute;left:8px;top:7px;width:7px;height:7px;
+  border-right:1.5px solid var(--text-2);border-bottom:1.5px solid var(--text-2);
+  transform:rotate(45deg)}
+.chev[aria-expanded="true"]::before{transform:rotate(-135deg);top:10px}
+.chev:hover{background:var(--surface)}
+.warnmark{appearance:none;cursor:pointer;margin-left:7px;padding:0;width:16px;height:16px;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:11px;font-weight:700;line-height:1;
+  color:#fff;background:var(--unmet);border:0;border-radius:50%}
+.tag.has-warn{display:inline-flex;align-items:center}
+.warnmark:hover{background:#8C2A21}
+.prefbar-why{padding:0 18px 11px;font-size:12.5px;color:var(--unmet);line-height:1.75}
+@media(max-width:700px){
+  .prefbar-row{padding:10px 14px}
+  .prefbar-why{padding:0 14px 11px}
+  .prefbar-edit{margin-left:auto}
+}
+
+.prefbar-note{margin-top:9px;padding-top:9px;border-top:1px dashed var(--line-2);
+  font-size:12.5px;color:var(--text-2);line-height:1.7}
+.prefbar-note span{color:var(--text-3);font-size:11.5px}
+@media(max-width:700px){.prefbar{padding:12px 14px}}
+
+.planbar{display:flex;flex-wrap:wrap;align-items:center;gap:9px;padding:12px 18px;
+  border-bottom:1px solid var(--line)}
+.planbar .lb{font-size:13px;color:var(--text-2)}
+.planmeta.strong{font-size:14.5px;color:var(--text);font-weight:700;letter-spacing:.02em}
+.viewsw{margin-left:auto;display:flex;gap:7px}
+.syl{font-size:12.5px}
+.chip{appearance:none;font:inherit;font-size:13px;cursor:pointer;padding:5px 13px;
+  border:1px solid var(--line-2);background:var(--paper);color:var(--text-2)}
+.chip:hover{background:var(--surface)}
+.chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff;font-weight:500}
+.planmeta{margin-left:auto;font-size:12.5px;color:var(--text-2);font-family:var(--mono)}
+@media(max-width:700px){
+  .planbar{padding:12px 14px}
+  .planmeta{margin-left:0;width:100%}
+  .chip{flex:1 1 auto;text-align:center}
+}
+.clash{font-size:12.5px;color:var(--hold);margin-top:5px;line-height:1.65}
+.review{margin-top:6px;font-size:12.5px;color:var(--text-2);line-height:1.7;
+  border-top:1px dashed var(--line-2);padding-top:6px}
+.review span{color:var(--text-3);font-size:11.5px}
+
+/* ===================================================== 對話框 */
+/*
+ * 對話是引擎的第二入口，不是主要介面 —— 但既然做了就要做得清楚。
+ * 三種回答（決定／不確定／超出範圍）各有固定的視覺，使用者一眼看得出
+ * 系統是在給答案、在說自己不知道，還是在說這不歸它管。
+ */
+/* 對話是這兩頁的主要動作，版面上就要比其他區塊重：
+   較厚的上緣、較大的標題、有高度的訊息區、獨立的輸入區。 */
+.panel.chat{border-top:4px solid var(--ink-2)}
+.chat-hd{display:flex;align-items:baseline;flex-wrap:wrap;gap:5px 12px;
+  padding:15px 18px;border-bottom:1px solid var(--line);background:var(--surface)}
+.chat-hd h2{font-size:16.5px;font-weight:700;letter-spacing:.01em}
+.chat-hint{font-size:12.5px;color:var(--text-3)}
+.chat-tools{margin-left:auto;display:flex;align-items:baseline;gap:12px;white-space:nowrap}
+.chat-turns{font-family:var(--mono);font-size:11.5px;color:var(--text-3)}
+.chat-clear{appearance:none;border:0;background:none;font:inherit;
+  font-size:12.5px;color:var(--link);cursor:pointer}
+@media(max-width:700px){.chat-hd{padding:13px 14px}.chat-hd h2{font-size:15.5px}
+  .chat-guide > summary{padding:9px 14px}.chat-guide > .bd{padding:2px 14px 14px}}
+
+.chat-log{padding:20px 18px;display:flex;flex-direction:column;gap:20px;
+  min-height:240px;max-height:min(66vh,700px);overflow-y:auto;overscroll-behavior:contain}
+@media(max-width:700px){.chat-log{padding:14px;gap:16px;min-height:190px;max-height:none}}
+
+.chat-guide{border-bottom:1px solid var(--line);background:var(--paper)}
+.chat-guide > summary{list-style:none;cursor:pointer;padding:9px 18px;
+  font-size:12.5px;color:var(--link);display:flex;align-items:center;gap:7px}
+.chat-guide > summary::-webkit-details-marker{display:none}
+.chat-guide > summary::before{content:"＋";font-family:var(--mono);font-size:12px;color:var(--text-3)}
+.chat-guide[open] > summary::before{content:"−"}
+.chat-guide > .bd{padding:2px 18px 16px;font-size:13px;color:var(--text-2);line-height:1.85}
+.chat-empty{margin:0;font-size:13.5px;color:var(--text-3);line-height:1.9}
+.chat-guide p{margin:0}
+.chat-guide p + p{margin-top:9px}
+.chat-guide b{color:var(--text);font-weight:500}
+.chat-guide ul{margin:6px 0 0;padding-left:20px}
+.chat-guide li{margin-bottom:3px}
+
+.turn{display:flex;flex-direction:column;gap:5px;max-width:min(100%,660px)}
+.turn.user{align-self:flex-end;align-items:flex-end}
+.turn-bubble{background:var(--ink-2);color:#fff;padding:10px 14px;font-size:14.5px;line-height:1.7;
+  white-space:pre-wrap;word-break:break-word}
+.turn-meta{font-family:var(--mono);font-size:11px;color:var(--text-3)}
+
+.turn.assistant{align-self:stretch;max-width:100%}
+.turn-who{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-3)}
+.turn-who .kind{font-size:11px;line-height:1.8;padding:0 7px;border:1px solid}
+.kind.decided{color:var(--ok);border-color:var(--ok-line);background:var(--ok-bg)}
+.kind.uncertain{color:var(--hold);border-color:var(--hold-line);background:var(--hold-bg)}
+.kind.outside{color:var(--text-2);border-color:var(--line-2);background:var(--surface)}
+.turn-foot{display:flex;align-items:center;gap:12px;margin-top:5px}
+
+.turn-body{border-left:4px solid var(--line-2);background:var(--surface);padding:12px 15px}
+.turn-body.decided{border-left-color:var(--ok);background:var(--ok-bg)}
+.turn-body.uncertain{border-left-color:var(--hold);background:var(--hold-bg)}
+.turn-body.outside{border-left-color:var(--line-2);background:var(--surface)}
+.turn-headline{margin:0;font-size:15px;font-weight:700;line-height:1.7;color:var(--text)}
+.turn-detail{margin:6px 0 0;font-size:13.5px;color:var(--text-2);line-height:1.8}
+.turn-detail b{color:var(--text);font-weight:500}
+.turn-searched,.turn-contact,.turn-hold{margin:7px 0 0;font-size:12.5px;line-height:1.7}
+.turn-searched{color:var(--text-3)}
+.turn-contact{color:var(--text-2)}
+.turn-hold{color:var(--hold)}
+.turn-body.pending{display:flex;align-items:center;gap:9px;color:var(--text-3);font-size:13.5px}
+.dots{display:inline-flex;gap:4px}
+.dots i{width:5px;height:5px;background:var(--text-3);display:block;animation:blink 1.2s infinite}
+.dots i:nth-child(2){animation-delay:.2s}
+.dots i:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,60%,100%{opacity:.25}30%{opacity:1}}
+@media(prefers-reduced-motion:reduce){.dots i{animation:none;opacity:.5}}
+
+.turn-card{margin-top:9px;border:1px solid var(--line);background:var(--paper);padding:12px 15px}
+.turn-card-hd{font-size:11.5px;color:var(--text-3);margin-bottom:6px}
+.turn-trace{font-size:11.5px;color:var(--text-3);border-bottom:1px dotted var(--line-2)}
+.turn-trace:hover{color:var(--link)}
+
+/* §1.3 每輪回報三件事 */
+.three{list-style:none;margin:0;padding:0;display:grid;gap:1px;background:var(--line);
+  border:1px solid var(--line)}
+.three li{background:var(--paper);padding:9px 12px;display:flex;gap:12px;font-size:13.5px;line-height:1.75}
+.three .k{flex:0 0 5.2em;color:var(--text-3);font-size:12.5px}
+.three .v{min-width:0;color:var(--text-2)}
+.three li.cost .k{color:var(--unmet)}
+.three li.cost .v{color:var(--unmet)}
+.three .add{color:var(--ok);display:block}
+.three .del{color:var(--unmet);display:block}
+@media(max-width:560px){.three li{flex-direction:column;gap:2px}.three .k{flex:none}}
+
+.turn-courses{list-style:none;margin:10px 0 0;padding:0;font-size:13.5px}
+.turn-courses li{padding:7px 0;border-bottom:1px solid var(--line)}
+.turn-courses li:last-child{border-bottom:0}
+.turn-courses .code{font-family:var(--mono);font-size:12.5px;color:var(--text-2);margin-right:7px}
+.turn-courses .meta{display:block;font-size:12px;color:var(--text-3);margin-top:2px}
+
+/* §1.4 放寬選項由使用者決定 */
+.relax{margin-top:11px;padding-top:11px;border-top:1px dashed var(--line-2)}
+.relax-lb{font-size:12.5px;color:var(--text-2);margin-bottom:7px}
+.relax-opts{display:flex;flex-wrap:wrap;gap:7px}
+.relax-opts button{appearance:none;font:inherit;font-size:12.5px;cursor:pointer;padding:6px 12px;
+  border:1px solid var(--hold-line);background:var(--hold-bg);color:var(--hold)}
+.relax-opts button:hover{background:#F6EBD2}
+.relax-opts button:disabled{opacity:.5;cursor:default}
+
+.turn-cons{margin-top:10px;padding-top:9px;border-top:1px solid var(--line);
+  font-size:12px;color:var(--text-3);line-height:1.7}
+
+/* 輸入區：常用問法在上，可換行的輸入框在下，送出鍵與鍵盤提示同一列 */
+.chat-composer{border-top:1px solid var(--line);background:var(--paper);padding:12px 18px 16px}
+.chat-tips{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:11px}
+.tips-lb{font-size:11.5px;color:var(--text-3);margin-right:2px}
+.chat-tips button{appearance:none;font:inherit;font-size:12.5px;cursor:pointer;padding:6px 12px;
+  border:1px solid var(--line-2);background:var(--paper);color:var(--text-2)}
+.chat-tips button:hover{background:var(--surface-2);color:var(--text)}
+.chat-tips button:disabled{color:var(--text-3);cursor:default}
+.chat-form textarea{display:block;width:100%;font:inherit;font-size:15.5px;line-height:1.75;
+  padding:12px 14px;min-height:60px;resize:vertical;
+  border:1px solid var(--line-2);background:var(--surface);color:var(--text)}
+.chat-form textarea:focus{border-color:var(--ink-3);background:var(--paper);
+  outline:3px solid rgba(62,102,147,.15);outline-offset:0}
+.chat-form textarea::placeholder{color:var(--text-3)}
+.chat-form textarea:disabled{background:var(--surface-2)}
+.chat-send{display:flex;align-items:center;gap:12px;margin-top:10px}
+.attach{appearance:none;cursor:pointer;font:inherit;font-size:12.5px;color:var(--text-2);
+  background:none;border:1px solid var(--line-2);padding:5px 11px}
+.attach:hover{background:var(--surface-2);color:var(--text)}
+.attach:disabled{color:var(--text-3);cursor:default}
+.attach-more{font-size:12px;color:var(--text-3);border-bottom:1px dotted var(--line-2)}
+.attach-more:hover{color:var(--link);text-decoration:none}
+.chat-send .btn{margin-left:auto;padding:10px 28px;font-size:14px}
+@media(max-width:700px){
+  .chat-composer{padding:12px 14px 14px}
+  .attach-more{display:none}
+  .chat-send .btn{width:100%;margin-left:0;padding:12px}
+  .chat-tips button{flex:1 1 auto;text-align:center}
+  .tips-lb{flex:1 1 100%;margin-bottom:1px}
+  .turn{max-width:100%}
+}
+
+/* ===================================================== 週課表格線 */
+.tt-wrap{padding:4px 18px 16px}
+.tt{width:100%;border-collapse:collapse;table-layout:fixed}
+.tt th,.tt td{border:1px solid var(--line);vertical-align:top}
+.tt thead th{background:var(--surface);font-size:12.5px;font-weight:500;color:var(--text-2);
+  padding:7px 6px;text-align:center}
+
+.tt-corner{width:62px}
+.tt-p{width:62px;background:var(--surface);font-weight:400;text-align:center;padding:7px 4px;
+  line-height:1.35}
+.tt-p .n{display:block;font-family:var(--mono);font-size:13px;color:var(--text-2)}
+.tt-p .hm{display:block;font-family:var(--mono);font-size:9.5px;color:var(--text-3);margin-top:2px}
+.tt-empty{height:52px}
+
+.tt-cell{padding:0}
+.tt-in{display:block;padding:7px 9px;height:100%;background:var(--ink);color:#fff}
+.tt-cell.reserved .tt-in{background:var(--surface-2);color:var(--text-2)}
+a.tt-link{text-decoration:none}
+a.tt-link:hover{background:var(--ink-2);text-decoration:none}
+.tt-name{display:block;font-size:13px;font-weight:700;line-height:1.45}
+.tt-sub{display:block;font-size:10.5px;line-height:1.6;margin-top:2px;opacity:.8}
+.tt-code{font-family:var(--mono);font-size:10px}
+.tt-legend{margin:10px 0 0;font-size:12px;color:var(--text-3);line-height:1.7}
+.tt-note{margin:6px 0 0;font-size:12.5px;color:var(--hold);line-height:1.7}
+.tt-wknote{color:var(--text-3)}
+@media(max-width:820px){
+  /* 週末沒課就收掉那兩欄，讓一到五在畫面內完整顯示 —— 要捲才看得到的欄位等於不存在 */
+  .tt-wrap{padding:4px 10px 14px}
+  .tt[data-weekend="empty"] .wk{display:none}
+  .tt[data-weekend="used"]{min-width:660px}
+  .tt-wrap:has(.tt[data-weekend="used"]){overflow-x:auto}
+  .tt thead th{font-size:11.5px;padding:6px 2px}
+  .tt-corner,.tt-p{width:40px;padding:6px 2px}
+  .tt-p .n{font-size:11.5px}
+  .tt-p .hm{font-size:8.5px}
+  .tt-empty{height:44px}
+  .tt-in{padding:5px 5px}
+  .tt-name{font-size:11px;line-height:1.35}
+  .tt-sub{font-size:9.5px;line-height:1.45;margin-top:1px}
+  .tt-code{font-size:9px}
+}
+
+/* ===================================================== 先修條件 */
+.prereqs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.prereqs li{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.prereqs .code{font-family:var(--mono);font-size:13.5px}
+.prereqs .srctext{flex:1 1 100%;font-size:12.5px;color:var(--text-3);line-height:1.75}
+
+/* ===================================================== 規劃表上傳 */
+.upload{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px}
+.upload input[type=file]{display:none}
+.upload-hint{font-size:12.5px;color:var(--text-3)}
+.uresult{margin-top:16px;border:1px solid var(--line);background:var(--surface);padding:15px 17px}
+.uresult h3{font-size:15px;font-weight:700;line-height:1.6}
+.uresult h3.ok{color:var(--ok)}
+.uresult h3.bad{color:var(--unmet)}
+.uresult p{margin:8px 0 0;font-size:13.5px;color:var(--text-2);line-height:1.85}
+.uresult .fieldgrid{margin-top:13px}
+.uissues{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-direction:column;gap:6px;
+  font-size:13px;line-height:1.8}
+.uissues li{padding-left:16px;position:relative}
+.uissues li::before{position:absolute;left:0;font-family:var(--mono);font-size:11px}
+.uissues li.bad{color:var(--unmet)}
+.uissues li.bad::before{content:"\2715"}
+.uissues li.warn{color:var(--hold)}
+.uissues li.warn::before{content:"!"}
+.usteps{margin:11px 0 0;padding-left:22px;font-size:13px;color:var(--text-2);line-height:1.9}
+.usteps li{margin-bottom:3px}
+
+/* ===================================================== 情境試算
+ *
+ * 刻意不做成聊天泡泡：使用者問的每一句與系統的每一個回答都是一筆「試算紀錄」，
+ * 有編號、有時間、有依據，承辦人要能逐筆查核。
+ */
+.convo-form{display:flex;gap:9px;padding:14px 18px;border-top:1px solid var(--line);
+  background:var(--surface)}
+.convo-form input{flex:1 1 auto;min-width:0;font:inherit;font-size:15px;padding:10px 13px;
+  border:1px solid var(--line-2);background:var(--paper);color:var(--text)}
+.convo-form input:focus{border-color:var(--ink-3);outline:3px solid rgba(62,102,147,.15)}
+.convo-form input::placeholder{color:var(--text-3)}
+.convo-form .btn{flex:0 0 auto;padding:10px 22px}
+@media(max-width:700px){
+  .convo-form{flex-direction:column;padding:12px 14px}
+  .convo-form .btn{width:100%;padding:12px}
+}
+
+.log{border-top:1px solid var(--line)}
+.entry{border-bottom:1px solid var(--line);padding:16px 18px}
+.entry:last-child{border-bottom:0}
+.entry-hd{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;margin-bottom:10px}
+.entry-no{flex:0 0 auto;font-family:var(--mono);font-size:11.5px;line-height:1.9;
+  padding:0 7px;color:var(--text-2);background:var(--surface);border:1px solid var(--line-2)}
+.entry-q{flex:1 1 auto;min-width:0;font-size:14.5px;font-weight:500;line-height:1.6}
+.entry-time{flex:0 0 auto;font-family:var(--mono);font-size:11px;color:var(--text-3)}
+
+.entry-body{border-left:4px solid var(--ok);background:var(--ok-bg);padding:12px 15px}
+.entry-body.hold{border-left-color:var(--hold);background:var(--hold-bg)}
+.entry-body.unmet{border-left-color:var(--unmet);background:var(--unmet-bg)}
+.entry-h{font-size:14.5px;font-weight:700;line-height:1.7;color:var(--text)}
+.entry-p{margin:6px 0 0;font-size:13.5px;color:var(--text-2);line-height:1.9}
+.entry-p b{color:var(--text);font-weight:500}
+.entry-sub{display:block;margin-top:7px;font-size:12.5px;color:var(--text-3);line-height:1.75}
+.entry-conflict{margin-top:9px;padding-top:9px;border-top:1px dashed var(--line-2);
+  font-size:12.5px;color:var(--text-2);line-height:1.8}
+.entry .lb{font-size:11px;letter-spacing:.1em;color:var(--text-3);display:block;margin-bottom:3px}
+@media(max-width:700px){
+  .entry{padding:14px}
+  .entry-q{flex:1 1 100%;order:3}
+}
+
+.goalrows{display:flex;flex-direction:column;gap:9px;margin-top:11px;align-items:flex-start}
+.goalrow{display:flex;gap:9px;width:100%;flex-wrap:wrap}
+.goalrow select{flex:0 0 8em;font:inherit;font-size:13.5px;padding:7px 8px;
+  border:1px solid var(--line-2);background:var(--paper);color:var(--text)}
+.goalrow input{flex:1 1 12em;min-width:0;font:inherit;font-size:14px;padding:7px 10px;
+  border:1px solid var(--line-2);background:var(--paper);color:var(--text)}
+@media(max-width:560px){.goalrow select,.goalrow input{flex:1 1 100%}}
+
+/* ===================================================== 額外修業目標
+ *
+ * 可以講「已修的相關課程」，因為那是事實；不能講「還差哪些」，因為那需要那一套規定。
+ * 這個分界在畫面上要看得出來，所以「無法計算還差哪些」是固定出現的一欄。
+ */
+.eg-bars{padding:14px 18px 4px}
+.eg-bar{padding:0 0 15px}
+.eg-bar-hd{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;margin-bottom:7px}
+.eg-bar-hd b{font-size:14px}
+.eg-track{display:flex;gap:3px;height:20px;--c:#3F7FC4}
+.eg-seg{display:flex;min-width:0;background:var(--surface);
+  box-shadow:inset 0 0 0 1px var(--line);overflow:hidden}
+.eg-track i{display:block;height:100%;min-width:0}
+.eg-segnames{display:flex;gap:3px;margin-top:5px}
+.eg-segnames > span{min-width:0;font-size:11.5px;color:var(--text-3);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:2px}
+.eg-segnames em{font-style:normal;font-family:var(--mono);margin-left:6px;color:var(--text-2)}
+.eg-bar:nth-child(2) .eg-track{--c:#26A3A8}
+.eg-bar:nth-child(3) .eg-track{--c:#68B05A}
+.eg-bar:nth-child(4) .eg-track{--c:#E0A63F}
+.eg-self{font-size:11px;line-height:1.8;padding:0 7px;color:var(--text-3);
+  background:var(--surface);border:1px solid var(--line-2);white-space:nowrap}
+.eg-vl{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--text-3);white-space:nowrap}
+.eg-vl b{font-size:14.5px;font-weight:500;color:var(--text-2)}
+.eg-vl b.bad{color:var(--unmet)}
+.eg-vl em{font-style:normal}
+.eg-vl .short{margin-left:9px;font-family:"Noto Sans TC",system-ui,sans-serif;
+  font-size:11.5px;color:var(--unmet)}
+.eg-courses{margin-top:12px}
+.eg-courses > summary{cursor:pointer;font-size:12.5px;color:var(--link);list-style:none}
+.eg-courses > summary::-webkit-details-marker{display:none}
+.eg-courses > summary::before{content:"＋ ";font-family:var(--mono);color:var(--text-3)}
+.eg-courses[open] > summary::before{content:"− "}
+.eg-courses table{margin-top:9px}
+.eg-kind{flex:0 0 auto;font-size:11.5px;line-height:1.9;padding:0 8px;
+  color:var(--ink-2);background:var(--surface);border:1px solid var(--line-2)}
+.eg-target{flex:0 0 auto;font-weight:700}
+.eg-cred{flex:1 1 auto;min-width:0;color:var(--text-2);font-size:13px}
+.eg-cred b{font-family:var(--mono);font-size:14px;color:var(--text)}
+.eg-st{margin-left:auto;font-size:12.5px;color:var(--hold)}
+
+.eg-block{padding:16px 18px;border-bottom:1px solid var(--line)}
+/* 桌機：欄位夠寬就正常顯示；真的不夠時由外層容器橫捲。
+   注意不能把 table 本身設成 display:block —— 那會讓 thead 與 tbody 變成兩張
+   各自算寬度的表，欄位就對不齊了。 */
+.mini-wrap{overflow-x:auto}
+.mini-wrap table.mini{min-width:30em}
+
+/* 窄螢幕：整列轉區塊，不用橫捲就看得完 */
+@media(max-width:700px){
+  .mini-wrap{overflow:visible}
+  .mini-wrap table.mini{min-width:0}
+  table.mini,table.mini tbody,table.mini td{display:block;width:100%}
+  table.mini thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  table.mini tbody tr{display:grid;grid-template-columns:repeat(3,1fr);gap:2px 10px;
+    padding:10px 0;border-bottom:1px solid var(--line)}
+  table.mini tbody tr:last-child{border-bottom:0}
+  table.mini td{border:0;padding:0;font-size:12.5px}
+  table.mini td[data-lb]::before{content:attr(data-lb);display:block;
+    font-size:10.5px;color:var(--text-3);line-height:1.6}
+  table.mini td.wide{grid-column:1/-1}
+  table.mini td.num{text-align:left;padding:0}
+  /* 區塊模式下課號與科目併在同一格，必須可以換行 */
+  table.mini td.code,table.mini td.nowrap{white-space:normal}
+  table.mini td.code{font-family:"Noto Sans TC",system-ui,sans-serif;font-size:13px;color:var(--text)}
+  table.mini td .code{white-space:normal;overflow-wrap:anywhere;display:inline-block;max-width:100%}
+}
+.eg-block:last-child{border-bottom:0}
+.eg-hd{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;margin-bottom:8px}
+.eg-hd b{font-size:15.5px}
+.eg-why{margin:0 0 12px;font-size:13px;color:var(--hold);line-height:1.85}
+.eg-needs{margin:11px 0 0;font-size:12.5px;color:var(--text-2);line-height:1.8}
+.eg-needs .lb{display:inline-block;font-size:11px;letter-spacing:.1em;color:var(--text-3);
+  margin-right:8px}
+@media(max-width:700px){
+  .eg-bars{padding:12px 14px 2px}
+  .eg-block{padding:14px}
+  .eg-vl{margin-left:0}
+  .eg-st{margin-left:0}
+}
+
+/* 選課傾向：依類別收合，一次只專注一組 */
+details.fset{border:1px solid var(--line);margin-top:11px;background:var(--paper)}
+details.fset:first-of-type{margin-top:0}
+details.fset > summary{list-style:none;cursor:pointer;padding:11px 14px;
+  font-size:13.5px;font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px}
+details.fset > summary::-webkit-details-marker{display:none}
+details.fset > summary::before{content:"";width:6px;height:6px;flex:0 0 auto;
+  border-right:1.5px solid var(--text-3);border-bottom:1.5px solid var(--text-3);
+  transform:rotate(-45deg)}
+details.fset[open] > summary::before{transform:rotate(45deg)}
+details.fset > summary:hover{background:var(--surface)}
+details.fset > *:not(summary){margin-left:14px;margin-right:14px}
+details.fset > *:last-child{margin-bottom:14px}
+
+/* 選填欄位：標示要明確，但不必吵 */
+.opt-badge{font-size:11px;line-height:1.8;padding:0 7px;margin-left:2px;font-weight:400;
+  color:var(--text-2);background:var(--surface);border:1px solid var(--line-2)}
+.opt-note{display:block;color:var(--text-3);line-height:1.8}
+.optrow{margin-top:11px}
+.optrow > label{display:block;font-size:12.5px;color:var(--text-2);margin-bottom:5px}
+.optrow input{width:100%;font:inherit;font-size:14px;padding:8px 11px;
+  border:1px solid var(--line-2);background:var(--paper);color:var(--text)}
+.tagfield{display:flex;flex-direction:column;gap:7px}
+.tagchips{display:flex;flex-wrap:wrap;gap:6px}
+.tagchip{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:4px 8px;
+  background:var(--surface);border:1px solid var(--line-2);color:var(--text-2)}
+.tagchip button{appearance:none;border:0;background:none;cursor:pointer;padding:0;
+  font-size:11px;color:var(--text-3);line-height:1}
+.tagchip button:hover{color:var(--unmet)}
+.opt-foot{margin:12px 0 0;font-size:12px;color:var(--text-3);line-height:1.7}
+
+/* ===================================================== 資料與隱私 */
+.pv-sec{border-top:1px solid var(--line);padding:13px 18px}
+.pv-hd{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:9px}
+.pv-hd b{font-size:13.5px}
+.pv-hd span{font-size:12px;color:var(--text-3)}
+.pv-list{margin:0;display:flex;flex-direction:column;gap:1px}
+.pv-row{display:flex;gap:14px;padding:6px 0;border-top:1px solid var(--line)}
+.pv-row dt{flex:0 0 8.5em;font-size:12.5px;color:var(--text-3)}
+.pv-row dd{margin:0;min-width:0;font-size:13.5px;color:var(--text-2);line-height:1.8}
+.pv-actions{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:12px}
+/* 刪除執行紀錄的代價與刪偏好完全不同，視覺上要分開 */
+.pv-danger{margin-top:16px;padding-top:14px;border-top:1px dashed var(--line-2)}
+.pv-danger b{font-size:13.5px;color:var(--unmet)}
+.pv-danger p{margin:6px 0 11px;font-size:12.5px;color:var(--text-2);line-height:1.85}
+.btn-danger{border-color:var(--unmet-line);color:var(--unmet);background:var(--unmet-bg)}
+.btn-danger:hover{background:#F0D5D1}
+@media(max-width:700px){
+  .pv-sec{padding:12px 14px}
+  .pv-row{flex-direction:column;gap:2px}
+  .pv-row dt{flex:none}
+  .pv-actions .btn{flex:1 1 auto;text-align:center}
+}
+
+/* ===================================================== 畢業條件（四格） */
+.gcheck{list-style:none;margin:0;padding:0;display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
+  background:var(--paper);border-top:1px solid var(--line)}
+.gcheck li{display:grid;grid-template-columns:auto 1fr auto;align-items:baseline;gap:4px 8px;
+  padding:11px 18px;border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.gcheck b{font-size:13.5px}
+.gcheck .vl{font-size:12.5px;color:var(--text-2);text-align:right;white-space:nowrap}
+.gcheck .vl.satisfied{color:var(--ok)}
+.gcheck .vl.unmet{color:var(--unmet)}
+.gcheck .vl.pending{color:var(--hold)}
+.gcheck .d{grid-column:2/-1;font-size:12px;color:var(--text-3);line-height:1.7}
+@media(max-width:700px){.gcheck li{padding:10px 14px}}
+
+/* ===================================================== 原文出處
+ *
+ * 所有被引用的條文集中在這裡，各頁只放短連結指過來。
+ */
+.srclinks{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;margin-top:8px}
+.srclinks .lb{font-size:11px;letter-spacing:.1em;color:var(--text-3)}
+.srclinks a{font-size:12.5px;border-bottom:1px dotted var(--line-2)}
+.srclinks a:hover{text-decoration:none;border-bottom-color:var(--link)}
+.panel-hd .srclinks{margin:0 0 0 auto}
+
+.src-toc{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:2px}
+.src-toc a{font-size:12.5px;padding:5px 11px;border:1px solid var(--line-2);
+  background:var(--paper);color:var(--text-2)}
+.src-toc a:hover{background:var(--surface);text-decoration:none;color:var(--text)}
+.src-toc em{font-style:normal;font-family:var(--mono);font-size:11px;color:var(--text-3);margin-left:7px}
+.src-dl{margin-left:auto;font-size:12.5px;white-space:nowrap}
+
+.src-list{list-style:none;margin:0;padding:0}
+.src-list li{padding:14px 18px;border-bottom:1px solid var(--line);scroll-margin-top:80px}
+.src-list li:last-child{border-bottom:0}
+.src-list li.hit{background:var(--hold-bg);box-shadow:inset 3px 0 0 var(--hold)}
+.src-loc{font-family:var(--mono);font-size:11.5px;color:var(--text-3);margin-bottom:6px}
+.src-list blockquote{margin:0;padding:10px 14px;background:var(--surface);
+  border-left:3px solid var(--ink-3);font-size:14px;line-height:1.95;color:var(--text)}
+.src-list blockquote::before{content:"「"}
+.src-list blockquote::after{content:"」"}
+.src-list blockquote.none{color:var(--unmet);background:var(--unmet-bg);border-left-color:var(--unmet)}
+.src-list blockquote.none::before,.src-list blockquote.none::after{content:""}
+.src-used{margin-top:6px;font-size:11.5px;color:var(--text-3)}
+@media(max-width:700px){
+  .src-list li{padding:12px 14px}
+  .src-list blockquote{font-size:13.5px;padding:9px 11px}
+  .panel-hd .srclinks{margin-left:0}
+}
+
+/* ===================================================== 情境目錄
+ *
+ * 情境變多之後，一排平鋪的按鈕看不出哪些現在算得出來、哪些要先有規定，
+ * 也看不出輔系／雙主修／轉系是三件不同的事。
+ */
+.scen-cat{border-top:1px solid var(--line);padding:4px 18px 16px}
+.scen-grp{padding:13px 0;border-bottom:1px solid var(--line)}
+.scen-grp:last-child{border-bottom:0}
+.scen-grp-hd{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px;margin-bottom:8px}
+.scen-grp-hd b{font-size:13.5px}
+.scen-grp-hd span{font-size:12px;color:var(--text-3)}
+.scen-grp ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.scen-grp li{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.scen-grp li button{appearance:none;font:inherit;font-size:13px;cursor:pointer;
+  flex:0 0 auto;min-width:7.5em;text-align:left;padding:5px 12px;
+  border:1px solid var(--line-2);background:var(--paper);color:var(--text)}
+.scen-grp li button:hover{background:var(--surface)}
+.scen-grp li button:disabled{color:var(--text-3);cursor:default}
+.scen-rd{flex:0 0 auto;font-size:11px;line-height:1.8;padding:0 7px;white-space:nowrap}
+.scen-rd.ready{color:var(--ok);background:var(--ok-bg);border:1px solid var(--ok-line)}
+.scen-rd.needs{color:var(--hold);background:var(--hold-bg);border:1px solid var(--hold-line)}
+.scen-note{flex:1 1 14em;min-width:0;font-size:12.5px;color:var(--text-3);line-height:1.7}
+@media(max-width:700px){
+  .scen-cat{padding:4px 14px 14px}
+  .scen-grp li{gap:6px}
+  .scen-grp li button{flex:1 1 100%}
+  .scen-note{flex:1 1 100%}
+}
+
+/* ===================================================== 個人資料表單 */
+/* 用卡片自己的邊框畫格線。gap:1px + 容器底色的作法在欄位數填不滿最後一列時，
+   會把整塊容器底色露出來變成一片灰 */
+.fieldgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+  background:var(--paper);border:1px solid var(--line);border-width:1px 0 0 1px;overflow:hidden}
+.field{background:var(--paper);padding:10px 13px;
+  border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.field-k{font-size:12px;color:var(--text-3)}
+.field-v{font-size:14.5px;font-weight:500;margin-top:2px}
+.field-v.mono{font-family:var(--mono);font-size:13.5px;font-weight:400}
+
+.fset{border:0;padding:0;margin:0 0 20px}
+.fset:last-of-type{margin-bottom:14px}
+.fset legend{padding:0;font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:9px}
+.optlist{display:grid;gap:1px;background:var(--line);border:1px solid var(--line)}
+.opt{display:flex;align-items:flex-start;gap:10px;background:var(--paper);padding:11px 13px;cursor:pointer}
+.opt:hover{background:var(--surface)}
+.opt input{margin-top:4px;flex:0 0 auto}
+.opt span{display:block;min-width:0}
+.opt b{font-size:14px;font-weight:500}
+.opt small{display:block;font-size:12px;color:var(--text-3);line-height:1.65;margin-top:2px}
+.opt.inline{border:1px solid var(--line);margin-bottom:8px}
+
+.subfield{margin-top:12px}
+.sublabel{font-size:12.5px;color:var(--text-2);margin-bottom:7px}
+.daypick{display:flex;flex-wrap:wrap;gap:7px}
+.daypick .chip{flex:0 0 auto}
+
+.numgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+.numfield{display:block}
+.numfield span{display:block;font-size:13px;color:var(--text-2);margin-bottom:5px}
+.numfield input{width:100%;font:inherit;font-size:14.5px;padding:8px 11px;
+  border:1px solid var(--line-2);background:var(--paper);color:var(--text)}
+.numfield small{display:block;font-size:12px;color:var(--text-3);line-height:1.65;margin-top:4px}
+
+.fset textarea{width:100%;font:inherit;font-size:14px;padding:9px 11px;resize:vertical;
+  border:1px solid var(--line-2);background:var(--paper);color:var(--text)}
+.hintline{display:block;font-size:12px;color:var(--text-3);line-height:1.7;margin-top:5px}
+.hintline b{color:var(--text-2);font-weight:500}
+
+.formactions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  padding-top:14px;border-top:1px solid var(--line)}
+.formactions .btn{text-decoration:none}
+@media(max-width:560px){.formactions .btn{flex:1 1 auto;text-align:center}}
+
+.plainlist{list-style:none;margin:0;padding:0;font-size:13.5px}
+.plainlist li{display:flex;gap:12px;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--line)}
+.plainlist li:last-child{border-bottom:0}
+.plainlist .mono{font-family:var(--mono);font-size:12.5px;color:var(--text-2);margin-left:auto}
+.empty-line{margin:0;font-size:13.5px;color:var(--text-3)}
+
+/* ===================================================== 執行紀錄 */
+.trace{border-top:1px solid var(--line)}
+.trow{display:grid;grid-template-columns:34px minmax(0,1fr) 150px 58px 94px;
+  border-bottom:1px solid var(--line);font-size:13px}
+.trow:last-child{border-bottom:0}
+.trow>div{padding:9px 11px;border-right:1px solid var(--line);min-width:0}
+.trow>div:last-child{border-right:0}
+.trow.th{background:var(--ink-2);color:#fff;font-size:12.5px}
+.trow.th>div{border-right-color:rgba(255,255,255,.18)}
+.tstep{font-family:var(--mono);color:var(--text-3);text-align:right}
+.trow.th .tstep{color:#C6D5E5}
+.ttool{font-family:var(--mono);font-size:12.5px;color:var(--text-2);word-break:break-all}
+.tms{font-family:var(--mono);text-align:right;color:var(--text-2)}
+.tname{line-height:1.6}
+.tname small{display:block;color:var(--text-3);font-size:12px;line-height:1.6}
+@media(max-width:820px){
+  .trow{grid-template-columns:28px minmax(0,1fr) 84px}
+  .trow .ttool,.trow .tms{display:none}
+  .trow>div{padding:9px 10px}
+}
+
+.blocked{margin-top:10px;border-left:3px solid var(--unmet);background:var(--paper);
+  padding:9px 12px;font-size:12.5px;line-height:1.75}
+.blocked .meta{font-family:var(--mono);font-size:11px;color:var(--text-3);word-break:break-all}
+.blocked .ex{color:var(--text-2);margin-top:3px}
+
+/* ===================================================== 錯誤／中止 */
+.abort{max-width:var(--shell);margin:0 auto;padding:26px 28px;display:flex;flex-direction:column;gap:16px}
+.abort .box{background:var(--paper);border:1px solid var(--line);border-left:5px solid var(--unmet);padding:18px 22px}
+.abort .box.info{border-left-color:var(--ink-3)}
+.abort h1{font-size:18px;font-weight:700;color:var(--unmet)}
+.abort .box.info h1{color:var(--ink)}
+.abort p{font-size:13.5px;color:var(--text-2);line-height:1.85;margin:8px 0 0}
+@media(max-width:700px){.abort{padding:14px}.abort .box{padding:15px 16px}}
+
+/* ===================================================== 頁尾 */
+.foot{max-width:var(--shell);margin:0 auto;padding:6px 28px 12px;
+  font-size:12.5px;color:var(--text-2);line-height:1.9}
+.foot hr{border:0;border-top:1px solid var(--line);margin:0 0 13px}
+.foot .warn{color:var(--unmet);margin-right:14px}
+.foot a + a{margin-left:14px}
+@media(max-width:940px){.foot{padding:6px 14px 10px}}
+
+/* 人工校對頁：窄螢幕時原文與抽取結果改為上下堆疊 */
+@media(max-width:840px){.rev-grid{grid-template-columns:1fr!important}}

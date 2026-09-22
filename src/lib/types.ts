@@ -1,0 +1,503 @@
+/**
+ * Aidit 核心型別。SPEC.md §3 的型別在此為唯一定義來源，
+ * 其他模組一律 import，不得各自重宣告。
+ */
+
+// ---------------------------------------------------------------- 學籍與修課
+
+export type Term = 1 | 2 | "summer";
+
+export type Student = {
+  /** 去識別後的代號，非學號 */
+  id: string;
+  dept: string;
+  /** 學籍入學學年 —— 畢業條件綁定此欄 */
+  admissionYear: number;
+  /** 實際入學學年（轉系／轉學時與上者不同） */
+  actualAdmissionYear: number;
+  status: "enrolled" | "leave" | "graduated";
+  program: "day" | "night";
+  minors?: string[];
+  doubleMajors?: string[];
+  certPrograms?: string[];
+  /** 顯示用遮蔽字串，如 "4114·····"。不得為真實學號 */
+  maskedId?: string;
+  displayName?: string;
+  className?: string;
+};
+
+export type CourseStatus = "passed" | "failed" | "in_progress" | "withdrawn" | "waived";
+export type SelectType = "required" | "elective" | "general";
+
+export type CourseRecord = {
+  code: string;
+  name: string;
+  credits: number;
+  year: number;
+  term: Term;
+  selectType: SelectType;
+  generalDomain?: string;
+  score: number | null;
+  status: CourseStatus;
+  waiverSource?: string;
+  /** 開課單位；跨院採計的 ambiguity trigger 需要 */
+  offeringDept?: string;
+  offeringCollege?: string;
+  /** 舊課號對照：本筆實際等同於哪一個現行課號 */
+  equivalentOf?: string;
+};
+
+/**
+ * 轉系後的學分採計認定結果。
+ *
+ * 轉系生的兩個入學學年本來就不一致，依規劃表必須送系課程委員會個案認定。
+ * 認定完成之後，「哪一門課採計為什麼」已經是**人決定過的事實**，不是系統要推論的東西 ——
+ * 因此有這份認定結果時，系統就能依轉入學系的規劃表正常判定，
+ * 並在畫面上標明判定是建立在哪一份認定上。沒有這份結果之前，仍然全案轉人工。
+ */
+export type TransferApproval = {
+  fromDept: string;
+  toDept: string;
+  /** 核定日期（ISO 日期字串） */
+  approvedAt: string;
+  /** 核定單位 */
+  approvedBy: string;
+  /** 認定文件編號，供承辦人回查 */
+  documentNo: string;
+  /** 經認定可採計之科目；countAs 為轉入學系之類別 id */
+  accepted: { code: string; countAs: string }[];
+};
+
+export type StudentRecord = {
+  student: Student;
+  courses: CourseRecord[];
+  /** 轉系生的學分採計認定結果；未完成認定時為 undefined */
+  transferApproval?: TransferApproval;
+  /** ISO 時間字串 */
+  fetchedAt: string;
+  source: ProviderKind;
+  /** 畢業條件檢核的外部佐證（語言檢定、服務學習等） */
+  graduationEvidence?: Record<string, GraduationEvidence>;
+  /**
+   * 下學期已登記、不可衝突的時段（如校外實習、已預排之必修）。
+   * 求解器據此排除衝堂課程；沒有這欄就無從說明「哪兩個條件在打架」。
+   */
+  plannedCommitments?: { label: string; slotText: string }[];
+  /** 學生於基本資料填寫的選課傾向，第一版課表即依此產生 */
+  preferences?: CoursePreferences;
+};
+
+export type GraduationEvidence = {
+  status: "passed" | "waived" | "not_passed" | "unknown";
+  note?: string;
+  /** 覆寫 UI 顯示字樣，如服務學習顯示「已完成」而非「通過」 */
+  label?: string;
+};
+
+export type ProviderKind = "mock" | "upload" | "session" | "api";
+
+// ---------------------------------------------------------------- 開課
+
+export type TimeSlot = { day: 1 | 2 | 3 | 4 | 5 | 6 | 7; periods: number[] };
+
+export type PrerequisiteConfidence = "explicit" | "extracted" | "unknown";
+
+export type Prerequisite = {
+  codes: string[];
+  confidence: PrerequisiteConfidence;
+  sourceText?: string;
+};
+
+export type Offering = {
+  code: string;
+  name: string;
+  credits: number;
+  year: number;
+  term: Term;
+  teacher: string;
+  slots: TimeSlot[];
+  /** 時段字串無法解析時為 true：仍可採計，但不參與衝堂判定 */
+  slotsUnknown?: boolean;
+  rawSlotText?: string;
+  dept: string;
+  college: string;
+  /** 可採計之類別 id */
+  category: string[];
+  generalDomain?: string;
+  prerequisites: Prerequisite[];
+  capacity: number;
+  enrolled: number;
+  syllabusUrl?: string;
+};
+
+// ---------------------------------------------------------------- 依據
+
+export type Citation = {
+  docId: string;
+  docTitle: string;
+  /** 如 "第 4 頁附註 3" */
+  locator: string;
+  /** 原文片段，citation.verify 的唯一依據 */
+  quote?: string;
+  url?: string;
+  publishedAt?: string;
+};
+
+export type CitationVerdict = {
+  citation: Citation;
+  ok: boolean;
+  method?: "exact" | "fuzzy";
+  ratio?: number;
+  reason?: "document_missing" | "quote_missing" | "quote_not_found";
+};
+
+// ---------------------------------------------------------------- 審查結果
+
+export type SubRuleResult = {
+  id: string;
+  name: string;
+  status: "satisfied" | "unmet" | "pending_in_progress";
+  detail: string;
+  /** 通識領域分布這類逐項結果 */
+  items?: { label: string; ok: boolean; note?: string }[];
+  citations: Citation[];
+};
+
+export type CategoryResult = {
+  id: string;
+  name: string;
+  shortName: string;
+  required: number;
+  /** 已修得且可採計（不含超修） */
+  earned: number;
+  inProgress: number;
+  unmet: number;
+  /** 超修，不可流用 */
+  overflow: number;
+  status: "satisfied" | "unmet" | "pending_in_progress";
+  subRules: SubRuleResult[];
+  citations: Citation[];
+  notes: string[];
+  /** 被指派到此類別的課號，供依據展開與稽核 */
+  assignedCodes: string[];
+};
+
+export type GraduationCheck = {
+  id: string;
+  name: string;
+  status: "satisfied" | "unmet" | "hold";
+  /** UI 右側顯示字樣，如「免測」「通過」「待確認」 */
+  label: string;
+  detail: string;
+  citations: Citation[];
+};
+
+export type HoldItem = {
+  id: string;
+  title: string;
+  /** 已檢索過哪些來源、為何仍無法判定 */
+  body: string;
+  conflictOf?: [Citation, Citation];
+  citations: Citation[];
+  /** "採計後系專業選修未修 3 → 0" */
+  impact: string;
+  contact: string;
+  affectedCategory?: string;
+};
+
+export type Verdict = {
+  headline: string;
+  detail: string;
+  level: "ok" | "unmet" | "blocked";
+};
+
+export type AuditResult = {
+  traceId: string;
+  rulePack: { id: string; version: string; approvedAt: string; provenance: RulePackProvenance };
+  student: Student;
+  fetchedAt: string;
+  minCredits: number;
+  /** 含超修 */
+  totalEarned: number;
+  countable: number;
+  inProgress: number;
+  unmet: number;
+  overflow: number;
+  categories: CategoryResult[];
+  graduationChecks: GraduationCheck[];
+  holds: HoldItem[];
+  verdict: Verdict;
+  /** 下一個學期代號，如 "115-1" */
+  nextTerm: string;
+  /** 本次判定所依據的原始學期，如 "114-2" */
+  currentTerm: string;
+};
+
+export type RulePackProvenance = "approved" | "draft" | "synthetic";
+
+// ---------------------------------------------------------------- 求解
+
+export type Preset = "fill-unmet" | "no-early" | "fewest-courses";
+
+/**
+ * 選課傾向：學生在基本資料階段填寫，作為第一版課表的依據。
+ *
+ * 這是「先有傾向、再談微調」的起點 —— 沒有傾向就只能給一份誰都不合用的最佳解，
+ * 使用者得從零開始靠對話把它調成自己要的樣子。
+ */
+/**
+ * 額外修業目標。
+ *
+ * 輔系、雙主修、學分學程、轉系是四件不同的事，適用的規定也不同。
+ * 學生宣告之後，系統會在首頁、修業明細與選課建議據實呈現「已修的相關課程」，
+ * 但**不會**在沒有該項規定的情況下計算「還差哪些」。
+ */
+export type ExtraGoal = {
+  kind: "minor" | "double-major" | "cert-program" | "transfer";
+  /** 系所或學程名稱 */
+  target: string;
+};
+
+export type CoursePreferences = {
+  /**
+   * asap     —— 以最快畢業為目標，願意修滿學分上限
+   * balanced —— 正常進度，兼顧負擔與時段
+   * light    —— 這學期想輕一點，堂數越少越好
+   */
+  goal: "asap" | "balanced" | "light";
+  /** 不排第 1 節（早八） */
+  avoidEarly: boolean;
+  /** 希望完全空出的星期（1=一 … 7=日） */
+  avoidDays: number[];
+  /** 本人設定的學期學分上限；未填則用學則上限 */
+  maxCredits?: number;
+  /** 期望堂數；balanced 目標下會盡量靠近這個數字 */
+  targetCourseCount?: number;
+  /** 希望課集中在少數幾天 */
+  preferCompactDays: boolean;
+  /** 使用者自填的補充說明，僅作呈現，不參與求解 */
+  note?: string;
+  /** 額外修業目標；不參與求解，但會影響畫面上要提醒哪些事 */
+  extraGoals: ExtraGoal[];
+};
+
+export const DEFAULT_PREFERENCES: CoursePreferences = {
+  goal: "balanced",
+  avoidEarly: false,
+  avoidDays: [],
+  preferCompactDays: false,
+  extraGoals: [],
+};
+
+export type Constraints = {
+  avoidDays?: number[];
+  /** 指定要空出的節次（CONVERSATION.md §1.1 的 avoidPeriods） */
+  avoidPeriods?: { day: number; periods: number[] }[];
+  /** 早八：第 1 節 */
+  avoidEarly?: boolean;
+  maxCredits?: number;
+  minCredits?: number;
+  targetCourseCount?: number;
+  preferCompactDays?: boolean;
+  /** 使用者指定不要的課號 */
+  excludeCourses?: string[];
+  /** 使用者指定一定要留的課號 */
+  pinCourses?: string[];
+  /** 已排定、不可衝突的時段（如已登記之必修） */
+  reserved?: { label: string; slots: TimeSlot[] }[];
+};
+
+/**
+ * 某一門課為什麼沒有被排進來（CONVERSATION.md §1.6）。
+ * 這是使用者最常問的問題，也是求解器可以直接回答的 ——
+ * 做好這一條，整個系統的可信度會明顯不同。
+ */
+export type ExclusionReason = {
+  code: string;
+  name: string;
+  /** 在哪一步被排除 */
+  step:
+    | "not-offered"
+    | "category-satisfied"
+    | "prerequisite"
+    | "no-seat"
+    | "clash-reserved"
+    | "avoid-day"
+    | "avoid-period"
+    | "excluded-by-user"
+    | "not-chosen"
+    /** 問了一門其實已經排進去的課 */
+    | "chosen";
+  detail: string;
+};
+
+/**
+ * 對話式微調的一次調整。
+ * LLM 只負責把「不要早八」「少一堂課」解析成這個結構，之後一律重跑確定性求解。
+ */
+export type PlanAdjustment =
+  | { type: "avoid-early"; value: boolean }
+  | { type: "avoid-day"; day: 1 | 2 | 3 | 4 | 5 | 6 | 7; value: boolean }
+  | { type: "course-count"; delta?: number; target?: number }
+  | { type: "max-credits"; value: number }
+  | { type: "compact-days"; value: boolean }
+  | { type: "goal"; value: CoursePreferences["goal"] }
+  | { type: "reset" };
+
+export type AdjustmentOutcome = {
+  /** 使用者原話 */
+  raw: string;
+  /** 解析出的調整；空陣列代表沒解析出任何可執行的調整 */
+  adjustments: PlanAdjustment[];
+  /** 解析不出來時的澄清問題或說明 */
+  message?: string;
+};
+
+export type PlanCourse = {
+  code: string;
+  name: string;
+  credits: number;
+  slotText: string;
+  /** 供週課表格線使用；時段無法解析時為空陣列 */
+  slots: TimeSlot[];
+  teacher: string;
+  category: string;
+  categoryLabel: string;
+  remaining: number;
+  clash?: { with: string; alternative?: { code: string; name: string; slotText: string } };
+  /** 低信心先修，僅提示不排除 */
+  prereqWarning?: string;
+  discussions?: Discussion[];
+};
+
+export type Plan = {
+  id: string;
+  preset: Preset;
+  label: string;
+  /** 產生此方案時實際生效的條件，UI 上要能逐條看到 */
+  appliedConstraints: string[];
+  term: string;
+  courses: PlanCourse[];
+  totalCredits: number;
+  unmetAfter: number;
+  /** 為求解而放寬過的條件，一定要顯示 */
+  relaxations: string[];
+  /** 方案本身的提醒，如低於學期學分下限 */
+  warnings: string[];
+};
+
+export type ExclusionSummary = {
+  candidatesBeforeFilter: number;
+  excludedBy: { reason: string; count: number; examples: string[] }[];
+};
+
+export type Infeasibility = {
+  category: string;
+  candidatesBeforeFilter: number;
+  excludedBy: { reason: string; count: number; examples: string[] }[];
+  conflictWith?: string;
+  suggestion: string;
+};
+
+export type SolveResult =
+  | { ok: true; plans: Plan[]; excluded: ExclusionSummary; relaxations: string[] }
+  | { ok: false; infeasibilities: Infeasibility[]; excluded: ExclusionSummary; relaxations: string[] };
+
+// ---------------------------------------------------------------- 外部討論
+
+export type Discussion = {
+  /** 匿名討論摘要，不含教師評價性結論 */
+  summary: string;
+  sourceUrl: string;
+  postedAt: string;
+};
+
+export type BlockedContent = {
+  sourceUrl: string;
+  excerpt: string;
+  patternMatched: string;
+  blockedAt: string;
+};
+
+// ---------------------------------------------------------------- 情境試算
+
+export type Scenario =
+  /** 畢業時程 */
+  | { type: "early-graduation"; targetTerm: string }
+  | { type: "withdraw-course"; code: string }
+  /** 加修另一套規定 */
+  | { type: "add-minor"; dept: string }
+  | { type: "double-major"; dept: string }
+  | { type: "add-cert-program"; program: string }
+  /** 改變學籍：一定會改變適用的規劃表版本 */
+  | { type: "change-major"; dept: string }
+  /** 門檻查詢 */
+  | { type: "grade-threshold"; target: string };
+
+export type IntentResult =
+  | { kind: "scenario"; scenario: Scenario; raw: string }
+  | { kind: "clarify"; question: string; raw: string }
+  | { kind: "out-of-scope"; message: string; raw: string };
+
+export type WhatIfResult = {
+  headline: string;
+  level: "feasible" | "infeasible" | "conditional";
+  detail: string;
+  alternatives: string[];
+  citations: Citation[];
+  uncountedHolds: number;
+  /** 無解時說明哪兩個條件在打架 */
+  conflict?: { a: string; b: string; explanation: string };
+};
+
+// ---------------------------------------------------------------- Trace
+
+export type ToolStatus = "ok" | "partial" | "failed";
+
+export type ToolCall = {
+  name: string;
+  input: unknown;
+  output: unknown;
+  ms: number;
+  status: ToolStatus;
+  error?: string;
+};
+
+export type StepStatus = "ok" | "partial" | "retried" | "held" | "failed" | "skipped";
+
+export type StepResult<T = unknown> = {
+  idx: number;
+  name: string;
+  /** UI 上顯示的中文步驟名 */
+  label: string;
+  status: StepStatus;
+  data?: T;
+  /** trace 的那一行，寫成工程日誌 */
+  summary: string;
+  retries: number;
+  ms: number;
+  toolCalls: ToolCall[];
+};
+
+export type LlmUsage = {
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+};
+
+export type Trace = {
+  id: string;
+  createdAt: string;
+  /** HMAC(學號)，不可逆 */
+  studentHash: string;
+  rulePackId: string;
+  rulePackVersion: string;
+  totalMs: number;
+  status: "ok" | "held" | "error";
+  steps: StepResult[];
+  blockedContent: BlockedContent[];
+  llm: LlmUsage;
+  /** 中止原因（status === "error" 時） */
+  abortReason?: string;
+};

@@ -1,0 +1,41 @@
+{
+  "name": "aidit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "eval": "tsx src/eval/run.ts",
+    "eval:injection": "tsx src/eval/injection/run.ts",
+    "rulepack:extract": "tsx scripts/extract-rulepack.ts",
+    "rulepack:validate": "tsx scripts/validate-rulepack.ts",
+    "ci": "tsx scripts/ci.ts",
+    "ui:check": "node scripts/ui-check.mjs",
+    "shots": "node scripts/screenshots.mjs"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.125.0",
+    "@supabase/supabase-js": "^2.58.0",
+    "next": "^15.5.4",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.1",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "autoprefixer": "^10.4.21",
+    "playwright-core": "^1.63.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
+  }
+}

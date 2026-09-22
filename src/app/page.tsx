@@ -1,0 +1,189 @@
+import Link from "next/link";
+import { getAuditSession } from "@/lib/audit/session";
+import { parsePageParams } from "@/lib/ui/params";
+import { Shell, PageHead } from "@/components/shell/Shell";
+import { AbortNotice } from "@/components/shell/AbortNotice";
+import { RichText } from "@/components/audit/RichText";
+import { ProgressRuler } from "@/components/audit/ProgressRuler";
+import { FigureRow } from "@/components/audit/FigureRow";
+import { ExtraGoals } from "@/components/audit/ExtraGoals";
+import type { AuditResult } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * 總覽。
+ *
+ * 只回答三件事：現在是什麼狀況、還差什麼、接下來該去哪一頁。
+ * 明細一律留在各自的功能頁 —— 把全部東西堆在同一頁，使用者反而找不到重點。
+ */
+export default async function Overview({
+  searchParams,
+}: {
+  searchParams: Promise<{ fixture?: string; term?: string }>;
+}) {
+  const { fixture, term } = parsePageParams(await searchParams);
+  const session = await getAuditSession(fixture, term);
+  const { outcome } = session;
+
+  return (
+    <Shell session={session} fixture={fixture} term={term}>
+      {!outcome.ok ? (
+        <AbortNotice outcome={outcome} />
+      ) : (
+        <>
+          {/* 規劃表版本已寫在頁面上方的說明列，這裡不重複 */}
+          <PageHead title="畢業學分審查結果" />
+
+          <section className="panel">
+            <div className={`verdict ${verdictClass(outcome.audit)}`}>
+              <div className="h">{outcome.audit.verdict.headline}</div>
+              <p className="p">
+                <RichText text={outcome.audit.verdict.detail} />
+              </p>
+            </div>
+
+            <div className="ruler">
+              <ProgressRuler
+                auditHref={`/audit${searchString(fixture, term)}`}
+                categories={outcome.audit.categories}
+                minCredits={outcome.audit.minCredits}
+                overflow={outcome.audit.overflow}
+              />
+            </div>
+
+            <FigureRow audit={outcome.audit} />
+          </section>
+
+          <ExtraGoals
+            mode="brief"
+            defaults={session.preferences}
+            fixture={fixture}
+            term={term}
+            rulepackHref={`/rulepack${searchString(fixture, term)}`}
+            detailHref={`/audit${searchString(fixture, term)}`}
+          />
+
+          <NextSteps audit={outcome.audit} search={searchString(fixture, term)} />
+        </>
+      )}
+    </Shell>
+  );
+}
+
+function verdictClass(a: AuditResult): string {
+  return a.verdict.level === "ok" ? "ok" : a.verdict.level === "blocked" ? "blocked" : "";
+}
+
+function searchString(fixture: string, term: string): string {
+  return `?fixture=${fixture}&term=${term}`;
+}
+
+/** 接下來要做什麼：把判定結果轉成具體的下一步，而不是讓使用者自己看表推論 */
+function NextSteps({ audit, search }: { audit: AuditResult; search: string }) {
+  const shortBy = audit.categories
+    .filter((c) => c.unmet > 0)
+    .map((c) => `${c.name} ${c.unmet}`)
+    .join("、");
+  const subOnly = audit.categories.filter((c) => c.status === "unmet" && c.unmet === 0);
+  const unmetChecks = audit.graduationChecks.filter((g) => g.status === "unmet");
+
+  const cards: { k: string; t: string; tone: "unmet" | "hold" | "ok"; d: string; href: string; go: string }[] = [];
+
+  if (audit.unmet > 0) {
+    cards.push({
+      k: "尚須補修",
+      t: `${audit.unmet} 學分`,
+      tone: "unmet",
+      d: `${shortBy}。`,
+      href: `/plan${search}`,
+      go: "查看選課建議",
+    });
+  }
+
+  if (subOnly.length > 0) {
+    for (const c of subOnly) {
+      const sub = c.subRules.find((s) => s.status === "unmet");
+      cards.push({
+        k: "學分已足但條件未達",
+        t: c.name,
+        tone: "unmet",
+        d: sub?.detail ?? "本類別另有分布條件未達成。",
+        href: `/audit${search}`,
+        go: "查看修業明細",
+      });
+    }
+  }
+
+  if (unmetChecks.length > 0) {
+    cards.push({
+      k: "畢業條件未通過",
+      t: unmetChecks.map((g) => g.name).join("、"),
+      tone: "unmet",
+      d: "依各條件的承辦單位辦理。",
+      href: `/audit${search}`,
+      go: "查看條件依據",
+    });
+  }
+
+  if (audit.holds.length > 0) {
+    cards.push({
+      k: "待人工確認",
+      t: `${audit.holds.length} 項`,
+      tone: "hold",
+      d: "未計入上方結果，須洽承辦單位確認。",
+      href: `/holds${search}`,
+      go: "查看待確認事項",
+    });
+  }
+
+  if (cards.length === 0) {
+    cards.push({
+      k: "目前狀態",
+      t: "各項條件均已達成",
+      tone: "ok",
+      d: "學分與畢業條件皆已滿足，且無待確認事項。",
+      href: `/audit${search}`,
+      go: "查看修業明細",
+    });
+  }
+
+  cards.push({
+    k: "有疑問",
+    t: "直接問",
+    tone: "ok",
+    d: "還差多少、為什麼超修不能算，都可以直接問。",
+    href: `/assistant${search}`,
+    go: "開始對話",
+  });
+
+  cards.push({
+    k: "可查核",
+    t: "本次執行紀錄",
+    tone: "ok",
+    d: "判定過程、工具調用與耗時均留存，可供查核。",
+    href: `/trace${search}`,
+    go: "查看執行紀錄",
+  });
+
+  return (
+    <section className="panel">
+      <div className="panel-hd">
+        <h2>接下來</h2>
+
+      </div>
+      <div className="next">
+        {cards.map((c) => (
+          <div className="nextcard" key={c.k + c.t}>
+            <div className="k">{c.k}</div>
+            <div className={`t ${c.tone}`}>{c.t}</div>
+            <div className="d">{c.d}</div>
+            <div className="go">
+              <Link href={c.href}>{c.go} →</Link>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}

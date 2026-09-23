@@ -1,7 +1,7 @@
 import type { AuditResult, ExclusionReason, Plan, SolveResult, StudentRecord } from "@/lib/types";
 import type { RulePack } from "@/lib/rules/schema";
 import { simulate } from "@/lib/whatif/simulate";
-import type { LlmBudget } from "@/lib/llm/client";
+import { LlmBudgetExceeded, type LlmBudget } from "@/lib/llm/client";
 import {
   alreadyClarified,
   lastUser,
@@ -82,8 +82,8 @@ export async function planTurn(
   }
 
   const raw = lastUser(messages);
-  let intent = await parsePlanIntent(messages, budget);
   const tools = ["chat.intent"];
+  let intent = await orRules(parsePlanIntent(messages, budget), () => rulePlanIntent(raw), tools);
 
   // 規則式解析當安全網與後援（見 intent.ts 的 rulePlanIntent）。
   // 方向是固定的：規則可以多擋、更正拒絕的理由、補上模型漏掉的條件，
@@ -305,8 +305,8 @@ export async function askTurn(
     return { reply: TURN_LIMIT_REPLY(LIMITS.turnsPerSession), tools: [], intent: "limit", clarifying: false };
   }
 
-  let intent = await parseAskIntent(messages, budget);
   const tools = ["chat.intent"];
+  let intent = await orRules(parseAskIntent(messages, budget), () => ruleAskIntent(lastUser(messages)), tools);
 
   // 與 planTurn 相同的安全網與後援：規則可以多擋、可以補上模型漏判的路由，
   // 但絕不推翻模型的拒絕
@@ -537,6 +537,25 @@ export function spokenCategory(category: string | null | undefined, raw: string)
     if (t.includes(c.slice(i, i + 2))) return category;
   }
   return undefined;
+}
+
+/**
+ * 模型呼叫失敗時退回規則式解析，而不是整輪回「這次沒能處理你的問題」。
+ *
+ * llm/client 的 structured() 驗證失敗會重試一次，仍失敗就拋錯，規格寫的是
+ * 「由呼叫端降級」。實測家用主機上另一個程式佔用顯卡時，qwen3:14b 連續十個請求
+ * 都卡滿 30 秒逾時 —— 規則明明就在旁邊答得出來，整個對話卻不能用。
+ * 呼叫預算用完仍照常往外拋，由 API 回 429：那是這一輪問得太多，不是模型壞了。
+ * 退回時在 tools 記一筆 rule.degraded，trace 看得出這一輪沒用到模型。
+ */
+async function orRules<T>(call: Promise<T>, rules: () => T, tools: string[]): Promise<T> {
+  try {
+    return await call;
+  } catch (err) {
+    if (err instanceof LlmBudgetExceeded) throw err;
+    tools.push("rule.degraded");
+    return rules();
+  }
 }
 
 /**

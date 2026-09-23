@@ -284,3 +284,38 @@ describe("問答：模型的類別被擋下時，改用規則從原句抽到的�
     expect(r.reply.headline).not.toContain("personal-audit");
   });
 });
+
+describe("模型呼叫失敗時退回規則，不讓整輪失敗", () => {
+  // 家用主機上別的程式佔用顯卡時，qwen3:14b 連續十個請求都卡滿 30 秒逾時
+  const timeout = new Error("LLM 呼叫兩次皆失敗：TimeoutError: The operation was aborted due to timeout");
+
+  it("課表微調：模型逾時 → 規則照樣排除「顧客關係管理」", async () => {
+    vi.mocked(parsePlanIntent).mockRejectedValueOnce(timeout);
+    const r = await planTurn(
+      [{ role: "user", content: "我不想上顧客關係管理" }],
+      { ...base, constraints: { ...base.constraints } },
+      new LlmBudget(LIMITS.llmCallsPerTurn),
+    );
+    expect(r.plan!.constraintSet.excludeCourses).toContain("IM4028");
+    expect(r.tools).toContain("rule.degraded");
+  });
+
+  it("修業問答：模型逾時 → 規則照樣回答學分", async () => {
+    vi.mocked(parseAskIntent).mockRejectedValueOnce(timeout);
+    const r = await askTurn(
+      [{ role: "user", content: "我還差幾學分畢業？" }],
+      { ...base, constraints: { ...base.constraints } },
+      new LlmBudget(LIMITS.llmCallsPerTurn),
+    );
+    expect(r.reply.headline).toMatch(/還差 \d+ 學分/);
+    expect(r.tools).toContain("rule.degraded");
+  });
+
+  it("呼叫預算用完不是模型壞了，照常往外拋", async () => {
+    const { LlmBudgetExceeded } = await import("@/lib/llm/client");
+    vi.mocked(parsePlanIntent).mockRejectedValueOnce(new LlmBudgetExceeded(2));
+    await expect(
+      planTurn([{ role: "user", content: "空出星期五" }], { ...base, constraints: { ...base.constraints } }, new LlmBudget(2)),
+    ).rejects.toBeInstanceOf(LlmBudgetExceeded);
+  });
+});

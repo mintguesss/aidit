@@ -54,6 +54,19 @@ const zPlanIntent = z.object({
       avoidEarly: z.boolean().nullable(),
       /** 整個早上（第 1–4 節）；與 avoidEarly 是兩件事，不得互相代用 */
       avoidMorning: z.boolean().nullable(),
+      /**
+       * 某一天的某個時段（「禮拜一早上要打工」「週五下午不要有課」）。
+       * 整天用 avoidDays；每天早上用 avoidMorning。三者範圍不同，不得互相代用 ——
+       * 用 avoidDays 代替「週五下午」會把整個星期五都空掉，做得比使用者要的多。
+       */
+      avoidDayParts: z
+        .array(
+          z.object({
+            day: z.number().int().min(1).max(7),
+            part: z.enum(["morning", "afternoon", "evening"]),
+          }),
+        )
+        .max(14),
       preferCompactDays: z.boolean().nullable(),
       maxCredits: z.number().int().min(0).max(30).nullable(),
       courseCountDelta: z.number().int().min(-6).max(6).nullable(),
@@ -89,6 +102,25 @@ export type PlanIntentResult =
 /** LLM 解析出的原始參數。課名轉課號、套用到約束集合都在 apply.ts 完成。 */
 export type PlanParams = NonNullable<z.infer<typeof zPlanIntent>["delta"]>;
 
+/**
+ * 禁止主題的判定規則，兩個介面共用。
+ *
+ * 舊版只寫「問到成績預測、教師評價、代為選課等，回傳對應的 forbidden 分類」：
+ * 沒說預設是 null，六個代號也沒有中文定義，模型只能自己猜 other-student 是什麼意思。
+ * 實測 qwen3:14b 把「課盡量集中」「為什麼沒有企業流程管理」都判成 other-student，
+ * 該拒絕的句子也常拒錯理由。同一組 12 句各跑 3 次：舊版 14/36，加上預設值與
+ * 定義後 30/36，其中該拒絕的 4 句理由全對。
+ */
+const FORBIDDEN_RULE = [
+  "forbidden 預設為 null。只有使用者的問題明確屬於下列六類之一才填，其餘一律 null：",
+  "   grade-prediction    要系統預測成績、會不會過、好不好過",
+  "   teacher-evaluation  要系統評價老師教得好不好",
+  "   act-on-behalf       要系統代為選課、送件、申請",
+  "   professional-advice 法律、醫療、心理諮商",
+  "   other-institution   問別的學校的規定",
+  "   other-student       要查別人（同學、朋友、室友）的資料",
+].join("\n");
+
 const PLAN_SYSTEM = [
   "你是選課建議的條件解析元件。使用者會用一句話描述想怎麼調整下學期的課表。",
   "",
@@ -96,24 +128,27 @@ const PLAN_SYSTEM = [
   "你不知道也不需要知道任何學分數字、課表內容或判定結果 —— 那些由確定性求解器負責。",
   "",
   "允許的意圖只有這些：",
-  "  adjust-time   調整時段（不要早八、不要早上、把週五的課拿掉、空出某節）",
-  "  adjust-load   調整堂數（輕鬆一點、多修一點、幾學分以內）",
+  "  adjust-time   調整時段（不要早八、不要早上、週五下午不要、把週五的課拿掉）",
+  "  adjust-load   調整堂數或學分（輕鬆一點、多修一點、只修三門、15 學分以內）",
   "  swap-course   換掉某一門課",
-  "  pin-course    某一門課一定要留",
-  "  change-goal   改變目標（提前畢業、加修輔系或學程）",
+  "  pin-course    某一門課一定要留、加某一門課",
+  "  change-goal   改變目標（提前畢業、加修輔系或學程），或重來、取消調整",
   "  explain       問為什麼選了某門課、為什麼沒有某門課",
   "  compare       再給我一版、跟上一版差在哪",
   "清單外的一律回傳 out-of-scope。",
   "",
   "其他規則：",
   "1. 只輸出使用者明確說出口的參數，不得推測。",
+  "   沒提到的欄位：布林填 null、數字填 null、陣列填 []。false 與 0 代表使用者真的這樣說。",
   "2. 缺少必要參數時（例如說要換掉某課卻沒說是哪一門），回傳 clarify 並只問一個問題。",
-  "3. 問到成績預測、教師評價、代為選課等，回傳對應的 forbidden 分類。",
-  "   使用者陳述自己的時段偏好（例如「不要早八」「早上沒有課」）是 adjust-time，",
-  "   不是代為選課，也不是在查他人資料。",
-  "4. avoidEarly 只是第 1 節；整個早上（第 1–4 節）要用 avoidMorning。",
-  "   說「早八」設 avoidEarly，說「早上」「上午」設 avoidMorning，兩者不得互相代用。",
-  "5. reason 只描述「改了什麼條件」，不得描述課表會變成什麼樣子。",
+  `3. ${FORBIDDEN_RULE}`,
+  "   描述自己想怎麼排課（星期、時段、堂數、學分、加減某門課、再給一版、重來）永遠不是 forbidden。",
+  "4. 時段有三種範圍，由窄到寬，不得互相代用：",
+  "   某天的某時段（禮拜一早上、週五下午）→ avoidDayParts",
+  "   每天早上（第 1–4 節）→ avoidMorning；只有早八（第 1 節）→ avoidEarly",
+  "   整天（空出星期五）→ avoidDays",
+  "5. 重來、回到原本、取消剛剛的調整 → intent=change-goal、delta.reset=true。這不是 compare。",
+  "6. reason 只描述「改了什麼條件」，不得描述課表會變成什麼樣子。",
 ].join("\n");
 
 export async function parsePlanIntent(
@@ -161,7 +196,11 @@ const zAskIntent = z.object({
   forbidden: zForbidden,
   clarify: zClarify,
   /** personal-audit：問的是哪一個類別（可留空＝問整體） */
-  category: z.string().max(20).nullable(),
+  category: z
+    .string()
+    .max(20)
+    .nullable()
+    .describe("使用者問的學分類別，例如「通識」「系專業選修」；沒指定類別就填 null。不是意圖名稱"),
   /** regulation：問的規定主題關鍵詞，程式據此查規則包與公告庫 */
   topic: z.string().max(40).nullable(),
   /** course-info：課號或課名 */
@@ -220,8 +259,8 @@ const ASK_SYSTEM = [
   "其他規則：",
   "1. 分不出來就回 out-of-scope，不要硬歸到某一類。",
   "2. 缺少必要參數時回傳 clarify，只問一個問題。",
-  "3. 成績預測、教師評價、代為申請、法律醫療心理建議、他校事務、他人資料，",
-  "   回傳對應的 forbidden 分類。",
+  `3. ${FORBIDDEN_RULE}`,
+  "   問自己的修業進度、規定、開課資訊、辦理流程永遠不是 forbidden。",
 ].join("\n");
 
 export async function parseAskIntent(
@@ -237,7 +276,10 @@ export async function parseAskIntent(
     },
     budget,
   );
-  const d = res.data;
+  return toAskResult(res.data, lastUser(messages));
+}
+
+function toAskResult(d: z.infer<typeof zAskIntent>, raw: string): AskIntentResult {
   if (d.forbidden) return { kind: "forbidden", topic: d.forbidden };
   if (d.clarify) return { kind: "clarify", question: d.clarify };
   if (d.intent === "out-of-scope") return { kind: "out-of-scope" };
@@ -250,20 +292,63 @@ export async function parseAskIntent(
       course: d.course ?? undefined,
       procedure: d.procedure ?? undefined,
       scenario: d.scenario,
-      raw: lastUser(messages),
+      raw,
     },
   };
 }
 
+// ------------------------------------------------- 規則式解析（模型的後援與安全網）
+
+/**
+ * 用離線替身的同一套規則解析，供 route.ts 在模型之外再判一次。
+ *
+ * 規則只比對字面，不會推測使用者沒說的東西，所以拿來當兩種用途：
+ *   - 安全網：規則判定為禁止主題就一律拒絕。只會多擋、不會少擋 ——
+ *     實測 qwen3:14b 對「我最近壓力好大睡不著」偶爾不拒絕，反而把修課目標改成輕量。
+ *   - 後援：模型沒給出任何有效變更（沒填、填錯被擋、或填成原本就是的值）、
+ *     或回超出範圍，而規則能從原句抽出明確條件時，改用規則的。
+ *     實測模型對「不要早上的課」填成只涵蓋第 1 節的 avoidEarly、對「我想輕鬆一點」什麼都沒填。
+ * 反方向永遠不做：規則絕不推翻模型的拒絕。
+ */
+export function rulePlanIntent(raw: string): PlanIntentResult {
+  return toPlanResult(offlinePlanIntent(raw), raw);
+}
+
+export function ruleAskIntent(raw: string): AskIntentResult {
+  return toAskResult(offlineAskIntent(raw), raw);
+}
+
 // ------------------------------------------------------------ 離線替身
 
+/**
+ * 禁止主題的關鍵字。順序有意義：先比對的先贏。
+ *
+ * 每一條都要求「評價／預測／代辦」的語意，而不是只要提到某個名詞就擋 ——
+ * 早期版本只要句子裡有「老師」就判成評價教師，結果「企業流程管理是哪個老師開的」
+ * 這種開課資訊也被拒絕；「心理」會擋掉「我想修心理學」。
+ */
 const FORBIDDEN_PATTERNS: [RegExp, ForbiddenTopic][] = [
-  [/老師|教授|講師|甜不甜|給分|評價/, "teacher-evaluation"],
-  [/會不會被?當|會不會過|預測.*成績|猜.*成績|能不能考上|錄取機會|上得了/, "grade-prediction"],
-  [/幫我(選|加選|退選|申請|送件|報名)|代為(選課|申請)/, "act-on-behalf"],
-  [/法律|訴訟|看醫生|憂鬱|心理|諮商/, "professional-advice"],
-  [/他校|別的學校|台大|清大|交大/, "other-institution"],
-  [/我同學|別人的|其他學生|他的成績/, "other-student"],
+  [
+    /(老師|教授|講師).{0,6}(怎麼樣|好不好|如何|人好|教得|甜|涼|兇|嚴|推薦|評價|好嗎)|甜不甜|涼不涼|給分|評價/,
+    "teacher-evaluation",
+  ],
+  [
+    /會不會被?當|被當掉|會不會.{0,2}過|好不好過|難不難過|好過嗎|難過嗎|過得了|預測.*成績|猜.*成績|能不能考上|錄取機會|上得了/,
+    "grade-prediction",
+  ],
+  [
+    /幫我(?:直接|先|去|順便)?(?:選課|加選|退選|申請|送件|報名|選上|選)|幫我把.{0,8}(?:送出|選上|加選|退選)|代為(?:選課|申請)/,
+    "act-on-behalf",
+  ],
+  [/法律|訴訟|律師|看醫生|生病|憂鬱|焦慮|失眠|睡不著|想不開|心理(?!學)|諮商/, "professional-advice"],
+  [
+    /他校|別的學校|其他學校|外校|台大|臺大|政大|清大|交大|成大|師大|北大|中興大學|中山大學|中正大學|輔大|淡江|東吳|逢甲/,
+    "other-institution",
+  ],
+  [
+    /(同學|室友|朋友|學長|學姊|學姐|學弟|學妹|男友|女友|別人|其他學生|其他人)的?.{0,6}(成績|學分|資料|修課|課表|畢業)|他的成績|別人的/,
+    "other-student",
+  ],
 ];
 
 function detectForbidden(t: string): ForbiddenTopic | null {
@@ -271,7 +356,7 @@ function detectForbidden(t: string): ForbiddenTopic | null {
   return null;
 }
 
-const DAY_WORDS: [RegExp, number][] = [
+export const DAY_WORDS: [RegExp, number][] = [
   [/星期一|週一|禮拜一/, 1],
   [/星期二|週二|禮拜二/, 2],
   [/星期三|週三|禮拜三/, 3],
@@ -281,9 +366,30 @@ const DAY_WORDS: [RegExp, number][] = [
   [/星期日|星期天|週日|禮拜天/, 7],
 ];
 
-const CN_NUM: Record<string, number> = { 一: 1, 二: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6 };
-const numOf = (x: string | undefined) =>
-  x === undefined ? null : /^\d+$/.test(x) ? Number(x) : (CN_NUM[x] ?? null);
+export type DayPart = "morning" | "afternoon" | "evening";
+export const PART_WORDS: [RegExp, DayPart][] = [
+  [/早上|上午/, "morning"],
+  [/下午|午後/, "afternoon"],
+  [/晚上|夜間/, "evening"],
+];
+const PART_LABEL: Record<DayPart, string> = { morning: "早上", afternoon: "下午", evening: "晚上" };
+/** 句子是在「畫掉」某段時間，而不是在說那段時間可以 */
+export const BLOCK_CUE = /不要|不想|別排|別|空出|空下|拿掉|沒辦法|不行|沒空|要打工|要上班|有事/;
+
+const CN_DIGIT: Record<string, number> = { 一: 1, 二: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+
+/**
+ * 「3」「三」「十二」「二十」→ 數字；兩位數以內就夠用（學分、堂數都不會更大）。
+ * 離線規則與 apply.ts 的數值防護共用，兩邊對「使用者說了幾」的理解必須一致。
+ */
+export function parseNum(s: string): number | null {
+  if (/^\d+$/.test(s)) return Number(s);
+  if (s === "十") return 10;
+  const m = /^([一二兩三四五六七八九])?十([一二三四五六七八九])?$/.exec(s);
+  if (m) return (m[1] ? CN_DIGIT[m[1]]! : 1) * 10 + (m[2] ? CN_DIGIT[m[2]]! : 0);
+  return s.length === 1 ? (CN_DIGIT[s] ?? null) : null;
+}
+const numOf = (x: string | undefined) => (x === undefined ? null : parseNum(x));
 
 function emptyDelta() {
   return {
@@ -291,6 +397,7 @@ function emptyDelta() {
     allowDays: [] as number[],
     avoidEarly: null as boolean | null,
     avoidMorning: null as boolean | null,
+    avoidDayParts: [] as { day: number; part: "morning" | "afternoon" | "evening" }[],
     preferCompactDays: null as boolean | null,
     maxCredits: null as number | null,
     courseCountDelta: null as number | null,
@@ -325,7 +432,7 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
   if (/再給我一版|另一版|其他方案|換一組|差在哪|比較/.test(t)) {
     return { ...base, intent: "compare" };
   }
-  if (/重來|回到原本|重設|取消(所有)?調整/.test(t)) {
+  if (/重來|回到原本|重設|復原|還原|取消(?:所有|剛剛|剛才|上一個|之前|前面)?的?(?:調整|設定|條件)/.test(t)) {
     const d = emptyDelta();
     d.reset = true;
     // 重設不是調整堂數；標成 adjust-load 會讓 trace 記成完全不同的一件事
@@ -335,19 +442,50 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
   const d = emptyDelta();
   const reasons: string[] = [];
 
-  // 「早上」（第 1–4 節）比「早八」（第 1 節）範圍大，先比對具體的再比對一般的 ——
-  // 順序顛倒的話，「不要早上的課」會被只涵蓋第 1 節的 avoidEarly 吃掉，
-  // 而使用者看到的條件會與他說的話不符。
-  if (/早八|第一節|太早/.test(t)) {
-    d.avoidEarly = !/可以早八|接受早八|不介意早八/.test(t);
-    reasons.push(d.avoidEarly ? "不排早八" : "接受早八");
-  } else if (/早上|上午/.test(t)) {
-    d.avoidMorning = !/可以早上|接受早上|不介意早上|可以上午|接受上午/.test(t);
-    reasons.push(d.avoidMorning ? "不排早上的課" : "接受早上的課");
+  // 時段由窄到寬比對，每比對到一段就從句子裡拿掉，剩下的才交給更寬的規則：
+  //   某天的某時段（週五下午）→ 每天的某時段（早上）→ 整天（星期五）
+  // 順序顛倒的話，「週五下午不要有課」會被當成整個星期五，
+  // 「禮拜一早上要打工」會變成每天早上都不排 —— 做的比使用者要的多，而且是無聲的。
+  let rest = t;
+  const blocking = BLOCK_CUE.test(t);
+  for (const [dre, day] of DAY_WORDS) {
+    for (const [pre, part] of PART_WORDS) {
+      const re = new RegExp(`(?:${dre.source})的?(?:${pre.source})`);
+      if (!re.test(rest)) continue;
+      if (blocking) {
+        d.avoidDayParts.push({ day, part });
+        reasons.push(`空出星期${"一二三四五六日"[day - 1]}${PART_LABEL[part]}`);
+      }
+      rest = rest.replace(re, "＿");
+    }
   }
+
+  // 「早上」（第 1–4 節）比「早八」（第 1 節）範圍大，兩者不得互相代用
+  if (/早八|第一節|太早/.test(rest)) {
+    d.avoidEarly = !/可以早八|接受早八|不介意早八/.test(rest);
+    reasons.push(d.avoidEarly ? "不排早八" : "接受早八");
+  } else if (/早上|上午/.test(rest)) {
+    d.avoidMorning = !/可以早上|接受早上|不介意早上|可以上午|接受上午/.test(rest);
+    reasons.push(d.avoidMorning ? "不排早上的課" : "接受早上的課");
+  } else if (/下午|午後/.test(rest)) {
+    if (BLOCK_CUE.test(rest)) {
+      // 「下午不要有課」：每個平日的下午都畫掉
+      for (const day of [1, 2, 3, 4, 5]) d.avoidDayParts.push({ day, part: "afternoon" });
+      reasons.push("不排下午的課");
+    } else {
+      // 「集中在下午」「下午的課比較好」：想要下午，等於早上不要
+      d.avoidMorning = true;
+      reasons.push("課排在下午（不排早上）");
+    }
+  }
+  if (/晚上|夜間/.test(rest) && BLOCK_CUE.test(rest)) {
+    for (const day of [1, 2, 3, 4, 5]) d.avoidDayParts.push({ day, part: "evening" });
+    reasons.push("不排晚上的課");
+  }
+
   for (const [re, day] of DAY_WORDS) {
-    if (!re.test(t)) continue;
-    const free = /可以|能排|沒關係/.test(t) && !/空|不要|別|拿掉/.test(t);
+    if (!re.test(rest)) continue;
+    const free = /可以|能排|沒關係/.test(rest) && !/空|不要|別|拿掉/.test(rest);
     if (free) d.allowDays.push(day);
     else d.avoidDays.push(day);
     reasons.push(`${free ? "開放" : "空出"}星期${"一二三四五六日"[day - 1]}`);
@@ -372,9 +510,15 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
       reasons.push(`期望 ${n} 堂課`);
     }
   }
-  const credits = /(\d+)學分(?:以內|以下|上限)/.exec(t);
-  if (credits) {
-    d.maxCredits = Number(credits[1]);
+  // 「15 學分以內」「學分不要超過 15」「最多 15 學分」「十二學分以內」都要接得住
+  const N = "(\\d+|[一二兩三四五六七八九十]+)";
+  const credits =
+    new RegExp(`${N}\\s*學分(?:以內|以下|上限|就好|就夠)`).exec(t) ??
+    new RegExp(`學分(?:不要?超過|最多|上限|別超過)\\s*${N}`).exec(t) ??
+    new RegExp(`(?:不要?超過|最多|別超過)\\s*${N}\\s*學分`).exec(t);
+  const creditN = credits ? numOf(credits[1]) : null;
+  if (creditN !== null) {
+    d.maxCredits = creditN;
     reasons.push(`學分上限 ${d.maxCredits}`);
   }
   if (/集中|不要太散|排在一起|同一天|少跑幾天/.test(t)) {
@@ -401,10 +545,12 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
 
   // 換掉／一定要留
   // 「換掉某某」與「把某某換掉」兩種語序都要接得住
-  const swapAfter = /(?:換掉|不想修|拿掉)([一-龥（）()A-Z0-9]{3,15})/.exec(t);
+  const swapAfter = /(?:換掉|不想修|不想上|不要上|不要修|拿掉)([一-龥（）()A-Z0-9]{3,15})/.exec(t);
   const swapBefore = /把([一-龥（）()A-Z0-9]{3,15}?)(?:換掉|拿掉|去掉|移除)/.exec(t);
   const swapName = swapBefore?.[1] ?? swapAfter?.[1];
-  if (swapName && !/早八/.test(swapName)) {
+  // 「把週五的課拿掉」「不要上到晚上」說的是時段不是課名 —— 時段已由上面處理，
+  // 這裡再當成課名去查只會多一句「開課資料中找不到「週五的課」」
+  if (swapName && !/早八|早上|上午|下午|晚上|星期|週|禮拜|第.節/.test(swapName)) {
     d.excludeCourses.push(swapName);
     reasons.push(`排除「${swapName}」`);
   }
@@ -432,6 +578,7 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
               d.allowDays.length > 0 ||
               d.avoidEarly !== null ||
               d.avoidMorning !== null ||
+              d.avoidDayParts.length > 0 ||
               d.preferCompactDays !== null
             ? "adjust-time"
             : "adjust-load";
@@ -454,6 +601,15 @@ function offlineAskIntent(raw: string): z.infer<typeof zAskIntent> {
   const forbidden = detectForbidden(t);
   if (forbidden) return { ...base, forbidden };
 
+  // 開課資訊的問句形式最明確（什麼時候開、誰教、有沒有名額），排最前面。
+  // 排在「流程」後面的話，「企業流程管理什麼時候開」會因為課名裡有「流程」兩個字
+  // 被當成辦理手續，回「系統未收錄這項事務的辦理流程」。
+  if (/什麼時候開|誰教|哪個老師開|有沒有名額|還有名額|餘額|幾學分.*課|時段/.test(t)) {
+    const code = /([A-Z]{2}\d{4})/.exec(raw)?.[1];
+    const name = /([一-龥]{3,12})(?:什麼時候|誰教|有沒有|還有|是哪個)/.exec(t)?.[1];
+    return { ...base, intent: "course-info", course: code ?? name ?? t };
+  }
+
   // 「怎麼辦」要排在所有 what-if 之前：問的是手續，不是可不可行。
   // 排在後面的話，「怎麼申請輔系？」會先撞上 /輔系/ 那一條，因為句子裡沒有系名
   // 而被反問「想加修哪一個學系的輔系？」—— 使用者問流程，系統卻要他先選系，答非所問。
@@ -461,7 +617,8 @@ function offlineAskIntent(raw: string): z.infer<typeof zAskIntent> {
     return { ...base, intent: "procedure", procedure: t };
   }
 
-  if (/提前.*畢業|早一?學期畢業/.test(t)) {
+  // 「提前畢業」與「我想在 115-1 畢業」是同一件事：指定一個畢業學期去試算
+  if (/提前.*畢業|早一?學期畢業|\d{3}-[12].{0,3}畢業|畢業.{0,4}\d{3}-[12]/.test(t)) {
     return {
       ...base,
       intent: "what-if",
@@ -541,12 +698,6 @@ function offlineAskIntent(raw: string): z.infer<typeof zAskIntent> {
   }
 
   if (/幫我排|排課|排下學期|課表怎麼排/.test(t)) return { ...base, intent: "plan" };
-
-  if (/什麼時候開|誰教|哪個老師開|有沒有名額|餘額|幾學分.*課|時段/.test(t)) {
-    const code = /([A-Z]{2}\d{4})/.exec(raw)?.[1];
-    const name = /([一-龥]{3,12})(?:什麼時候|誰教|有沒有|還有)/.exec(t)?.[1];
-    return { ...base, intent: "course-info", course: code ?? name ?? t };
-  }
 
   if (/可以流用|能不能流用|規定|學則|規劃表|要幾學分|上限|下限|幾學分才能|領域/.test(t)) {
     return { ...base, intent: "regulation", topic: t };

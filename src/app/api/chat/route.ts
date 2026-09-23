@@ -123,7 +123,9 @@ export async function POST(req: Request) {
       `意圖 ${turn.intent}；回答類型「${turn.reply.kind}」；` +
       `呼叫 ${turn.tools.join("、")}` +
       (turn.clarifying ? "；向使用者提問" : "") +
-      `；LLM ${budget.usage.calls} 次`,
+      `；LLM ${budget.usage.calls} 次` +
+      // 模型推測、但使用者沒說出口而被擋下的參數。只記參數描述，不含使用者原文
+      (turn.plan?.refusedParams?.length ? `；擋下未說出口的參數：${turn.plan.refusedParams.join("、")}` : ""),
     retries: 0,
     ms: Date.now() - started,
     toolCalls: turn.tools.map((name) => ({ name, input: null, output: null, ms: 0, status: "ok" as const })),
@@ -160,6 +162,7 @@ export async function POST(req: Request) {
           diff: turn.plan.diff,
           costs: turn.plan.costs,
           relaxOptions: turn.plan.relaxOptions,
+          refusedParams: turn.plan.refusedParams ?? [],
         }
       : undefined,
   });

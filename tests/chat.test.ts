@@ -571,3 +571,10 @@ describe("設定：換回 anthropic 時殘留的 AIDIT_LLM_REASONING_EFFORT 不�
     expect(out.trim()).toBe("undefined");
   });
 });
+
+describe("§1.2 加課：動詞不得被當成課名的一部分", () => {
+  it("「我想加修心理學」查的是「心理學」", async () => {
+    const r = await plan("我想加修心理學");
+    expect(r.reply.headline).not.toContain("修心理學");
+  });
+});

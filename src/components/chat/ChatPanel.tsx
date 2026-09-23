@@ -443,7 +443,8 @@ function PlanCard({ p, onPick, busy }: { p: PlanUpdate; onPick: (s: string) => v
       <ol className="three">
         <li>
           <span className="k">改了什麼</span>
-          <span className="v">{p.changed.join("、")}</span>
+          {/* changed 為空＝條件與目前設定相同。留白會看起來像壞掉，要講出來 */}
+          <span className="v">{p.changed.length > 0 ? p.changed.join("、") : "沒有變動"}</span>
         </li>
         <li>
           <span className="k">課表差異</span>

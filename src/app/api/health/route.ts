@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { traceStore } from "@/lib/store";
 import { prefsStore } from "@/lib/store/prefs-store";
 import { dataDir } from "@/lib/store/paths";
-import { LLM, MODEL_LABEL, LLM_TIMEOUT_MS, llmAvailable } from "@/lib/llm/client";
+import { LLM, MODEL_LABEL, LLM_REASONING_EFFORT, LLM_TIMEOUT_MS, llmAvailable } from "@/lib/llm/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,6 +53,8 @@ export async function GET() {
       // false = 走確定性替身。Vercel 公開 demo 刻意維持 false
       available: llmAvailable(),
       timeoutMs: LLM_TIMEOUT_MS,
+      // 思考型模型（qwen3 等）沒設 none 時一次解析要十幾秒，常逾時
+      reasoningEffort: LLM_REASONING_EFFORT ?? null,
     },
     traceSecret: traceSecretSet ? "set" : "dev-default（正式部署必須改掉）",
   };

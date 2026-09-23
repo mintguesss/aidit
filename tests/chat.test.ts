@@ -346,6 +346,7 @@ describe("§1.4 不得自動放寬：解除既有偏好要有使用者說出口�
     allowDays: [] as number[],
     avoidEarly: false,
     avoidMorning: false,
+    avoidDayParts: [] as { day: number; part: "morning" | "afternoon" | "evening" }[],
     preferCompactDays: false,
     maxCredits: null,
     courseCountDelta: null,
@@ -401,6 +402,7 @@ describe("§1.5 數值參數必須是使用者說出口的", () => {
     allowDays: [] as number[],
     avoidEarly: null,
     avoidMorning: null,
+    avoidDayParts: [] as { day: number; part: "morning" | "afternoon" | "evening" }[],
     preferCompactDays: null,
     maxCredits: 0,
     courseCountDelta: null,
@@ -466,5 +468,106 @@ describe("§0.1 模型填的類別不得原樣顯示給使用者", () => {
 
   it("沒有類別時回 undefined", () => {
     expect(spokenCategory(null, "我還差幾學分畢業？")).toBeUndefined();
+  });
+});
+
+describe("§1.5 數值防護不得誤擋：數字在單位前後都算說出口", () => {
+  const credit = {
+    avoidDays: [] as number[],
+    allowDays: [] as number[],
+    avoidEarly: null,
+    avoidMorning: null,
+    avoidDayParts: [] as { day: number; part: "morning" | "afternoon" | "evening" }[],
+    preferCompactDays: null,
+    maxCredits: 15,
+    courseCountDelta: null,
+    courseCountTarget: null,
+    goal: null,
+    goals: [] as never[],
+    excludeCourses: [] as string[],
+    pinCourses: [] as string[],
+    reset: false,
+  };
+  for (const q of ["學分不要超過 15", "15 學分以內就好", "最多 15 學分", "學分上限 15"]) {
+    it(`「${q}」→ 上限 15`, async () => {
+      const c = await ctx();
+      const r = applyParams(c.constraints, c.originalConstraints, credit, "模型自述", q);
+      expect(r.next.maxCredits).toBe(15);
+      expect(r.refusedParams).toEqual([]);
+    });
+  }
+});
+
+describe("§1.1 時段由窄到寬：某天某時段不得擴大成整天或每天", () => {
+  it("週五下午 → 只空出星期五下午，不空出整個星期五", async () => {
+    const r = await plan("週五下午不要有課");
+    const set = r.plan!.constraintSet;
+    expect(set.avoidDays).not.toContain(5);
+    expect(set.avoidPeriods).toContainEqual({ day: 5, periods: [5, 6, 7, 8, 9] });
+    expect(r.reply.headline).toBe("已空出星期五下午。");
+  });
+
+  it("禮拜一早上 → 只空出星期一早上，不是每天早上、也不是整個星期一", async () => {
+    const r = await plan("我禮拜一早上要打工");
+    const set = r.plan!.constraintSet;
+    expect(set.avoidDays).not.toContain(1);
+    expect(set.avoidPeriods).toEqual([{ day: 1, periods: [1, 2, 3, 4] }]);
+    expect(r.reply.headline).toBe("已空出星期一早上。");
+  });
+
+  it("「下午不要有課」→ 平日下午全畫掉，合併成一句", async () => {
+    const r = await plan("下午不要有課");
+    expect(r.plan!.constraintSet.avoidPeriods.filter((a) => a.periods[0] === 5)).toHaveLength(5);
+    expect(r.plan!.constraints).toContain("不排下午的課（第 5–9 節）");
+  });
+
+  it("「把週五的課拿掉」說的是時段，不會被當成課名去查", async () => {
+    const r = await plan("把週五的課拿掉");
+    expect(r.plan!.constraintSet.avoidDays).toContain(5);
+    expect(r.reply.headline).not.toContain("找不到");
+  });
+});
+
+describe("§2.4 禁止主題要看語意，不是看到名詞就擋", () => {
+  it("問誰開課不是評價教師", async () => {
+    const r = await ask("企業流程管理是哪個老師開的？");
+    expect(r.intent).toBe("course-info");
+  });
+
+  it("想修心理學不是心理諮商", async () => {
+    const r = await plan("我想加修心理學");
+    expect(r.intent).not.toBe("forbidden:professional-advice");
+  });
+
+  it("中間夾了副詞的代辦請求仍要擋", async () => {
+    const r = await ask("幫我直接加選");
+    expect(r.intent).toBe("forbidden:act-on-behalf");
+  });
+});
+
+describe("§2.2 意圖路由：課名裡的字不得誤導路由", () => {
+  it("課名含「流程」仍走開課資訊", async () => {
+    const r = await ask("企業流程管理什麼時候開");
+    expect(r.intent).toBe("course-info");
+  });
+
+  it("「我想在 115-1 畢業」與「提前畢業」同樣走試算", async () => {
+    const r = await ask("我想在 115-1 畢業，有可能嗎？");
+    expect(r.intent).toBe("what-if");
+  });
+});
+
+describe("設定：換回 anthropic 時殘留的 AIDIT_LLM_REASONING_EFFORT 不得讓 app 起不來", () => {
+  it("provider=anthropic 時忽略，不拋錯", async () => {
+    const { execFileSync } = await import("node:child_process");
+    const out = execFileSync(
+      process.execPath,
+      ["--import", "tsx", "-e", 'import("@/lib/llm/client").then(m => console.log(String(m.LLM_REASONING_EFFORT)))'],
+      {
+        env: { ...process.env, AIDIT_LLM_PROVIDER: "anthropic", AIDIT_LLM_MODEL: "", AIDIT_LLM_REASONING_EFFORT: "none" },
+        encoding: "utf8",
+      },
+    );
+    expect(out.trim()).toBe("undefined");
   });
 });

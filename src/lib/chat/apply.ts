@@ -1,7 +1,7 @@
 import { DEFAULT_PREFERENCES, type Constraints, type CoursePreferences, type Offering } from "@/lib/types";
 import { allOfferings } from "@/lib/offerings";
 import type { ConstraintDelta, ConstraintSet } from "./types";
-import type { PlanParams } from "./intent";
+import { BLOCK_CUE, DAY_WORDS, PART_WORDS, parseNum, type PlanParams } from "./intent";
 
 /**
  * 約束集合的建立與套用（docs/CONVERSATION.md §1.1）。
@@ -31,8 +31,47 @@ function clamp(v: unknown, lo: number, hi: number): number | undefined {
   return typeof v === "number" && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.round(v))) : undefined;
 }
 
+/** 各時段對應的節次（lib/offerings/periods.ts；夜間代號 A–E 為第 11–15 節） */
+const PART_PERIODS = {
+  morning: [1, 2, 3, 4],
+  afternoon: [5, 6, 7, 8, 9],
+  evening: [10, 11, 12, 13, 14, 15],
+} as const;
+const PART_NAME = { morning: "早上", afternoon: "下午", evening: "晚上" } as const;
+const MORNING_PERIODS: readonly number[] = PART_PERIODS.morning;
+const WEEKDAYS = [1, 2, 3, 4, 5];
+
+const sameSet = (a: readonly number[], b: readonly number[]) =>
+  a.length === b.length && b.every((p) => a.includes(p));
+
 /**
- * 「早上」＝第 1–4 節（第 5 節 13:20 已是下午，見 lib/offerings/periods.ts），週一至週五。
+ * 把一組 avoidPeriods 寫成人話。
+ * 平日同一時段全畫掉就合併成一句（「不排下午的課」），剛好是某時段就說「星期五下午」，
+ * 否則才列節次。早上整組由 isMorningBlock 另外處理，呼叫端要先濾掉。
+ */
+function describePeriods(entries: { day: number; periods: number[] }[]): string[] {
+  const out: string[] = [];
+  let rest = [...entries];
+  for (const part of ["afternoon", "evening"] as const) {
+    const ps = PART_PERIODS[part];
+    const hits = rest.filter((a) => WEEKDAYS.includes(a.day) && sameSet(a.periods, ps));
+    if (WEEKDAYS.every((d) => hits.some((a) => a.day === d))) {
+      out.push(`不排${PART_NAME[part]}的課（第 ${ps[0]}–${ps[ps.length - 1]} 節）`);
+      rest = rest.filter((a) => !hits.includes(a));
+    }
+  }
+  for (const a of rest) {
+    const day = "一二三四五六日"[a.day - 1];
+    const part = (Object.keys(PART_PERIODS) as (keyof typeof PART_PERIODS)[]).find((k) =>
+      sameSet(a.periods, PART_PERIODS[k]),
+    );
+    out.push(part ? `空出星期${day}${PART_NAME[part]}` : `空出星期${day} 第 ${a.periods.join("、")} 節`);
+  }
+  return out;
+}
+
+/*
+ * 「早上」＝第 1–4 節（第 5 節 13:20 已是下午），週一至週五。
  *
  * 這與「早八」是兩件不同的事，不得互相代用：
  *   - avoidEarly 只涵蓋第 1 節，而且是**軟**偏好 —— 唯一開課就是早八時照排並標示，
@@ -40,9 +79,6 @@ function clamp(v: unknown, lo: number, hi: number): number | undefined {
  *   - 不排早上是使用者明確畫掉一段時間，走 avoidPeriods，是**硬**限制；
  *     排不出來時由 §1.4 回報衝突並提出放寬選項，不自動放寬。
  */
-const MORNING_PERIODS = [1, 2, 3, 4];
-const WEEKDAYS = [1, 2, 3, 4, 5];
-
 function isMorningEntry(a: { day: number; periods: number[] }): boolean {
   return (
     WEEKDAYS.includes(a.day) &&
@@ -117,6 +153,12 @@ export type ApplyResult = {
   unresolved: string[];
   /** 模型推測出來、但使用者沒說出口而被擋下的參數，寫進 trace 供稽核 */
   refusedParams: string[];
+  /**
+   * 有沒有接受任何具體要求（不論結果是否與現狀相同）。
+   * 用來區分兩種「條件沒有變動」：要求的已經是現狀，還是根本沒抓到要改什麼 ——
+   * 後者若說成「與目前設定相同」就是在說謊。
+   */
+  requested: boolean;
 };
 
 /**
@@ -142,9 +184,32 @@ const RELAX_CUE = /可以|接受|不介意|沒關係|無所謂|都行|開放|取
  * 它填 0 的意思是「沒提到」，但 schema 裡 null 才是沒提到。
  *
  * 要求單位而不只是數字：「空出星期五」的「五」是星期，不是堂數。
+ * 數字在單位前後都要接得住：「15 學分以內」與「學分不要超過 15」是同一件事。
+ * 而且值要對得上：句子裡有「三門」不代表模型填的 5 就是使用者說的。
  */
-const COUNT_CUE = /(\d+|[一二兩三四五六七八九十]+)\s*[堂門]/;
-const CREDIT_CUE = /(\d+|[一二兩三四五六七八九十]+)\s*學分/;
+const NUM = "(\\d+|[一二兩三四五六七八九十]+)";
+const COUNT_NEAR = [new RegExp(`${NUM}\\s*[堂門]`, "g"), new RegExp(`(?:堂數|門數|堂課).{0,6}?${NUM}`, "g")];
+const CREDIT_NEAR = [new RegExp(`${NUM}\\s*學分`, "g"), new RegExp(`學分.{0,6}?${NUM}`, "g")];
+
+/** 原句裡緊鄰某個單位的所有數字 */
+function numbersNear(raw: string, patterns: RegExp[]): number[] {
+  const out: number[] = [];
+  for (const re of patterns) {
+    for (const m of raw.matchAll(re)) {
+      const n = parseNum(m[1]!);
+      if (n !== null) out.push(n);
+    }
+  }
+  return out;
+}
+
+/**
+ * 堂數的增減要有增減的字，而且方向要一致。
+ * 實測 qwen3:14b 對「這學期只想修三門」送出 courseCountDelta=+3，把期望的 2 堂變成 5 堂 ——
+ * 使用者說的是「指定三門」，不是「再加三門」。
+ */
+const MORE_CUE = /多|加|增|再/;
+const LESS_CUE = /少|減/;
 
 /**
  * 把 LLM 解析出的參數套用到目前的約束集合。
@@ -167,11 +232,15 @@ export function applyParams(
       delta: { reason: "重設為個人資料的原始設定" },
       unresolved: [],
       refusedParams: [],
+      requested: true,
     };
   }
 
   const refusedParams: string[] = [];
   const mayRelax = RELAX_CUE.test(raw);
+  let requested = false;
+  // 布林設成 false 只有在使用者說可以放寬時才算要求；模型常把沒提到的欄位填 false，那是雜訊
+  const meant = (v: boolean) => v || mayRelax;
   /** 解除既有偏好需要依據；沒有依據就擋下並記錄，不動原本的設定 */
   const allowTurnOff = (label: string): boolean => {
     if (mayRelax) return true;
@@ -193,6 +262,7 @@ export function applyParams(
   const dayName = (d: number) => "一二三四五六日"[d - 1];
 
   if (params.avoidDays.length > 0) {
+    requested = true;
     const set = new Set([...next.avoidDays, ...params.avoidDays]);
     for (const d of params.allowDays) {
       if (!set.has(d)) continue;
@@ -203,42 +273,88 @@ export function applyParams(
   } else if (params.allowDays.length > 0) {
     const freed = params.allowDays.filter((d) => next.avoidDays.includes(d));
     if (freed.length > 0 && allowTurnOff(`開放星期${freed.map(dayName).join("、")}`)) {
+      requested = true;
       next.avoidDays = next.avoidDays.filter((d) => !params.allowDays.includes(d));
     }
   }
 
   if (params.avoidEarly !== null) {
+    if (meant(params.avoidEarly)) requested = true;
     // 關掉既有的「不排早八」要有依據；設定或維持則照做
     if (params.avoidEarly || !current.avoidEarly || allowTurnOff("接受早八")) {
       next.avoidEarly = params.avoidEarly;
     }
   }
   if (params.avoidMorning !== null) {
+    if (meant(params.avoidMorning)) requested = true;
     if (params.avoidMorning || !isMorningBlock(current.avoidPeriods) || allowTurnOff("恢復可排早上的課")) {
       setMorningBlock(next, params.avoidMorning);
     }
   }
+  // 某天的某時段：星期與時段都要在原句裡找得到。
+  // 加嚴本來不需要依據，但模型會編時段 —— 實測 qwen3:14b 把「星期二跟星期四都不要排課」
+  // 填成「星期二早上、星期四早上」，把接在「課盡量集中」後的「下午」填成「星期五下午」，
+  // 描述雖然如實，套用的卻不是使用者說的。
+  // 平日同一時段整組畫掉（「下午不要有課」）不會提到星期，改要求句子是在畫掉時間，
+  // 否則「集中在下午」會被反過來套成「不排下午」。
+  const partSaid = (p: (typeof params.avoidDayParts)[number]["part"]) =>
+    PART_WORDS.some(([re, k]) => k === p && re.test(raw));
+  const daySaid = (d: number) => DAY_WORDS.some(([re, k]) => k === d && re.test(raw));
+  const allWeekdays = (p: string) =>
+    WEEKDAYS.every((d) => params.avoidDayParts.some((x) => x.day === d && x.part === p));
+  for (const { day, part } of params.avoidDayParts) {
+    const said = partSaid(part) && (daySaid(day) || (allWeekdays(part) && BLOCK_CUE.test(raw)));
+    if (!said) {
+      refusedParams.push(`空出星期${dayName(day)}${PART_NAME[part]}（原句沒有提到）`);
+      continue;
+    }
+    requested = true;
+    const periods = [...PART_PERIODS[part]];
+    const covered = next.avoidPeriods.some((a) => a.day === day && periods.every((p) => a.periods.includes(p)));
+    if (!covered) next.avoidPeriods.push({ day, periods });
+  }
   if (params.preferCompactDays !== null) {
+    if (meant(params.preferCompactDays)) requested = true;
     if (params.preferCompactDays || !current.preferCompactDays || allowTurnOff("不再要求課程集中")) {
       next.preferCompactDays = params.preferCompactDays;
     }
   }
+  // 數值不只要「有提到」，值還要對得上原句裡緊鄰單位的那個數字
   if (params.maxCredits !== null) {
-    if (CREDIT_CUE.test(raw)) {
+    if (numbersNear(raw, CREDIT_NEAR).includes(params.maxCredits)) {
+      requested = true;
       next.maxCredits = params.maxCredits;
       delta.maxCredits = params.maxCredits;
     } else {
-      refusedParams.push(`學期學分上限改為 ${params.maxCredits}（原句沒有提到學分數）`);
+      refusedParams.push(`學期學分上限改為 ${params.maxCredits}（原句沒有這個學分數）`);
     }
   }
+  const counts = numbersNear(raw, COUNT_NEAR);
   if (params.courseCountTarget !== null) {
-    if (COUNT_CUE.test(raw)) next.targetCourseCount = params.courseCountTarget;
-    else refusedParams.push(`期望 ${params.courseCountTarget} 堂課（原句沒有提到堂數）`);
+    if (counts.includes(params.courseCountTarget)) {
+      requested = true;
+      next.targetCourseCount = params.courseCountTarget;
+    } else {
+      refusedParams.push(`期望 ${params.courseCountTarget} 堂課（原句沒有這個堂數）`);
+    }
   } else if (params.courseCountDelta !== null && params.courseCountDelta !== 0) {
-    next.targetCourseCount = Math.max(0, (current.targetCourseCount ?? 0) + params.courseCountDelta);
+    const d = params.courseCountDelta;
+    // 方向要有字撐著；幅度有寫數字就要對得上，沒寫（「多修一點」）就只接受 1
+    const direction = d > 0 ? MORE_CUE.test(raw) && !LESS_CUE.test(raw) : LESS_CUE.test(raw) && !MORE_CUE.test(raw);
+    const size = counts.length > 0 ? counts.includes(Math.abs(d)) : Math.abs(d) === 1;
+    if (direction && size) {
+      requested = true;
+      next.targetCourseCount = Math.max(0, (current.targetCourseCount ?? 0) + d);
+    } else {
+      refusedParams.push(`堂數${d > 0 ? "增加" : "減少"} ${Math.abs(d)} 堂（原句不是這個意思）`);
+    }
   }
-  if (params.goal !== null) next.goal = params.goal;
+  if (params.goal !== null) {
+    requested = true;
+    next.goal = params.goal;
+  }
   if (params.goals.length > 0) {
+    requested = true;
     next.goals = [...new Set([...next.goals, ...params.goals])];
     delta.goals = params.goals;
     // 「提前畢業」在求解層面就是把目標換成最快畢業
@@ -260,6 +376,7 @@ export function applyParams(
       unresolved.push(raw);
       continue;
     }
+    requested = true;
     if (!next.excludeCourses.includes(code)) next.excludeCourses.push(code);
     next.pinCourses = next.pinCourses.filter((c) => c !== code);
   }
@@ -269,13 +386,14 @@ export function applyParams(
       unresolved.push(raw);
       continue;
     }
+    requested = true;
     if (!next.pinCourses.includes(code)) next.pinCourses.push(code);
     next.excludeCourses = next.excludeCourses.filter((c) => c !== code);
   }
   if (next.excludeCourses.length > 0) delta.excludeCourses = next.excludeCourses;
   if (next.pinCourses.length > 0) delta.pinCourses = next.pinCourses;
 
-  return { next, delta, unresolved, refusedParams };
+  return { next, delta, unresolved, refusedParams, requested };
 }
 
 /** 把約束集合寫成人看得懂的條件清單，UI 與回覆共用同一份 */
@@ -287,10 +405,7 @@ export function describeSet(c: ConstraintSet): string[] {
   if (morning) out.push("不排早上的課（第 1–4 節）");
   else if (c.avoidEarly) out.push("不排早八（第 1 節）");
   if (c.avoidDays.length > 0) out.push(`空出星期${c.avoidDays.map((d) => "一二三四五六日"[d - 1]).join("、")}`);
-  for (const a of c.avoidPeriods) {
-    if (morning && isMorningEntry(a)) continue;
-    out.push(`空出星期${"一二三四五六日"[a.day - 1]} 第 ${a.periods.join("、")} 節`);
-  }
+  out.push(...describePeriods(c.avoidPeriods.filter((a) => !(morning && isMorningEntry(a)))));
   if (c.targetCourseCount !== undefined) out.push(`期望 ${c.targetCourseCount} 堂課`);
   if (c.preferCompactDays) out.push("課程盡量集中在少數幾天");
   if (c.maxCredits !== undefined) out.push(`學期學分上限 ${c.maxCredits}`);
@@ -339,15 +454,15 @@ export function describeDelta(before: ConstraintSet, after: ConstraintSet): stri
   if (addedDays.length > 0) out.push(`空出星期${addedDays.map(dayName).join("、")}`);
   if (freedDays.length > 0) out.push(`開放星期${freedDays.map(dayName).join("、")}`);
 
-  // 早上那一組已由上面描述，這裡只講使用者另外指定的節次
-  const others = (c: ConstraintSet) =>
-    c.avoidPeriods.filter((a) => !isMorningEntry(a)).map((a) => `${a.day}:${a.periods.join(",")}`);
-  const beforeOthers = new Set(others(before));
-  for (const key of others(after)) {
-    if (beforeOthers.has(key)) continue;
-    const [day, periods] = key.split(":");
-    out.push(`空出星期${dayName(Number(day))} 第 ${periods!.split(",").join("、")} 節`);
-  }
+  // 早上整組已由上面描述，這裡只講其餘的節次。只有「整組都在」時才濾掉早上的項目 ——
+  // 單獨一筆「星期一早上」不是整組，要照常列出來。
+  const listed = (c: ConstraintSet) => {
+    const block = isMorningBlock(c.avoidPeriods);
+    return c.avoidPeriods.filter((a) => !(block && isMorningEntry(a)));
+  };
+  const key = (a: { day: number; periods: number[] }) => `${a.day}:${[...a.periods].sort((x, y) => x - y).join(",")}`;
+  const beforeKeys = new Set(listed(before).map(key));
+  out.push(...describePeriods(listed(after).filter((a) => !beforeKeys.has(key(a)))));
 
   if (before.targetCourseCount !== after.targetCourseCount && after.targetCourseCount !== undefined) {
     out.push(`改為期望 ${after.targetCourseCount} 堂課`);

@@ -7,8 +7,11 @@ import {
   lastUser,
   parseAskIntent,
   parsePlanIntent,
+  ruleAskIntent,
+  rulePlanIntent,
   type AskIntentResult,
   type PlanIntentResult,
+  type PlanParams,
 } from "./intent";
 import { applyParams, describeDelta, describeSet } from "./apply";
 import {
@@ -78,8 +81,36 @@ export async function planTurn(
     return { reply: TURN_LIMIT_REPLY(LIMITS.turnsPerSession), tools: [], intent: "limit", clarifying: false };
   }
 
-  const intent = await parsePlanIntent(messages, budget);
+  const raw = lastUser(messages);
+  let intent = await parsePlanIntent(messages, budget);
   const tools = ["chat.intent"];
+
+  // 規則式解析當安全網與後援（見 intent.ts 的 rulePlanIntent）。
+  // 方向是固定的：規則可以多擋、更正拒絕的理由、補上模型漏掉的條件，
+  // 但絕不把模型的拒絕變成放行。
+  const changesOf = (p: PlanParams, next: ConstraintSet) =>
+    p.reset ? ["重設為個人資料的原始設定"] : describeDelta(ctx.constraints, next);
+
+  const rules = rulePlanIntent(raw);
+  if (rules.kind === "forbidden") {
+    // 模型沒擋就補擋；模型也擋了但理由不同，採用規則的理由 ——
+    // 理由決定轉介到哪裡：說壓力大睡不著的學生該被指向輔導中心，
+    // 不是被告知「只能存取你本人的修課紀錄」（實測 qwen3:14b 就這樣回過）
+    if (intent.kind !== "forbidden" || intent.topic !== rules.topic) tools.push("rule.forbidden");
+    intent = rules;
+  } else if (intent.kind === "out-of-scope" && rules.kind === "intent") {
+    intent = rules;
+    tools.push("rule.fallback");
+  } else if (intent.kind === "clarify" && rules.kind === "intent") {
+    // 模型想反問，但原句已經說得夠明確：規則抽得出有效變更、課名也全都查得到，
+    // 就不必多問一輪。實測模型對「我不想上顧客關係管理」反問「要換成什麼課？」。
+    // 課名查不到（「幫我加一堂AI相關的課程」）時保留模型的反問，那比「找不到」好。
+    const tried = applyParams(ctx.constraints, ctx.originalConstraints, rules.params, rules.reason, raw);
+    if (tried.unresolved.length === 0 && changesOf(rules.params, tried.next).length > 0) {
+      intent = rules;
+      tools.push("rule.fallback");
+    }
+  }
 
   const guard = guardCommon(intent, messages);
   if (guard) return { reply: guard.reply, tools, intent: guard.intent, clarifying: guard.clarifying };
@@ -136,18 +167,26 @@ export async function planTurn(
     return { reply: outOfScope("這不在系統能力範圍內。", "請洽系辦公室。"), tools, intent: "out-of-scope", clarifying: false };
   }
 
-  const applied = applyParams(
-    ctx.constraints,
-    ctx.originalConstraints,
-    intent.params,
-    intent.reason,
-    lastUser(messages),
-  );
-  const solveCtx = buildContext(ctx.audit, ctx.record, ctx.pack, applied.next);
+  let applied = applyParams(ctx.constraints, ctx.originalConstraints, intent.params, intent.reason, raw);
   // 「改了什麼」只能由實際生效的差異產生，不採用模型自述的 reason（見 describeDelta）
-  const changed = intent.params.reset
-    ? ["重設為個人資料的原始設定"]
-    : describeDelta(ctx.constraints, applied.next);
+  let changed = changesOf(intent.params, applied.next);
+  let requested = applied.requested;
+
+  // 模型解析出意圖，卻沒有任何有效變更 —— 沒填、填錯被擋、或填成原本就是的值。
+  // 規則能從原句抽出有效變更的話改用規則的；抽不出來就維持「條件沒有變動」照實講。
+  if (changed.length === 0 && rules.kind === "intent" && rules !== intent) {
+    const byRules = applyParams(ctx.constraints, ctx.originalConstraints, rules.params, rules.reason, raw);
+    const ruleChanged = changesOf(rules.params, byRules.next);
+    requested ||= byRules.requested;
+    if (ruleChanged.length > 0) {
+      applied = { ...byRules, refusedParams: [...applied.refusedParams, ...byRules.refusedParams] };
+      changed = ruleChanged;
+      intent = rules;
+      tools.push("rule.fallback");
+    }
+  }
+
+  const solveCtx = buildContext(ctx.audit, ctx.record, ctx.pack, applied.next);
   const outcome = runPlanTurn(solveCtx, applied.next, ctx.currentPlan, changed);
   tools.push("schedule.solve");
 
@@ -167,7 +206,7 @@ export async function planTurn(
   }
 
   return {
-    reply: planReply(outcome),
+    reply: planReply(outcome, requested),
     tools,
     intent: intent.intent,
     clarifying: false,
@@ -175,8 +214,11 @@ export async function planTurn(
   };
 }
 
-/** §1.3 每輪回報三件事：改了什麼條件、課表差異、代價 */
-function planReply(o: PlanTurnOutcome): Reply {
+/**
+ * §1.3 每輪回報三件事：改了什麼條件、課表差異、代價。
+ * requested：這一輪有沒有抓到任何具體要求（見 ApplyResult.requested）。
+ */
+function planReply(o: PlanTurnOutcome, requested: boolean): Reply {
   if (!o.solve.ok) {
     return uncertain({
       headline: "在這些條件下找不到可行的組合。",
@@ -194,17 +236,30 @@ function planReply(o: PlanTurnOutcome): Reply {
   // 條件實際上沒有變動時，絕不宣稱改了什麼。
   // 這一輪有沒有改由 describeDelta 依前後約束集合認定，不由模型的自述認定 ——
   // 「說有改但其實沒改」比「沒改」更糟，使用者會據此以為條件已經套用。
-  if (o.changed.length === 0) {
+  //
+  // 沒變動有兩種原因，要分開講：說成「與目前設定相同」只有在真的抓到了要求時才是實話。
+  if (o.changed.length === 0 && requested) {
     return {
       kind: "決定",
       headline: "條件沒有變動，課表維持原樣。",
       detail: [
-        "你說的條件與目前設定相同，所以沒有東西需要重算。",
+        "你說的條件已經是目前的設定，所以沒有東西需要重算。",
         `目前條件：${o.constraints.join("・")}`,
         "想換個方向的話，可以改講堂數、星期或某一門課。",
       ].join("\n"),
       citations: [],
     };
+  }
+  if (o.changed.length === 0) {
+    return uncertain({
+      headline: "這句話我沒抓到要改哪個條件，課表維持原樣。",
+      detail: [
+        "可以換個說法，例如「空出星期五」「不要早上的課」「只修三門」「把某某課換掉」。",
+        `目前條件：${o.constraints.join("・")}`,
+      ].join("\n"),
+      searched: ["時段、堂數、學分、目標與課程這幾類可調整的條件"],
+      contact: "直接說想改的條件即可",
+    });
   }
 
   // 三件事由下方的結構化卡片完整呈現，泡泡裡只留一句結論 ——
@@ -250,8 +305,30 @@ export async function askTurn(
     return { reply: TURN_LIMIT_REPLY(LIMITS.turnsPerSession), tools: [], intent: "limit", clarifying: false };
   }
 
-  const intent = await parseAskIntent(messages, budget);
+  let intent = await parseAskIntent(messages, budget);
   const tools = ["chat.intent"];
+
+  // 與 planTurn 相同的安全網與後援：規則可以多擋、可以補上模型漏判的路由，
+  // 但絕不推翻模型的拒絕
+  const rules = ruleAskIntent(lastUser(messages));
+  const ruleScenario = rules.kind === "intent" && rules.intent === "what-if" ? rules.params.scenario : null;
+  const modelScenario = intent.kind === "intent" && intent.intent === "what-if" ? intent.params.scenario : null;
+  if (rules.kind === "forbidden") {
+    // 模型沒擋就補擋；模型也擋了但理由不同，採用規則的理由 ——
+    // 理由決定轉介到哪裡：說壓力大睡不著的學生該被指向輔導中心，
+    // 不是被告知「只能存取你本人的修課紀錄」（實測 qwen3:14b 就這樣回過）
+    if (intent.kind !== "forbidden" || intent.topic !== rules.topic) tools.push("rule.forbidden");
+    intent = rules;
+  } else if (intent.kind === "out-of-scope" && rules.kind === "intent") {
+    intent = rules;
+    tools.push("rule.fallback");
+  } else if (ruleScenario && intent.kind !== "forbidden" && modelScenario?.type !== ruleScenario.type) {
+    // 試算情境的關鍵字（提前畢業、停修、轉系、雙主修、輔系…）是字面上明確的，
+    // 規則比對到了就以規則的情境為準。實測模型把「我想提前在 115-1 畢業」選成成績門檻試算，
+    // 把「我想在 115-1 畢業，有可能嗎？」當成查修業進度 —— 答了，但答的不是使用者問的。
+    intent = rules;
+    tools.push("rule.fallback");
+  }
 
   const guard = guardCommon(intent, messages);
   if (guard) return { reply: guard.reply, tools, intent: guard.intent, clarifying: guard.clarifying };
@@ -270,7 +347,14 @@ export async function askTurn(
       // 原句裡找不到的類別一律視為模型自己編的，直接忽略，改答整體進度；
       // 使用者真的問了某個不存在的類別（例如「體育學分夠嗎」）仍會走「查無」。
       return {
-        reply: answerPersonalAudit(ctx.audit, spokenCategory(p.category, p.raw)),
+        // 模型的類別被擋下時，改用規則從原句抽到的類別。實測 qwen3:14b 對「通識還差多少」
+        // 三次都把意圖名稱 "personal-audit" 填進 category —— 擋下是對的，但擋下後
+        // 不該退回整體進度，使用者明明說了「通識」。
+        reply: answerPersonalAudit(
+          ctx.audit,
+          spokenCategory(p.category, p.raw) ??
+            (rules.kind === "intent" && rules.intent === "personal-audit" ? rules.params.category : undefined),
+        ),
         tools,
         intent: intent.intent,
         clarifying: false,
@@ -279,7 +363,7 @@ export async function askTurn(
     case "regulation":
       tools.push("rule.lookup");
       return {
-        reply: answerRegulation(p.topic ?? p.raw, ctx.pack, ctx.audit),
+        reply: lookup(p.topic, p.raw, (q) => answerRegulation(q, ctx.pack, ctx.audit)),
         tools,
         intent: intent.intent,
         clarifying: false,
@@ -288,7 +372,7 @@ export async function askTurn(
     case "course-info":
       tools.push("course.search");
       return {
-        reply: answerCourseInfo(p.course ?? p.raw, ctx.audit.nextTerm),
+        reply: lookup(p.course, p.raw, (q) => answerCourseInfo(q, ctx.audit.nextTerm)),
         tools,
         intent: intent.intent,
         clarifying: false,
@@ -297,7 +381,7 @@ export async function askTurn(
     case "procedure":
       tools.push("procedure.lookup");
       return {
-        reply: answerProcedure(p.procedure ?? p.raw),
+        reply: lookup(p.procedure, p.raw, answerProcedure),
         tools,
         intent: intent.intent,
         clarifying: false,
@@ -435,13 +519,35 @@ export { describeSet };
 export type { SolveResult };
 
 /**
- * 只接受使用者原句裡真的出現過的類別名稱。
+ * 只接受使用者原句裡提到過的類別。
  *
- * 意圖解析會把使用者沒說的欄位填滿（見 apply.ts 的 RELAX_CUE / COUNT_CUE 註解），
+ * 意圖解析會把使用者沒說的欄位填滿（見 apply.ts 的 RELAX_CUE 註解），
  * category 也不例外，而它的值會直接進到回覆文字裡，所以幻覺會被原樣顯示給使用者。
+ *
+ * 「提到過」是類別名稱裡至少有兩個連續字出現在原句，而不是整個名稱：
+ * 使用者說「通識還差多少」，模型填正式名稱「通識涵養課程」是對的，
+ * 要求整串出現會把這種正確的補全也擋掉（早期版本就是這樣，結果答成了整體進度）。
+ * 模型編出來的 "personal-audit" 跟中文原句一個字都對不上，仍然會被擋下。
  */
 export function spokenCategory(category: string | null | undefined, raw: string): string | undefined {
   if (!category) return undefined;
   const t = raw.replace(/\s/g, "");
-  return t.includes(category.replace(/\s/g, "")) ? category : undefined;
+  const c = category.replace(/\s/g, "");
+  for (let i = 0; i + 2 <= c.length; i++) {
+    if (t.includes(c.slice(i, i + 2))) return category;
+  }
+  return undefined;
+}
+
+/**
+ * 先用模型抽的關鍵詞查，查不到再用使用者原句查。
+ *
+ * 模型的關鍵詞是為了涵蓋規則想不到的說法，不該反過來讓查得到的變查不到：
+ * 實測 qwen3:14b 對「抵免要怎麼申請？」抽出的關鍵詞查無流程，原句一查就有。
+ */
+function lookup(keyword: string | undefined, raw: string, answer: (q: string) => Reply): Reply {
+  const first = answer(keyword ?? raw);
+  if (first.kind === "決定" || !keyword || keyword === raw) return first;
+  const second = answer(raw);
+  return second.kind === "決定" ? second : first;
 }

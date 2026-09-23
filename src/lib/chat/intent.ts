@@ -559,7 +559,8 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
     d.pinCourses.push(pin[1]!);
     reasons.push(`保留「${pin[1]}」`);
   }
-  const add = /(?:幫我)?加(?:一門|一堂)?([一-龥（）()A-Z0-9]{3,15})/.exec(t);
+  // 「加修心理學」的「修」是動詞不是課名的一部分，否則會去查「修心理學」而找不到
+  const add = /(?:幫我)?加(?:修)?(?:一門|一堂)?([一-龥（）()A-Z0-9]{3,15})/.exec(t);
   if (add) {
     d.pinCourses.push(add[1]!);
     reasons.push(`加入「${add[1]}」`);

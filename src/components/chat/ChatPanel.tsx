@@ -64,6 +64,7 @@ export function ChatPanel({
   planHref,
   rulepackHref,
   stamp,
+  shownCourses,
 }: {
   title: string;
   hint: string;
@@ -82,6 +83,12 @@ export function ChatPanel({
   rulepackHref?: string;
   /** 這一頁只有對話時，頁首的判定戳記直接掛在對話標題列上 */
   stamp?: string;
+  /**
+   * 畫面上目前顯示的課表（課號）。每輪隨條件一起送上去：後端拿它當「之前」算課表差異、
+   * 當「多一堂／少一堂」的基準，並在條件平手時優先保留這些課。
+   * 後端沒有 session，不送的話它只能用條件重算，而那不一定是使用者眼前的這一份。
+   */
+  shownCourses?: string[];
 }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState("");
@@ -90,10 +97,14 @@ export function ChatPanel({
   const endRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const consRef = useRef<ConstraintSet | undefined>(constraints);
+  const shownRef = useRef<string[] | undefined>(shownCourses);
 
   useEffect(() => {
     consRef.current = constraints;
   }, [constraints]);
+  useEffect(() => {
+    shownRef.current = shownCourses;
+  }, [shownCourses]);
 
   useEffect(() => {
     if (turns.length > 0) endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -119,6 +130,7 @@ export function ChatPanel({
           term,
           scope,
           constraints: consRef.current,
+          shown: shownRef.current,
           messages: history
             .filter((t) => t.role === "user" || t.reply)
             .map((t) => ({
@@ -140,6 +152,8 @@ export function ChatPanel({
 
       if (data.plan) {
         consRef.current = data.plan.constraints;
+        // 跟著畫面走：無解時 PlanPanel 會清空課表，基準也就是「沒有課表」
+        shownRef.current = data.plan.plans[0]?.courses.map((c) => c.code);
         onPlanUpdate?.(data.plan);
       }
 

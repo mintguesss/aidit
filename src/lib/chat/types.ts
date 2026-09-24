@@ -63,7 +63,14 @@ export type ConstraintSet = {
   maxCredits?: number;
   minCredits?: number;
   targetCourseCount?: number;
+  /** 「盡量」集中在少數幾天：軟偏好，只影響排序 */
   preferCompactDays: boolean;
+  /**
+   * 課「必須」排在幾天內：硬限制，排不進就回報無解。
+   * 與 preferCompactDays 是兩件事 —— 使用者說「集中在一天」時，把它當成「盡量集中」
+   * 會在已經開啟集中時回「條件已經是目前的設定」，而使用者要的一天根本沒被處理。
+   */
+  maxDays?: number;
   excludeCourses: string[];
   pinCourses: string[];
   goals: PlanGoal[];

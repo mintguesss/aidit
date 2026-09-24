@@ -348,6 +348,7 @@ describe("§1.4 不得自動放寬：解除既有偏好要有使用者說出口�
     avoidMorning: false,
     avoidDayParts: [] as { day: number; part: "morning" | "afternoon" | "evening" }[],
     preferCompactDays: false,
+    maxDays: null,
     maxCredits: null,
     courseCountDelta: null,
     courseCountTarget: null,
@@ -404,6 +405,7 @@ describe("§1.5 數值參數必須是使用者說出口的", () => {
     avoidMorning: null,
     avoidDayParts: [] as { day: number; part: "morning" | "afternoon" | "evening" }[],
     preferCompactDays: null,
+    maxDays: null,
     maxCredits: 0,
     courseCountDelta: null,
     courseCountTarget: 0,
@@ -479,6 +481,7 @@ describe("§1.5 數值防護不得誤擋：數字在單位前後都算說出口"
     avoidMorning: null,
     avoidDayParts: [] as { day: number; part: "morning" | "afternoon" | "evening" }[],
     preferCompactDays: null,
+    maxDays: null,
     maxCredits: 15,
     courseCountDelta: null,
     courseCountTarget: null,
@@ -576,5 +579,137 @@ describe("§1.2 加課：動詞不得被當成課名的一部分", () => {
   it("「我想加修心理學」查的是「心理學」", async () => {
     const r = await plan("我想加修心理學");
     expect(r.reply.headline).not.toContain("修心理學");
+  });
+});
+
+describe("做不到的條件不套用，照實說明（「不能改就不應該套用」）", () => {
+  // demo：個人資料寫期望 2 堂，但為了補學分與學期下限，實際排了 3 堂
+
+  it("「少一堂課」從眼前的 3 堂減一：2 堂做不到 → 不套用，說明最少要 3 堂", async () => {
+    const r = await plan("少一堂課");
+    expect(r.reply.headline).toBe("這個要求做不到，課表維持原樣。");
+    expect(r.reply.detail).toContain("排不到 2 堂");
+    expect(r.reply.detail).toContain("至少需要 3 堂");
+    // 不得記下做不到的條件
+    expect(r.plan!.constraintSet.targetCourseCount).toBe(2);
+    expect(r.plan!.constraints.join("・")).not.toContain("期望 1 堂");
+  });
+
+  it("「多選一堂」從眼前的 3 堂加一，不是從期望的 2 堂", async () => {
+    const r = await plan("多選一堂課");
+    expect(r.plan!.constraintSet.targetCourseCount).not.toBe(3);
+    // 做得到就照做（變成 4 堂），做不到就不套用並說明；兩者都不能是「已改為 3 堂、課表沒動」
+    expect(r.reply.headline).not.toBe("已改為期望 3 堂課。");
+  });
+
+  it("「兩學分的課」是那門課的學分，不是學期上限；表達不了就要講出來", async () => {
+    const r = await plan("多選一堂兩學分的課");
+    expect(r.plan!.constraintSet.maxCredits).not.toBe(2);
+    expect(`${r.reply.headline}${r.reply.detail ?? ""}`).toContain("不能指定每門課要幾學分");
+  });
+
+  it("「把課集中在一天」已開啟盡量集中時 → 做不到，說明最少要幾天、是哪幾天", async () => {
+    // 實際回報的狀態：先說過「課盡量集中」，再說「把課集中在一天」。
+    // 舊版回「條件沒有變動，你說的條件已經是目前的設定」，但使用者要的一天根本沒被處理
+    const c = await ctx();
+    const r = await planTurn(
+      msgs("把課集中在一天"),
+      { ...c, constraints: { ...c.constraints, preferCompactDays: true } },
+      new LlmBudget(LIMITS.llmCallsPerTurn),
+    );
+    expect(r.reply.headline).toBe("這個要求做不到，課表維持原樣。");
+    expect(r.reply.detail).toMatch(/課最少得排在 2 天（星期二、三），排不進 1 天/);
+    expect(r.plan!.constraintSet.maxDays).toBeUndefined();
+  });
+
+  it("「把課集中在一天」尚未集中時 → 做得到的「盡量集中」照做，一天做不到的部分講出來", async () => {
+    const r = await plan("把課集中在一天");
+    expect(r.plan!.constraintSet.maxDays).toBeUndefined();
+    expect(r.plan!.constraintSet.preferCompactDays).toBe(true);
+    expect(r.reply.headline).not.toContain("1 天");
+    expect(r.reply.detail).toContain("排不進 1 天");
+  });
+
+  it("時段未知的課不能拿來湊天數（它可能在任何一天）", async () => {
+    const r = await plan("把課集中在一天");
+    // demo 裡只有靠時段未知的 IM4065 才湊得出「一天」，那不算數
+    const courses = r.plan!.solve.ok ? r.plan!.solve.plans[0]!.courses.map((x) => x.code) : [];
+    if (r.plan!.constraintSet.maxDays === 1) expect(courses).not.toContain("IM4065");
+  });
+
+  it("排得進的天數照做", async () => {
+    const r = await plan("課排在兩天內就好");
+    expect(r.plan!.constraintSet.maxDays).toBe(2);
+    expect(r.reply.headline).toContain("把課排在 2 天內");
+  });
+
+  it("「空出一天」不是「排在一天」", async () => {
+    const r = await plan("我想空出一天");
+    expect(r.plan?.constraintSet.maxDays).toBeUndefined();
+  });
+});
+
+describe("課表差異要跟使用者上一輪看到的比，不是跟第一版比", () => {
+  it("第二輪沒改到課表時，差異就是沒有變動", async () => {
+    const c = await ctx();
+    const first = await planTurn(msgs("不要早上的課"), c, new LlmBudget(LIMITS.llmCallsPerTurn));
+    expect(first.plan!.diff.unchanged).toBe(false);
+
+    // 第二輪說一個不影響課表的條件，差異不得再把第一輪的改動算一次
+    const second = await planTurn(
+      msgs("不要早八"),
+      { ...c, constraints: first.plan!.constraintSet },
+      new LlmBudget(LIMITS.llmCallsPerTurn),
+    );
+    expect(second.plan!.diff.unchanged).toBe(true);
+  });
+});
+
+describe("多輪之間的約束集合清洗不得截掉條件", () => {
+  it("不排早上（5 筆）＋不排下午（5 筆）送回來後一筆都不少", async () => {
+    const { sanitiseConstraintSet } = await import("@/lib/chat/apply");
+    const c = await ctx();
+    const morning = [1, 2, 3, 4, 5].map((day) => ({ day, periods: [1, 2, 3, 4] }));
+    const afternoon = [1, 2, 3, 4, 5].map((day) => ({ day, periods: [5, 6, 7, 8, 9] }));
+    const s = sanitiseConstraintSet(
+      { ...c.constraints, avoidPeriods: [...morning, ...afternoon], maxDays: 2 },
+      c.originalConstraints,
+    );
+    expect(s.avoidPeriods).toHaveLength(10);
+    expect(s.maxDays).toBe(2);
+  });
+});
+
+describe("調整時優先保留眼前的課，不無緣無故大換血", () => {
+  it("「多選一堂」條件平手時原本的課都還在，只多一門", async () => {
+    // 實際回報：沒開「集中」時說「多選一堂兩學分的課」，原本 3 門被換掉 2 門。
+    // 那是平手時照課號排序挑出來的，條件上沒有任何理由要換
+    const c = await ctx();
+    const first = (await planTurn(msgs("不要早八"), c, new LlmBudget(LIMITS.llmCallsPerTurn))).plan!;
+    const shownCodes = first.solve.ok ? first.solve.plans[0]!.courses.map((x) => x.code) : [];
+    expect(shownCodes.length).toBe(3);
+    const r = await planTurn(
+      msgs("多選一堂課"),
+      { ...c, constraints: first.constraintSet, shownCodes },
+      new LlmBudget(LIMITS.llmCallsPerTurn),
+    );
+    expect(r.plan!.solve.ok).toBe(true);
+    const after = r.plan!.solve.ok ? r.plan!.solve.plans[0]!.courses.map((x) => x.code) : [];
+    expect(after).toHaveLength(4);
+    expect(after).toEqual(expect.arrayContaining(shownCodes));
+    expect(r.plan!.diff.removed).toEqual([]);
+  });
+
+  it("前端送來的課號只影響平手順序，亂送也不會產生不可行的課表", async () => {
+    const c = await ctx();
+    const r = await planTurn(
+      msgs("空出星期五"),
+      { ...c, shownCodes: ["ZZ9999", "IM4045"] },
+      new LlmBudget(LIMITS.llmCallsPerTurn),
+    );
+    // IM4045 修課餘額為 0，前端說它在畫面上也不能讓它進課表
+    const codes = r.plan!.solve.ok ? r.plan!.solve.plans[0]!.courses.map((x) => x.code) : [];
+    expect(codes).not.toContain("IM4045");
+    expect(codes).not.toContain("ZZ9999");
   });
 });

@@ -128,6 +128,7 @@ export function toSolverConstraints(
     minCredits: termLimits.minCredits,
     targetCourseCount: c.targetCourseCount,
     preferCompactDays: c.preferCompactDays,
+    maxDays: c.maxDays,
     excludeCourses: c.excludeCourses,
     pinCourses: c.pinCourses,
   };
@@ -173,7 +174,7 @@ export type ApplyResult = {
  * 增加約束出錯，使用者看得到（課變少了）；解除約束出錯是**無聲**的，
  * 偏好就這樣消失。所以只對「解除」這個方向要求依據，加嚴不受影響。
  */
-const RELAX_CUE = /可以|接受|不介意|沒關係|無所謂|都行|開放|取消|解除|恢復|不用|不需要|拿掉限制|放寬/;
+const RELAX_CUE = /可以|接受|不介意|沒關係|無所謂|都行|開放|取消|解除|恢復|不用|不需要|不限|拿掉限制|放寬/;
 
 /**
  * 數值參數必須在原句裡找得到帶單位的數字。
@@ -190,6 +191,14 @@ const RELAX_CUE = /可以|接受|不介意|沒關係|無所謂|都行|開放|取
 const NUM = "(\\d+|[一二兩三四五六七八九十]+)";
 const COUNT_NEAR = [new RegExp(`${NUM}\\s*[堂門]`, "g"), new RegExp(`(?:堂數|門數|堂課).{0,6}?${NUM}`, "g")];
 const CREDIT_NEAR = [new RegExp(`${NUM}\\s*學分`, "g"), new RegExp(`學分.{0,6}?${NUM}`, "g")];
+/** 句子要是在講學期學分的上限，而不是某一門課幾學分 */
+const CREDIT_CAP_CUE = /以內|以下|上限|超過|最多|就好|就夠|頂多|不到/;
+/** 「一天」「兩天」；「星期天」「今天」前面不是數字，不會被當成天數 */
+const DAYS_NEAR = [new RegExp(`${NUM}\\s*天`, "g")];
+/**
+ * 句子要是在講「排在幾天內」。「空出一天」也有「一天」，但意思是空出來，不是排進去。
+ */
+const DAYS_CUE = /集中|排在|塞在|壓在|只.{0,2}上|只.{0,2}排|上完|天內|天以內|天就好/;
 
 /** 原句裡緊鄰某個單位的所有數字 */
 function numbersNear(raw: string, patterns: RegExp[]): number[] {
@@ -225,6 +234,12 @@ export function applyParams(
   reason: string,
   /** 使用者這一句的原文，用來判定「解除某項偏好」是不是他真的說出口的 */
   raw = "",
+  /**
+   * 使用者眼前那份課表的堂數。「多一堂／少一堂」要從這裡加減，而不是從期望堂數 ——
+   * 個人資料寫期望 2 堂、實際為了補學分排了 3 堂時，使用者說「少一堂」想的是 3→2，
+   * 從期望堂數算會變成 2→1；說「多選一堂」會變成 2→3，剛好等於現狀，課表不會動。
+   */
+  shownCount?: number,
 ): ApplyResult {
   if (params.reset) {
     return {
@@ -319,9 +334,25 @@ export function applyParams(
       next.preferCompactDays = params.preferCompactDays;
     }
   }
+  // 課排在幾天內。7＝不限天數，那是解除，要有依據；其餘要對得上原句的「N 天」，
+  // 而且句子要是在講排進幾天（「空出一天」不算）
+  if (params.maxDays !== null) {
+    if (params.maxDays >= 7) {
+      if (current.maxDays !== undefined && allowTurnOff("不再限制上課天數")) {
+        requested = true;
+        next.maxDays = undefined;
+      }
+    } else if (DAYS_CUE.test(raw) && numbersNear(raw, DAYS_NEAR).includes(params.maxDays)) {
+      requested = true;
+      next.maxDays = params.maxDays;
+    } else {
+      refusedParams.push(`課排在 ${params.maxDays} 天內（原句沒有這個天數）`);
+    }
+  }
   // 數值不只要「有提到」，值還要對得上原句裡緊鄰單位的那個數字
   if (params.maxCredits !== null) {
-    if (numbersNear(raw, CREDIT_NEAR).includes(params.maxCredits)) {
+    // 還要是在講上限：「多選一堂兩學分的課」的「兩學分」是那門課的學分，不是學期上限
+    if (CREDIT_CAP_CUE.test(raw) && numbersNear(raw, CREDIT_NEAR).includes(params.maxCredits)) {
       requested = true;
       next.maxCredits = params.maxCredits;
       delta.maxCredits = params.maxCredits;
@@ -344,7 +375,7 @@ export function applyParams(
     const size = counts.length > 0 ? counts.includes(Math.abs(d)) : Math.abs(d) === 1;
     if (direction && size) {
       requested = true;
-      next.targetCourseCount = Math.max(0, (current.targetCourseCount ?? 0) + d);
+      next.targetCourseCount = Math.max(0, (shownCount ?? current.targetCourseCount ?? 0) + d);
     } else {
       refusedParams.push(`堂數${d > 0 ? "增加" : "減少"} ${Math.abs(d)} 堂（原句不是這個意思）`);
     }
@@ -408,6 +439,7 @@ export function describeSet(c: ConstraintSet): string[] {
   out.push(...describePeriods(c.avoidPeriods.filter((a) => !(morning && isMorningEntry(a)))));
   if (c.targetCourseCount !== undefined) out.push(`期望 ${c.targetCourseCount} 堂課`);
   if (c.preferCompactDays) out.push("課程盡量集中在少數幾天");
+  if (c.maxDays !== undefined) out.push(`課排在 ${c.maxDays} 天內`);
   if (c.maxCredits !== undefined) out.push(`學期學分上限 ${c.maxCredits}`);
   for (const code of c.pinCourses) out.push(`保留 ${nameOf(code)}`);
   for (const code of c.excludeCourses) out.push(`排除 ${nameOf(code)}`);
@@ -471,6 +503,9 @@ export function describeDelta(before: ConstraintSet, after: ConstraintSet): stri
     // 這些字會被套進「已…。」的句型，所以寫成動詞開頭
     out.push(after.preferCompactDays ? "盡量把課集中在少數幾天" : "不再要求課程集中");
   }
+  if (before.maxDays !== after.maxDays) {
+    out.push(after.maxDays !== undefined ? `把課排在 ${after.maxDays} 天內` : "不再限制上課天數");
+  }
   if (before.maxCredits !== after.maxCredits && after.maxCredits !== undefined) {
     out.push(`把學期學分上限改為 ${after.maxCredits}`);
   }
@@ -491,4 +526,47 @@ export function describeDelta(before: ConstraintSet, after: ConstraintSet): stri
 function nameOf(code: string): string {
   const o: Offering | undefined = allOfferings().find((x) => x.code === code);
   return o ? `${o.name}（${code}）` : code;
+}
+
+/**
+ * 前端送上來的約束集合要當成不可信輸入。
+ *
+ * 每一輪對話前端都會把目前的約束集合送回來，所以這裡漏掉的欄位會在下一輪**無聲消失**。
+ * 從 API 路由搬到這裡，是為了能單獨測（Next 的路由檔只能匯出 HTTP 方法）。
+ *
+ * avoidPeriods 的上限原本是 7 筆，但「不排早上」本身就佔 5 筆（週一到週五），
+ * 再加「下午不要有課」的 5 筆就會在下一輪被截掉 3 筆。改成 7 天 × 3 個時段。
+ */
+export function sanitiseConstraintSet(c: ConstraintSet, fallback: ConstraintSet): ConstraintSet {
+  const days = (x: unknown) =>
+    Array.isArray(x) ? [...new Set(x.filter((d): d is number => Number.isInteger(d) && d >= 1 && d <= 7))] : [];
+  const codes = (x: unknown) =>
+    Array.isArray(x) ? x.filter((s): s is string => typeof s === "string" && /^[A-Z]{2}\d{4}$/.test(s)).slice(0, 10) : [];
+  const num = (x: unknown, lo: number, hi: number) =>
+    typeof x === "number" && Number.isFinite(x) ? Math.min(hi, Math.max(lo, Math.round(x))) : undefined;
+
+  return {
+    goal: ["asap", "balanced", "light"].includes(c?.goal) ? c.goal : fallback.goal,
+    avoidEarly: Boolean(c?.avoidEarly),
+    avoidDays: days(c?.avoidDays),
+    avoidPeriods: Array.isArray(c?.avoidPeriods)
+      ? c.avoidPeriods
+          .filter((a) => Number.isInteger(a?.day) && a.day >= 1 && a.day <= 7 && Array.isArray(a?.periods))
+          .slice(0, 21)
+          .map((a) => ({ day: a.day, periods: a.periods.filter((p) => Number.isInteger(p)).slice(0, 15) }))
+      : [],
+    maxCredits: num(c?.maxCredits, 0, 30),
+    minCredits: num(c?.minCredits, 0, 30),
+    targetCourseCount: num(c?.targetCourseCount, 0, 10),
+    preferCompactDays: Boolean(c?.preferCompactDays),
+    maxDays: num(c?.maxDays, 1, 6),
+    excludeCourses: codes(c?.excludeCourses),
+    pinCourses: codes(c?.pinCourses),
+    goals: Array.isArray(c?.goals)
+      ? c.goals.filter((g): g is ConstraintSet["goals"][number] =>
+          ["early-graduation", "minor", "cert-program"].includes(g as string),
+        )
+      : [],
+    note: typeof c?.note === "string" ? c.note.slice(0, 200) : fallback.note,
+  };
 }

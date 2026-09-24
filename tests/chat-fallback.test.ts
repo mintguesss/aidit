@@ -38,7 +38,7 @@ beforeAll(async () => {
 
 const empty = (): PlanParams => ({
   avoidDays: [], allowDays: [], avoidEarly: null, avoidMorning: null, avoidDayParts: [],
-  preferCompactDays: null, maxCredits: null, courseCountDelta: null, courseCountTarget: null,
+  preferCompactDays: null, maxDays: null, maxCredits: null, courseCountDelta: null, courseCountTarget: null,
   goal: null, goals: [], excludeCourses: [], pinCourses: [], reset: false,
 });
 
@@ -164,11 +164,13 @@ describe("數值要對得上原句，增減要有增減的字", () => {
     expect(r.plan!.constraintSet.targetCourseCount).toBe(3);
   });
 
-  it("「少一堂課」方向相反（+1）→ 擋下", async () => {
+  it("「少一堂課」方向相反（+1）→ 擋下，不會變成多一堂", async () => {
     const r = await withModel("少一堂課", {
       kind: "intent", intent: "adjust-load", reason: "", params: { ...empty(), courseCountDelta: 1 },
     });
-    expect(r.plan!.constraintSet.targetCourseCount).toBeLessThan(2);
+    expect(r.plan!.refusedParams!.some((x) => x.includes("增加 1 堂"))).toBe(true);
+    // 畫面上是 3 堂；模型的 +1 若被套用會變成 4
+    expect(r.plan!.constraintSet.targetCourseCount ?? 0).toBeLessThan(4);
   });
 
   it("「學分不要超過 15」模型填成 18 → 擋下，由規則設成 15", async () => {

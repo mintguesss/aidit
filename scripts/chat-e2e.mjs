@@ -107,8 +107,24 @@ const CASES = [
     check: (r) => cs(r)?.targetCourseCount === 3 || `堂數不是 3：${cs(r)?.targetCourseCount} ${r.reply.headline}` },
   { g: "堂數學分", scope: "plan", turns: ["學分不要超過 15"],
     check: (r) => cs(r)?.maxCredits === 15 || `上限不是 15：${cs(r)?.maxCredits} ${r.reply.headline}` },
+  // demo 期望 2 堂、實際排 3 堂。「少一堂」是 3→2，而 2 堂低於學則下限做不到：
+  // 要照實說做不到，不能記下「期望 1 堂」然後課表紋風不動（實際回報過）
   { g: "堂數學分", scope: "plan", turns: ["少一堂課"],
-    check: (r) => (cs(r)?.targetCourseCount ?? 99) < 2 || r.reply.kind === "不確定" && !isRefused(r) || `沒減少：${cs(r)?.targetCourseCount} ${r.reply.headline}` },
+    check: (r) => {
+      if (/期望 1 堂/.test(`${r.reply.headline}${(r.plan?.constraintLabels ?? []).join("")}`)) return `從期望堂數而不是畫面上的堂數去減：${r.reply.headline}`;
+      if (r.reply.headline.startsWith("這個要求做不到") && /排不到 2 堂/.test(r.reply.detail ?? "")) return true;
+      if (cs(r)?.targetCourseCount === 2 && r.plan && !r.plan.diff.unchanged) return true;
+      return `沒說明做不到：${r.reply.headline} ${r.reply.detail ?? ""}`;
+    } },
+  // 從畫面上的 3 堂加一；原本的課要保留；「兩學分」表達不了要講出來，且不得變成學分上限 2
+  { g: "堂數學分", scope: "plan", turns: ["多選一堂兩學分的課"],
+    check: (r) => {
+      if (cs(r)?.maxCredits === 2) return "「兩學分」被當成學期上限";
+      if (cs(r)?.targetCourseCount !== 4) return `堂數不是 4：${cs(r)?.targetCourseCount} ${r.reply.headline}`;
+      if (r.plan?.diff.removed?.length) return `原本的課被換掉：${r.plan.diff.removed.join("、")}`;
+      if (!/不能指定每門課要幾學分/.test(r.reply.detail ?? "")) return "沒說明學分數這部分沒有套用";
+      return true;
+    } },
   { g: "堂數學分", scope: "plan", turns: ["十二學分以內就好"],
     check: (r) => cs(r)?.maxCredits === 12 || `上限不是 12：${cs(r)?.maxCredits} ${r.reply.headline}` },
   { g: "堂數學分", scope: "plan", turns: ["我想輕鬆一點"],
@@ -127,6 +143,15 @@ const CASES = [
   // ===== 多輪 =====
   { g: "多輪", scope: "plan", turns: ["空出星期五", "不要早上的課"],
     check: (r) => cs(r)?.avoidDays?.includes(5) && hasMorning(cs(r)) || `條件沒累積：${JSON.stringify(cs(r)?.avoidDays)} ${r.reply.headline}` },
+  // 實際回報：先開「盡量集中」再說「集中在一天」，舊版回「你說的條件已經是目前的設定」
+  { g: "多輪", scope: "plan", turns: ["課盡量集中", "把課集中在一天"],
+    check: (r) => {
+      if (cs(r)?.maxDays === 1) return "記下了做不到的「一天」";
+      if (!/排不進 1 天/.test(r.reply.detail ?? "")) return `沒說明為什麼做不到：${r.reply.headline}`;
+      return true;
+    } },
+  { g: "多輪", scope: "plan", turns: ["課排在兩天內就好"],
+    check: (r) => cs(r)?.maxDays === 2 || `沒套用兩天：${r.reply.headline}` },
   { g: "多輪", scope: "plan", turns: ["空出星期五", "取消剛剛的調整"],
     check: (r) => cs(r) && !cs(r).avoidDays?.includes(5) || `沒取消：${r.reply.headline}` },
   { g: "多輪", scope: "plan", turns: ["空出星期五", "重來"],
@@ -166,17 +191,22 @@ const CASES = [
 async function converse(scope, turns) {
   const history = [];
   let constraints;
+  // 前端每輪也會送「畫面上目前顯示的課」；第一輪不知道就不送，由後端依條件重算
+  let shown;
   const responses = [];
   for (const text of turns) {
     history.push({ role: "user", content: text });
     const res = await fetch(`${BASE}/api/chat`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ scope, constraints, messages: history }),
+      body: JSON.stringify({ scope, constraints, shown, messages: history }),
     });
     const r = await res.json();
     responses.push(r);
-    if (r.plan) constraints = r.plan.constraints;
+    if (r.plan) {
+      constraints = r.plan.constraints;
+      shown = r.plan.plans?.[0]?.courses.map((c) => c.code);
+    }
     history.push({
       role: "assistant",
       content: r.reply?.headline ?? "",

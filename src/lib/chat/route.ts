@@ -40,7 +40,13 @@ export type TurnContext = {
   /** 目前的約束集合（A 介面用；B 介面遇到 plan 意圖時導向 A） */
   constraints: ConstraintSet;
   originalConstraints: ConstraintSet;
+  /** 依個人資料求出的第一版課表 */
   currentPlan?: Plan;
+  /**
+   * 前端畫面上目前顯示的課號。有的話用它重建使用者眼前的課表（見 shownPlan）；
+   * 沒有的話（第一輪、舊版前端）就以目前條件重算。
+   */
+  shownCodes?: string[];
 };
 
 export type TurnResult = {
@@ -85,6 +91,12 @@ export async function planTurn(
   const tools = ["chat.intent"];
   let intent = await orRules(parsePlanIntent(messages, budget), () => rulePlanIntent(raw), tools);
 
+  // 使用者眼前的課表（見 shownPlan）。ctx.currentPlan 是依個人資料求的第一版，
+  // 多輪之後就不是使用者看到的了 —— 拿它當「之前」，課表差異會一直跟第一版比，
+  // 「多一堂／少一堂」也會從錯的地方加減。
+  const shown = shownPlan(ctx);
+  const shownCount = shown?.courses.length;
+
   // 規則式解析當安全網與後援（見 intent.ts 的 rulePlanIntent）。
   // 方向是固定的：規則可以多擋、更正拒絕的理由、補上模型漏掉的條件，
   // 但絕不把模型的拒絕變成放行。
@@ -105,7 +117,7 @@ export async function planTurn(
     // 模型想反問，但原句已經說得夠明確：規則抽得出有效變更、課名也全都查得到，
     // 就不必多問一輪。實測模型對「我不想上顧客關係管理」反問「要換成什麼課？」。
     // 課名查不到（「幫我加一堂AI相關的課程」）時保留模型的反問，那比「找不到」好。
-    const tried = applyParams(ctx.constraints, ctx.originalConstraints, rules.params, rules.reason, raw);
+    const tried = applyParams(ctx.constraints, ctx.originalConstraints, rules.params, rules.reason, raw, shownCount);
     if (tried.unresolved.length === 0 && changesOf(rules.params, tried.next).length > 0) {
       intent = rules;
       tools.push("rule.fallback");
@@ -117,7 +129,7 @@ export async function planTurn(
 
   if (intent.kind === "explain") {
     const solveCtx = buildContext(ctx.audit, ctx.record, ctx.pack, ctx.constraints);
-    const ex = explain(intent.course, solveCtx, ctx.currentPlan);
+    const ex = explain(intent.course, solveCtx, shown);
     tools.push("schedule.explain");
     return {
       reply: {
@@ -136,8 +148,9 @@ export async function planTurn(
   }
 
   if (intent.kind === "compare") {
-    const solveCtx = buildContext(ctx.audit, ctx.record, ctx.pack, ctx.constraints);
-    const outcome = runPlanTurn(solveCtx, ctx.constraints, ctx.currentPlan, ["（未變更條件）"]);
+    // 第一個方案要是畫面上那一份，後面才是「另外幾組」
+    const solveCtx = { ...buildContext(ctx.audit, ctx.record, ctx.pack, ctx.constraints), keep: ctx.shownCodes };
+    const outcome = runPlanTurn(solveCtx, ctx.constraints, shown, ["（未變更條件）"]);
     tools.push("schedule.solve");
     const alt = outcome.solve.ok ? outcome.solve.plans.length : 0;
     return {
@@ -167,7 +180,7 @@ export async function planTurn(
     return { reply: outOfScope("這不在系統能力範圍內。", "請洽系辦公室。"), tools, intent: "out-of-scope", clarifying: false };
   }
 
-  let applied = applyParams(ctx.constraints, ctx.originalConstraints, intent.params, intent.reason, raw);
+  let applied = applyParams(ctx.constraints, ctx.originalConstraints, intent.params, intent.reason, raw, shownCount);
   // 「改了什麼」只能由實際生效的差異產生，不採用模型自述的 reason（見 describeDelta）
   let changed = changesOf(intent.params, applied.next);
   let requested = applied.requested;
@@ -175,7 +188,7 @@ export async function planTurn(
   // 模型解析出意圖，卻沒有任何有效變更 —— 沒填、填錯被擋、或填成原本就是的值。
   // 規則能從原句抽出有效變更的話改用規則的；抽不出來就維持「條件沒有變動」照實講。
   if (changed.length === 0 && rules.kind === "intent" && rules !== intent) {
-    const byRules = applyParams(ctx.constraints, ctx.originalConstraints, rules.params, rules.reason, raw);
+    const byRules = applyParams(ctx.constraints, ctx.originalConstraints, rules.params, rules.reason, raw, shownCount);
     const ruleChanged = changesOf(rules.params, byRules.next);
     requested ||= byRules.requested;
     if (ruleChanged.length > 0) {
@@ -186,9 +199,26 @@ export async function planTurn(
     }
   }
 
-  const solveCtx = buildContext(ctx.audit, ctx.record, ctx.pack, applied.next);
-  const outcome = runPlanTurn(solveCtx, applied.next, ctx.currentPlan, changed);
+  // 條件平手時優先保留眼前已經排好的課，調整才不會無緣無故大換血
+  const solveFor = (set: ConstraintSet) => ({
+    ...buildContext(ctx.audit, ctx.record, ctx.pack, set),
+    keep: shown?.courses.map((c) => c.code),
+  });
+  let outcome = runPlanTurn(solveFor(applied.next), applied.next, shown, changed);
   tools.push("schedule.solve");
+
+  // 這一輪要的條件做不到 → 不套用，照實說做不到、最多能到哪裡。
+  // 記下一個做不到的條件、再說「已改為期望 1 堂課」而課表紋風不動，使用者只會困惑；
+  // 條件做得到的部分照做（盡量改），做不到的部分退回原狀並說明。
+  const params = intent.params;
+  const countAsked = params.courseCountTarget !== null || (params.courseCountDelta ?? 0) !== 0;
+  const undone = params.reset ? { next: applied.next, reasons: [] } : undoImpossible(ctx.constraints, applied.next, outcome, shownCount, countAsked);
+  if (undone.reasons.length > 0) {
+    applied = { ...applied, next: undone.next };
+    changed = changesOf(params, undone.next);
+    outcome = runPlanTurn(solveFor(undone.next), undone.next, shown, changed);
+  }
+  const notDone = [...undone.reasons, ...unsupportedAsks(raw)];
 
   if (applied.unresolved.length > 0) {
     return {
@@ -206,7 +236,7 @@ export async function planTurn(
   }
 
   return {
-    reply: planReply(outcome, requested),
+    reply: planReply(outcome, requested, notDone),
     tools,
     intent: intent.intent,
     clarifying: false,
@@ -215,14 +245,88 @@ export async function planTurn(
 }
 
 /**
+ * 使用者眼前的課表：依目前條件重新求一次，平手時偏向前端說它正在顯示的那幾門。
+ *
+ * 不直接拿前端送來的課號組課表：那是不可信輸入，而且課表要帶學分、時段、警告，
+ * 那些只能由求解器產生。以目前條件求解、再用課號當平手偏好，求出來的就是畫面上那一份
+ * （上一輪也是這樣求出來的）；前端亂送課號，最多只是平手時的順序不同，不會產生不可行的課表。
+ * 目前條件本身無解時，畫面上也沒有課表。
+ */
+function shownPlan(ctx: TurnContext): Plan | undefined {
+  const solveCtx = { ...buildContext(ctx.audit, ctx.record, ctx.pack, ctx.constraints), keep: ctx.shownCodes };
+  const o = runPlanTurn(solveCtx, ctx.constraints, undefined, []);
+  return o.solve.ok ? o.solve.plans[0] : undefined;
+}
+
+/**
+ * 這一輪要的條件做不到時退回原狀，並寫出做不到的原因。
+ *
+ * - 上課天數：排不進 → 求解器回報「上課天數」無解。這是新加的硬限制，
+ *   做不到就不記下來，使用者不必先「放寬」一個從沒生效過的條件。
+ * - 堂數：期望堂數是軟偏好，做不到時求解器照排、只附一句警告，於是畫面會說
+ *   「已改為期望 1 堂課」而課表紋風不動。只在課表**完全沒因此改變**時退回；
+ *   往期望的方向移動了一部分就照做（盡量改），剩下的差距由代價說明。
+ *
+ * 其餘硬限制（空出某天、某時段）維持 docs/CONVERSATION.md §1.4 的做法：
+ * 套用、回報無解、提出放寬選項，由使用者決定放寬哪一項。
+ */
+function undoImpossible(
+  before: ConstraintSet,
+  after: ConstraintSet,
+  o: PlanTurnOutcome,
+  shownCount: number | undefined,
+  countAsked: boolean,
+): { next: ConstraintSet; reasons: string[] } {
+  const next = { ...after };
+  const reasons: string[] = [];
+
+  if (after.maxDays !== undefined && after.maxDays !== before.maxDays && !o.solve.ok) {
+    const why = o.solve.infeasibilities.find((i) => i.category === "上課天數");
+    if (why) {
+      reasons.push(`${why.suggestion}。`);
+      next.maxDays = before.maxDays;
+    }
+  }
+
+  const want = after.targetCourseCount;
+  if (countAsked && want !== undefined && o.solve.ok) {
+    const plan = o.solve.plans[0]!;
+    const got = plan.courses.length;
+    if (got !== want && got === shownCount) {
+      const prefix = `你期望 ${want} 堂課，但`;
+      const w = plan.warnings.find((x) => x.startsWith(prefix));
+      reasons.push(w ? `排不到 ${want} 堂：${w.slice(prefix.length)}` : `排不到 ${want} 堂，目前的條件下只能排 ${got} 堂。`);
+      next.targetCourseCount = before.targetCourseCount;
+    }
+  }
+
+  return { next, reasons };
+}
+
+/**
+ * 使用者說了、但系統表達不了的要求。不能默默丟掉 —— 要講出來，使用者才知道那部分沒做。
+ * 「多選一堂兩學分的課」的「兩學分」是那門課的學分數，目前沒有這個條件。
+ */
+function unsupportedAsks(raw: string): string[] {
+  const t = raw.replace(/\s/g, "");
+  const out: string[] = [];
+  if (/(\d+|[一二兩三四五六七八九十])學分的課/.test(t)) out.push("目前還不能指定每門課要幾學分，這部分沒有套用。");
+  return out;
+}
+
+/**
  * §1.3 每輪回報三件事：改了什麼條件、課表差異、代價。
  * requested：這一輪有沒有抓到任何具體要求（見 ApplyResult.requested）。
+ * notDone：這一輪要的、但沒有套用的部分（做不到或表達不了），一定要講出來。
  */
-function planReply(o: PlanTurnOutcome, requested: boolean): Reply {
+function planReply(o: PlanTurnOutcome, requested: boolean, notDone: string[] = []): Reply {
+  const note = notDone.join("\n");
+
   if (!o.solve.ok) {
     return uncertain({
       headline: "在這些條件下找不到可行的組合。",
       detail: [
+        note,
         o.solve.infeasibilities.map((i) => `${i.category}：${i.suggestion}`).join("\n"),
         o.relaxOptions.length > 0 ? `可以考慮：${o.relaxOptions.join("／")}` : "",
       ]
@@ -237,7 +341,16 @@ function planReply(o: PlanTurnOutcome, requested: boolean): Reply {
   // 這一輪有沒有改由 describeDelta 依前後約束集合認定，不由模型的自述認定 ——
   // 「說有改但其實沒改」比「沒改」更糟，使用者會據此以為條件已經套用。
   //
-  // 沒變動有兩種原因，要分開講：說成「與目前設定相同」只有在真的抓到了要求時才是實話。
+  // 沒變動有三種原因，要分開講：做不到、要求已是現狀、根本沒抓到要改什麼。
+  // 說成「與目前設定相同」只有在真的抓到了要求、而且那就是現狀時才是實話。
+  if (o.changed.length === 0 && notDone.length > 0) {
+    return {
+      kind: "決定",
+      headline: "這個要求做不到，課表維持原樣。",
+      detail: [note, `目前條件：${o.constraints.join("・")}`].join("\n"),
+      citations: [],
+    };
+  }
   if (o.changed.length === 0 && requested) {
     return {
       kind: "決定",
@@ -276,7 +389,7 @@ function planReply(o: PlanTurnOutcome, requested: boolean): Reply {
   return {
     kind: "決定",
     headline: `已${o.changed.join("、")}。`,
-    detail: diff,
+    detail: note ? `${diff}\n${note}` : diff,
     citations: [],
   };
 }

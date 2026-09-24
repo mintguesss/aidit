@@ -3,7 +3,7 @@ import { getAuditSession } from "@/lib/audit/session";
 import { parsePageParams } from "@/lib/ui/params";
 import { resolveRulePack } from "@/lib/rules/loader";
 import { askTurn, planTurn, type TurnContext } from "@/lib/chat/route";
-import { constraintSetFrom, describeSet, preferencesOf } from "@/lib/chat/apply";
+import { constraintSetFrom, describeSet, preferencesOf, sanitiseConstraintSet } from "@/lib/chat/apply";
 import { render } from "@/lib/chat/compose";
 
 import { LlmBudget, LlmBudgetExceeded } from "@/lib/llm/client";
@@ -24,6 +24,8 @@ type Body = {
   messages?: ChatMessage[];
   /** A 介面目前生效的約束集合 */
   constraints?: ConstraintSet;
+  /** 畫面上目前顯示的課表（課號）。不可信輸入，只拿來當比較基準與平手時的偏好 */
+  shown?: string[];
 };
 
 /**
@@ -68,7 +70,7 @@ export async function POST(req: Request) {
   if (!resolved.ok) return NextResponse.json({ error: resolved.detail }, { status: 422 });
 
   const original = constraintSetFrom(preferencesOf(record.preferences));
-  const constraints = body?.constraints ? sanitise(body.constraints, original) : original;
+  const constraints = body?.constraints ? sanitiseConstraintSet(body.constraints, original) : original;
 
   const ctx: TurnContext = {
     audit,
@@ -77,6 +79,9 @@ export async function POST(req: Request) {
     constraints,
     originalConstraints: original,
     currentPlan: state.plans[0],
+    shownCodes: Array.isArray(body?.shown)
+      ? body.shown.filter((s): s is string => typeof s === "string" && /^[A-Z]{2}\d{4}$/.test(s)).slice(0, 10)
+      : undefined,
   };
 
   // §0.6 每輪都寫 trace
@@ -166,38 +171,4 @@ export async function POST(req: Request) {
         }
       : undefined,
   });
-}
-
-/** 前端送上來的約束集合要當成不可信輸入 */
-function sanitise(c: ConstraintSet, fallback: ConstraintSet): ConstraintSet {
-  const days = (x: unknown) =>
-    Array.isArray(x) ? [...new Set(x.filter((d): d is number => Number.isInteger(d) && d >= 1 && d <= 7))] : [];
-  const codes = (x: unknown) =>
-    Array.isArray(x) ? x.filter((s): s is string => typeof s === "string" && /^[A-Z]{2}\d{4}$/.test(s)).slice(0, 10) : [];
-  const num = (x: unknown, lo: number, hi: number) =>
-    typeof x === "number" && Number.isFinite(x) ? Math.min(hi, Math.max(lo, Math.round(x))) : undefined;
-
-  return {
-    goal: ["asap", "balanced", "light"].includes(c?.goal) ? c.goal : fallback.goal,
-    avoidEarly: Boolean(c?.avoidEarly),
-    avoidDays: days(c?.avoidDays),
-    avoidPeriods: Array.isArray(c?.avoidPeriods)
-      ? c.avoidPeriods
-          .filter((a) => Number.isInteger(a?.day) && Array.isArray(a?.periods))
-          .slice(0, 7)
-          .map((a) => ({ day: a.day, periods: a.periods.filter((p) => Number.isInteger(p)).slice(0, 14) }))
-      : [],
-    maxCredits: num(c?.maxCredits, 0, 30),
-    minCredits: num(c?.minCredits, 0, 30),
-    targetCourseCount: num(c?.targetCourseCount, 0, 10),
-    preferCompactDays: Boolean(c?.preferCompactDays),
-    excludeCourses: codes(c?.excludeCourses),
-    pinCourses: codes(c?.pinCourses),
-    goals: Array.isArray(c?.goals)
-      ? c.goals.filter((g): g is ConstraintSet["goals"][number] =>
-          ["early-graduation", "minor", "cert-program"].includes(g as string),
-        )
-      : [],
-    note: typeof c?.note === "string" ? c.note.slice(0, 200) : fallback.note,
-  };
 }

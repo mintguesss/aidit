@@ -174,6 +174,7 @@ function countUsable(ctx: SolveContext, categoryId: string, domain?: string): nu
  */
 function relaxationOptions(set: ConstraintSet, result: Extract<SolveResult, { ok: false }>): string[] {
   const out: string[] = [];
+  if (set.maxDays !== undefined) out.push(`解除「課排在 ${set.maxDays} 天內」`);
   if (set.avoidDays.length > 0) {
     out.push(`解除「空出星期${set.avoidDays.map((d) => "一二三四五六日"[d - 1]).join("、")}」`);
   }

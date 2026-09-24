@@ -299,6 +299,8 @@ export type Constraints = {
   minCredits?: number;
   targetCourseCount?: number;
   preferCompactDays?: boolean;
+  /** 課必須排在幾天內（硬限制）；preferCompactDays 只是盡量 */
+  maxDays?: number;
   /** 使用者指定不要的課號 */
   excludeCourses?: string[];
   /** 使用者指定一定要留的課號 */

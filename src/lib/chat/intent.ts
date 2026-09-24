@@ -67,7 +67,13 @@ const zPlanIntent = z.object({
           }),
         )
         .max(14),
+      /** 只是「盡量」集中；說了幾天要用 maxDays */
       preferCompactDays: z.boolean().nullable(),
+      /**
+       * 課必須排在幾天內（「集中在一天」填 1、「兩天就好」填 2）；不限天數填 7。
+       * 與 preferCompactDays 不同：那只是盡量，這是硬限制，排不進就回報做不到。
+       */
+      maxDays: z.number().int().min(1).max(7).nullable(),
       maxCredits: z.number().int().min(0).max(30).nullable(),
       courseCountDelta: z.number().int().min(-6).max(6).nullable(),
       courseCountTarget: z.number().int().min(0).max(10).nullable(),
@@ -147,6 +153,7 @@ const PLAN_SYSTEM = [
   "   某天的某時段（禮拜一早上、週五下午）→ avoidDayParts",
   "   每天早上（第 1–4 節）→ avoidMorning；只有早八（第 1 節）→ avoidEarly",
   "   整天（空出星期五）→ avoidDays",
+  "   「盡量集中」→ preferCompactDays；說了天數（集中在一天、兩天就好）→ maxDays",
   "5. 重來、回到原本、取消剛剛的調整 → intent=change-goal、delta.reset=true。這不是 compare。",
   "6. reason 只描述「改了什麼條件」，不得描述課表會變成什麼樣子。",
 ].join("\n");
@@ -399,6 +406,7 @@ function emptyDelta() {
     avoidMorning: null as boolean | null,
     avoidDayParts: [] as { day: number; part: "morning" | "afternoon" | "evening" }[],
     preferCompactDays: null as boolean | null,
+    maxDays: null as number | null,
     maxCredits: null as number | null,
     courseCountDelta: null as number | null,
     courseCountTarget: null as number | null,
@@ -490,16 +498,18 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
     else d.avoidDays.push(day);
     reasons.push(`${free ? "開放" : "空出"}星期${"一二三四五六日"[day - 1]}`);
   }
-  const less = /少(\d+|[一二兩三四])?[堂門]|少修(\d+|[一二兩三四])?[堂門]|減少(\d+|[一二兩三四])?[堂門]/.exec(t);
+  // 「少一堂」「少修一門」「少選一堂」「減少一堂」；動詞可有可無
+  const less = /(?:減)?少(?:修|選|排|上)?(\d+|[一二兩三四])?[堂門]/.exec(t);
   const lessVague = /少修?一?點|少排一?點|少一些/.test(t);
   if (less || lessVague) {
-    d.courseCountDelta = -(less ? (numOf(less[1] ?? less[2] ?? less[3]) ?? 1) : 1);
+    d.courseCountDelta = -(less ? (numOf(less[1]) ?? 1) : 1);
     reasons.push(`堂數減少 ${Math.abs(d.courseCountDelta)} 堂`);
   }
-  const more = /多(\d+|[一二兩三四])?[堂門]|多修(\d+|[一二兩三四])?[堂門]/.exec(t);
+  // 「多一堂」「多修一門」「多選一堂」—— 先前漏了「多選」，整句掉進超出範圍
+  const more = /多(?:修|選|排|上|加)?(\d+|[一二兩三四])?[堂門]/.exec(t);
   const moreVague = /多修?一?點|多排一?點|多一些|多上一?點/.test(t);
   if (more || moreVague) {
-    d.courseCountDelta = more ? (numOf(more[1] ?? more[2]) ?? 1) : 1;
+    d.courseCountDelta = more ? (numOf(more[1]) ?? 1) : 1;
     reasons.push(`堂數增加 ${d.courseCountDelta} 堂`);
   }
   const exact = /(\d+|[一二兩三四五六])[堂門]課?就好|只(?:想)?修(\d+|[一二兩三四五六])[堂門]/.exec(t);
@@ -524,6 +534,19 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
   if (/集中|不要太散|排在一起|同一天|少跑幾天/.test(t)) {
     d.preferCompactDays = true;
     reasons.push("課程盡量集中");
+  }
+  // 說了天數就是硬限制：「集中在一天」「兩天就好」「只想上三天」
+  const DN = "(\\d+|[一二兩三四五六七])";
+  const daysM =
+    new RegExp(`(?:集中在|排在|塞在|壓在|只(?:想)?(?:上|排))\\s*${DN}\\s*天`).exec(t) ??
+    new RegExp(`${DN}\\s*天(?:內|以內|就好|上完)`).exec(t);
+  const dayN = daysM ? numOf(daysM[1]) : null;
+  if (dayN !== null && dayN >= 1 && dayN <= 6) {
+    d.maxDays = dayN;
+    reasons.push(`課排在 ${dayN} 天內`);
+  } else if (/天數不限|不限天數|幾天都(?:可以|行|沒關係)/.test(t)) {
+    d.maxDays = 7;
+    reasons.push("不限上課天數");
   }
   if (/分散|別擠在同一天/.test(t)) {
     d.preferCompactDays = false;
@@ -580,7 +603,8 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
               d.avoidEarly !== null ||
               d.avoidMorning !== null ||
               d.avoidDayParts.length > 0 ||
-              d.preferCompactDays !== null
+              d.preferCompactDays !== null ||
+              d.maxDays !== null
             ? "adjust-time"
             : "adjust-load";
 

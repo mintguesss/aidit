@@ -1,5 +1,3 @@
-// 必須排在其他 import 之前：下面的模組在載入時就會讀 process.env
-import "@/lib/util/env";
 import { execSync } from "node:child_process";
 import { checkBoundaries, scanSecrets, GUARDED } from "./lib/checks";
 
@@ -64,8 +62,36 @@ const CHECKS: Check[] = [
   },
 ];
 
+/**
+ * CI 一律離線跑，不讀 .env、不連任何外部服務。
+ *
+ * CI 是回歸閘門：第 3 項「正確率不得下降、錯答須為 0」只有在每一次都跑同一套
+ * 確定性替身時才是機械保證。GitHub Actions 上沒有 .env，本來就是離線的；
+ * 但本機（尤其是接了 qwen 的家用主機）若讀進 .env，評測那一步就會去呼叫模型 ——
+ * 本機 CI 與遠端 CI 測的不再是同一件事，而且結果會隨模型的不確定性浮動。
+ *
+ * 這裡明確清空，而不是只是不載入 .env：開發者 shell 裡可能本來就設了這些變數。
+ * 子程序的 .env 載入器以「已存在的環境變數優先」，設成空字串就不會被 .env 蓋回去。
+ *
+ * 要拿真實模型比較評測數據，直接跑 `npm run eval`，它仍會讀 .env。
+ */
+const OFFLINE: Record<string, string> = {
+  ANTHROPIC_API_KEY: "",
+  AIDIT_LLM_PROVIDER: "",
+  AIDIT_LLM_MODEL: "",
+  AIDIT_LLM_BASE_URL: "",
+  AIDIT_LLM_API_KEY: "",
+  AIDIT_LLM_REASONING_EFFORT: "",
+  SUPABASE_URL: "",
+  SUPABASE_SERVICE_ROLE_KEY: "",
+};
+
 function sh(cmd: string): void {
-  execSync(cmd, { stdio: ["ignore", "pipe", "pipe"], encoding: "utf8" });
+  execSync(cmd, {
+    stdio: ["ignore", "pipe", "pipe"],
+    encoding: "utf8",
+    env: { ...process.env, ...OFFLINE },
+  });
 }
 
 function main() {

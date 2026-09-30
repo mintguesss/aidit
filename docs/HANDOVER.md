@@ -19,17 +19,22 @@ Aidit：畢業學分審查與修業規劃系統。核心主張是**在畢業審�
 ## 目前狀態
 
 前端完成並上線，判定引擎、求解器、引用回查、評測與注入測試都在跑，
-181 個單元測試與七項 CI 全綠。**資料全部是合成的**，你的工作是把 mock
-換成真的。接縫表在 CONTRIBUTING.md 第 4 節，按急迫度排的話：
+單元測試與七項 CI 全綠。儲存層已經接上 Supabase：執行紀錄、偏好（含額外修業目標）、
+規則包與語料、校對紀錄、草稿、上傳的原始 PDF 都落地了，migration 在
+`supabase/migrations/`。資料盤點見 [DATA.md](DATA.md)。
 
-1. `prefs-store` 的 Supabase 實作 —— 線上存到 `/tmp`，使用者設定完偏好、
-   重新整理就不見，現在是壞的
-2. 規則包與語料搬到儲存層 —— 鎖版現在會寫進原始碼目錄，serverless 上必然失敗
-3. `providers/` 接校務資料
-4. `offerings/` 抓取與正規化
+**資料仍然全部是合成的**，你的工作是把 mock 換成真的。順序有講究，
+詳見 [TODO.md](TODO.md) C 段：
 
-trace 的 Supabase 實作已經寫好了，跑 `supabase/migrations/0001_traces.sql`
-就生效，不用改程式。
+1. `offerings/` 開課資料抓取與正規化，連同節次時間表 —— 公開資料、沒有個資，
+   最能測出排課與對話的問題
+2. 規則包與課綱語料 —— 抽取腳本需要 `ANTHROPIC_API_KEY`，沒有離線替身
+3. `providers/` 接校務資料 —— **等 TODO.md E1–E4 做完再動**。
+   目前完全沒有身分驗證，`/api/preferences` 任何人都能讀寫刪指定學生的偏好（E3）
+
+對話層接過本機模型（qwen3:14b）實測，端到端測試在 `npm run chat:e2e`。
+那一側學到的事在 [SELFHOST.md](SELFHOST.md) §六：真實模型的錯法是
+**形狀合法、內容是編的**，schema 驗證擋不住，要靠程式比對原句。
 
 ## 動工前要先談的一件事
 

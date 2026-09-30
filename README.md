@@ -43,7 +43,7 @@ Demo、評測、注入測試與 CI 都跑得完整。要接真實服務時複製
 ### 其他指令
 
 ```bash
-npm run test         # 200 項單元測試
+npm run test         # 272 項單元測試
 npm run eval         # 評測報告（35 個 golden 案例 + 基準比較）
 npm run eval:injection   # 提示注入攔截率／誤攔率
 npm run ci           # docs/BACKEND.md §10 的 7 項 CI 檢查

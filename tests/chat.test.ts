@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { runAudit } from "@/lib/agent/runner";
-import { askTurn, planTurn, type TurnContext } from "@/lib/chat/route";
-import { constraintSetFrom } from "@/lib/chat/apply";
+import { askTurn, planTurn, spokenCategory, type TurnContext } from "@/lib/chat/route";
+import { applyParams, constraintSetFrom, describeDelta } from "@/lib/chat/apply";
 import { preferencesOf } from "@/lib/chat/apply";
 import { resolveRulePack } from "@/lib/rules/loader";
 import { LlmBudget } from "@/lib/llm/client";
@@ -335,5 +335,381 @@ describe("§1.3 代價只列這一輪換來的變化", () => {
     for (const w of carried) {
       expect(second.plan!.costs, `「${w}」是上一輪就有的常駐警告`).not.toContain(w);
     }
+  });
+});
+
+describe("§1.4 不得自動放寬：解除既有偏好要有使用者說出口的依據", () => {
+  // 實測 qwen3:14b 對「空出星期五」送出的就是這組參數：avoidDays 空的，
+  // 三個布林全被填成 false —— 它把「沒提到」寫成了「關掉」。
+  const asModelSent = {
+    avoidDays: [] as number[],
+    allowDays: [] as number[],
+    avoidEarly: false,
+    avoidMorning: false,
+    avoidDayParts: [] as { day: number; part: "morning" | "afternoon" | "evening" }[],
+    preferCompactDays: false,
+    maxDays: null,
+    maxCredits: null,
+    courseCountDelta: null,
+    courseCountTarget: null,
+    goal: null,
+    goals: [] as never[],
+    excludeCourses: [] as string[],
+    pinCourses: [] as string[],
+    reset: false,
+  };
+
+  it("使用者沒說要解除時，既有的「不排早八」不得被關掉", async () => {
+    const c = await ctx();
+    const before = { ...c.constraints, avoidEarly: true };
+    const r = applyParams(before, c.originalConstraints, asModelSent, "模型自述", "空出星期五");
+    expect(r.next.avoidEarly).toBe(true);
+    expect(r.refusedParams).toContain("接受早八");
+  });
+
+  it("使用者明確說可以時，才真的解除", async () => {
+    const c = await ctx();
+    const before = { ...c.constraints, avoidEarly: true };
+    const r = applyParams(before, c.originalConstraints, asModelSent, "模型自述", "早八可以沒關係");
+    expect(r.next.avoidEarly).toBe(false);
+    expect(r.refusedParams).toEqual([]);
+  });
+
+  it("加嚴不受影響：設定偏好永遠照做", async () => {
+    const c = await ctx();
+    const before = { ...c.constraints, avoidEarly: false };
+    const r = applyParams(
+      before,
+      c.originalConstraints,
+      { ...asModelSent, avoidEarly: true },
+      "模型自述",
+      "不要早八",
+    );
+    expect(r.next.avoidEarly).toBe(true);
+    expect(r.refusedParams).toEqual([]);
+  });
+
+  it("被擋下的放寬不會出現在「改了什麼」裡", async () => {
+    const c = await ctx();
+    const before = { ...c.constraints, avoidEarly: true };
+    const r = applyParams(before, c.originalConstraints, asModelSent, "模型自述", "空出星期五");
+    expect(describeDelta(before, r.next)).not.toContain("接受早八");
+  });
+});
+
+describe("§1.5 數值參數必須是使用者說出口的", () => {
+  const zeros = {
+    avoidDays: [] as number[],
+    allowDays: [] as number[],
+    avoidEarly: null,
+    avoidMorning: null,
+    avoidDayParts: [] as { day: number; part: "morning" | "afternoon" | "evening" }[],
+    preferCompactDays: null,
+    maxDays: null,
+    maxCredits: 0,
+    courseCountDelta: null,
+    courseCountTarget: 0,
+    goal: null,
+    goals: [] as never[],
+    excludeCourses: [] as string[],
+    pinCourses: [] as string[],
+    reset: false,
+  };
+
+  it("原句沒提到堂數或學分時，不得設定上限與堂數", async () => {
+    const c = await ctx();
+    // qwen3:14b 對「空出星期五」實際送出的就是這組 0
+    const r = applyParams(c.constraints, c.originalConstraints, zeros, "模型自述", "空出星期五");
+    expect(r.next.maxCredits).toBe(c.constraints.maxCredits);
+    expect(r.next.targetCourseCount).toBe(c.constraints.targetCourseCount);
+    expect(r.refusedParams.length).toBe(2);
+  });
+
+  it("「星期五」的「五」不會被當成堂數", async () => {
+    const c = await ctx();
+    const r = applyParams(
+      c.constraints,
+      c.originalConstraints,
+      { ...zeros, courseCountTarget: 5, maxCredits: null },
+      "模型自述",
+      "空出星期五",
+    );
+    expect(r.next.targetCourseCount).toBe(c.constraints.targetCourseCount);
+  });
+
+  it("說出口時照做", async () => {
+    const c = await ctx();
+    const r = applyParams(
+      c.constraints,
+      c.originalConstraints,
+      { ...zeros, courseCountTarget: 3, maxCredits: 12 },
+      "模型自述",
+      "我想修 3 堂、12 學分以內",
+    );
+    expect(r.next.targetCourseCount).toBe(3);
+    expect(r.next.maxCredits).toBe(12);
+    expect(r.refusedParams).toEqual([]);
+  });
+});
+
+describe("§0.1 模型填的類別不得原樣顯示給使用者", () => {
+  it("原句沒出現過的類別一律忽略（模型幻覺）", () => {
+    // qwen3:14b 對「我還差幾學分畢業？」把 schema 的意圖名稱填進 category，
+    // 結果畫面顯示「查無「personal-audit」這個類別。」
+    expect(spokenCategory("personal-audit", "我還差幾學分畢業？")).toBeUndefined();
+  });
+
+  it("使用者真的說出口的類別照用", () => {
+    expect(spokenCategory("通識", "我的通識還差幾學分？")).toBe("通識");
+  });
+
+  it("使用者問了不存在的類別，仍要能走「查無」", () => {
+    // 這一層只管「是不是他說的」，類別存不存在由 answerPersonalAudit 判斷
+    expect(spokenCategory("體育", "體育學分夠了嗎？")).toBe("體育");
+  });
+
+  it("沒有類別時回 undefined", () => {
+    expect(spokenCategory(null, "我還差幾學分畢業？")).toBeUndefined();
+  });
+});
+
+describe("§1.5 數值防護不得誤擋：數字在單位前後都算說出口", () => {
+  const credit = {
+    avoidDays: [] as number[],
+    allowDays: [] as number[],
+    avoidEarly: null,
+    avoidMorning: null,
+    avoidDayParts: [] as { day: number; part: "morning" | "afternoon" | "evening" }[],
+    preferCompactDays: null,
+    maxDays: null,
+    maxCredits: 15,
+    courseCountDelta: null,
+    courseCountTarget: null,
+    goal: null,
+    goals: [] as never[],
+    excludeCourses: [] as string[],
+    pinCourses: [] as string[],
+    reset: false,
+  };
+  for (const q of ["學分不要超過 15", "15 學分以內就好", "最多 15 學分", "學分上限 15"]) {
+    it(`「${q}」→ 上限 15`, async () => {
+      const c = await ctx();
+      const r = applyParams(c.constraints, c.originalConstraints, credit, "模型自述", q);
+      expect(r.next.maxCredits).toBe(15);
+      expect(r.refusedParams).toEqual([]);
+    });
+  }
+});
+
+describe("§1.1 時段由窄到寬：某天某時段不得擴大成整天或每天", () => {
+  it("週五下午 → 只空出星期五下午，不空出整個星期五", async () => {
+    const r = await plan("週五下午不要有課");
+    const set = r.plan!.constraintSet;
+    expect(set.avoidDays).not.toContain(5);
+    expect(set.avoidPeriods).toContainEqual({ day: 5, periods: [5, 6, 7, 8, 9] });
+    expect(r.reply.headline).toBe("已空出星期五下午。");
+  });
+
+  it("禮拜一早上 → 只空出星期一早上，不是每天早上、也不是整個星期一", async () => {
+    const r = await plan("我禮拜一早上要打工");
+    const set = r.plan!.constraintSet;
+    expect(set.avoidDays).not.toContain(1);
+    expect(set.avoidPeriods).toEqual([{ day: 1, periods: [1, 2, 3, 4] }]);
+    expect(r.reply.headline).toBe("已空出星期一早上。");
+  });
+
+  it("「下午不要有課」→ 平日下午全畫掉，合併成一句", async () => {
+    const r = await plan("下午不要有課");
+    expect(r.plan!.constraintSet.avoidPeriods.filter((a) => a.periods[0] === 5)).toHaveLength(5);
+    expect(r.plan!.constraints).toContain("不排下午的課（第 5–9 節）");
+  });
+
+  it("「把週五的課拿掉」說的是時段，不會被當成課名去查", async () => {
+    const r = await plan("把週五的課拿掉");
+    expect(r.plan!.constraintSet.avoidDays).toContain(5);
+    expect(r.reply.headline).not.toContain("找不到");
+  });
+});
+
+describe("§2.4 禁止主題要看語意，不是看到名詞就擋", () => {
+  it("問誰開課不是評價教師", async () => {
+    const r = await ask("企業流程管理是哪個老師開的？");
+    expect(r.intent).toBe("course-info");
+  });
+
+  it("想修心理學不是心理諮商", async () => {
+    const r = await plan("我想加修心理學");
+    expect(r.intent).not.toBe("forbidden:professional-advice");
+  });
+
+  it("中間夾了副詞的代辦請求仍要擋", async () => {
+    const r = await ask("幫我直接加選");
+    expect(r.intent).toBe("forbidden:act-on-behalf");
+  });
+});
+
+describe("§2.2 意圖路由：課名裡的字不得誤導路由", () => {
+  it("課名含「流程」仍走開課資訊", async () => {
+    const r = await ask("企業流程管理什麼時候開");
+    expect(r.intent).toBe("course-info");
+  });
+
+  it("「我想在 115-1 畢業」與「提前畢業」同樣走試算", async () => {
+    const r = await ask("我想在 115-1 畢業，有可能嗎？");
+    expect(r.intent).toBe("what-if");
+  });
+});
+
+describe("設定：換回 anthropic 時殘留的 AIDIT_LLM_REASONING_EFFORT 不得讓 app 起不來", () => {
+  it("provider=anthropic 時忽略，不拋錯", async () => {
+    const { execFileSync } = await import("node:child_process");
+    const out = execFileSync(
+      process.execPath,
+      ["--import", "tsx", "-e", 'import("@/lib/llm/client").then(m => console.log(String(m.LLM_REASONING_EFFORT)))'],
+      {
+        env: { ...process.env, AIDIT_LLM_PROVIDER: "anthropic", AIDIT_LLM_MODEL: "", AIDIT_LLM_REASONING_EFFORT: "none" },
+        encoding: "utf8",
+      },
+    );
+    expect(out.trim()).toBe("undefined");
+  });
+});
+
+describe("§1.2 加課：動詞不得被當成課名的一部分", () => {
+  it("「我想加修心理學」查的是「心理學」", async () => {
+    const r = await plan("我想加修心理學");
+    expect(r.reply.headline).not.toContain("修心理學");
+  });
+});
+
+describe("做不到的條件不套用，照實說明（「不能改就不應該套用」）", () => {
+  // demo：個人資料寫期望 2 堂，但為了補學分與學期下限，實際排了 3 堂
+
+  it("「少一堂課」從眼前的 3 堂減一：2 堂做不到 → 不套用，說明最少要 3 堂", async () => {
+    const r = await plan("少一堂課");
+    expect(r.reply.headline).toBe("這個要求做不到，課表維持原樣。");
+    expect(r.reply.detail).toContain("排不到 2 堂");
+    expect(r.reply.detail).toContain("至少需要 3 堂");
+    // 不得記下做不到的條件
+    expect(r.plan!.constraintSet.targetCourseCount).toBe(2);
+    expect(r.plan!.constraints.join("・")).not.toContain("期望 1 堂");
+  });
+
+  it("「多選一堂」從眼前的 3 堂加一，不是從期望的 2 堂", async () => {
+    const r = await plan("多選一堂課");
+    expect(r.plan!.constraintSet.targetCourseCount).not.toBe(3);
+    // 做得到就照做（變成 4 堂），做不到就不套用並說明；兩者都不能是「已改為 3 堂、課表沒動」
+    expect(r.reply.headline).not.toBe("已改為期望 3 堂課。");
+  });
+
+  it("「兩學分的課」是那門課的學分，不是學期上限；表達不了就要講出來", async () => {
+    const r = await plan("多選一堂兩學分的課");
+    expect(r.plan!.constraintSet.maxCredits).not.toBe(2);
+    expect(`${r.reply.headline}${r.reply.detail ?? ""}`).toContain("不能指定每門課要幾學分");
+  });
+
+  it("「把課集中在一天」已開啟盡量集中時 → 做不到，說明最少要幾天、是哪幾天", async () => {
+    // 實際回報的狀態：先說過「課盡量集中」，再說「把課集中在一天」。
+    // 舊版回「條件沒有變動，你說的條件已經是目前的設定」，但使用者要的一天根本沒被處理
+    const c = await ctx();
+    const r = await planTurn(
+      msgs("把課集中在一天"),
+      { ...c, constraints: { ...c.constraints, preferCompactDays: true } },
+      new LlmBudget(LIMITS.llmCallsPerTurn),
+    );
+    expect(r.reply.headline).toBe("這個要求做不到，課表維持原樣。");
+    expect(r.reply.detail).toMatch(/課最少得排在 2 天（星期二、三），排不進 1 天/);
+    expect(r.plan!.constraintSet.maxDays).toBeUndefined();
+  });
+
+  it("「把課集中在一天」尚未集中時 → 做得到的「盡量集中」照做，一天做不到的部分講出來", async () => {
+    const r = await plan("把課集中在一天");
+    expect(r.plan!.constraintSet.maxDays).toBeUndefined();
+    expect(r.plan!.constraintSet.preferCompactDays).toBe(true);
+    expect(r.reply.headline).not.toContain("1 天");
+    expect(r.reply.detail).toContain("排不進 1 天");
+  });
+
+  it("時段未知的課不能拿來湊天數（它可能在任何一天）", async () => {
+    const r = await plan("把課集中在一天");
+    // demo 裡只有靠時段未知的 IM4065 才湊得出「一天」，那不算數
+    const courses = r.plan!.solve.ok ? r.plan!.solve.plans[0]!.courses.map((x) => x.code) : [];
+    if (r.plan!.constraintSet.maxDays === 1) expect(courses).not.toContain("IM4065");
+  });
+
+  it("排得進的天數照做", async () => {
+    const r = await plan("課排在兩天內就好");
+    expect(r.plan!.constraintSet.maxDays).toBe(2);
+    expect(r.reply.headline).toContain("把課排在 2 天內");
+  });
+
+  it("「空出一天」不是「排在一天」", async () => {
+    const r = await plan("我想空出一天");
+    expect(r.plan?.constraintSet.maxDays).toBeUndefined();
+  });
+});
+
+describe("課表差異要跟使用者上一輪看到的比，不是跟第一版比", () => {
+  it("第二輪沒改到課表時，差異就是沒有變動", async () => {
+    const c = await ctx();
+    const first = await planTurn(msgs("不要早上的課"), c, new LlmBudget(LIMITS.llmCallsPerTurn));
+    expect(first.plan!.diff.unchanged).toBe(false);
+
+    // 第二輪說一個不影響課表的條件，差異不得再把第一輪的改動算一次
+    const second = await planTurn(
+      msgs("不要早八"),
+      { ...c, constraints: first.plan!.constraintSet },
+      new LlmBudget(LIMITS.llmCallsPerTurn),
+    );
+    expect(second.plan!.diff.unchanged).toBe(true);
+  });
+});
+
+describe("多輪之間的約束集合清洗不得截掉條件", () => {
+  it("不排早上（5 筆）＋不排下午（5 筆）送回來後一筆都不少", async () => {
+    const { sanitiseConstraintSet } = await import("@/lib/chat/apply");
+    const c = await ctx();
+    const morning = [1, 2, 3, 4, 5].map((day) => ({ day, periods: [1, 2, 3, 4] }));
+    const afternoon = [1, 2, 3, 4, 5].map((day) => ({ day, periods: [5, 6, 7, 8, 9] }));
+    const s = sanitiseConstraintSet(
+      { ...c.constraints, avoidPeriods: [...morning, ...afternoon], maxDays: 2 },
+      c.originalConstraints,
+    );
+    expect(s.avoidPeriods).toHaveLength(10);
+    expect(s.maxDays).toBe(2);
+  });
+});
+
+describe("調整時優先保留眼前的課，不無緣無故大換血", () => {
+  it("「多選一堂」條件平手時原本的課都還在，只多一門", async () => {
+    // 實際回報：沒開「集中」時說「多選一堂兩學分的課」，原本 3 門被換掉 2 門。
+    // 那是平手時照課號排序挑出來的，條件上沒有任何理由要換
+    const c = await ctx();
+    const first = (await planTurn(msgs("不要早八"), c, new LlmBudget(LIMITS.llmCallsPerTurn))).plan!;
+    const shownCodes = first.solve.ok ? first.solve.plans[0]!.courses.map((x) => x.code) : [];
+    expect(shownCodes.length).toBe(3);
+    const r = await planTurn(
+      msgs("多選一堂課"),
+      { ...c, constraints: first.constraintSet, shownCodes },
+      new LlmBudget(LIMITS.llmCallsPerTurn),
+    );
+    expect(r.plan!.solve.ok).toBe(true);
+    const after = r.plan!.solve.ok ? r.plan!.solve.plans[0]!.courses.map((x) => x.code) : [];
+    expect(after).toHaveLength(4);
+    expect(after).toEqual(expect.arrayContaining(shownCodes));
+    expect(r.plan!.diff.removed).toEqual([]);
+  });
+
+  it("前端送來的課號只影響平手順序，亂送也不會產生不可行的課表", async () => {
+    const c = await ctx();
+    const r = await planTurn(
+      msgs("空出星期五"),
+      { ...c, shownCodes: ["ZZ9999", "IM4045"] },
+      new LlmBudget(LIMITS.llmCallsPerTurn),
+    );
+    // IM4045 修課餘額為 0，前端說它在畫面上也不能讓它進課表
+    const codes = r.plan!.solve.ok ? r.plan!.solve.plans[0]!.courses.map((x) => x.code) : [];
+    expect(codes).not.toContain("IM4045");
+    expect(codes).not.toContain("ZZ9999");
   });
 });

@@ -1,0 +1,4 @@
+# Windows PowerShell 5.1 讀沒有 BOM 的 .ps1 時用系統碼頁（Big5），中文會吃掉引號、
+# 整支腳本解析失敗。tests/scripts-encoding.test.ts 守著這件事，這裡讓編輯器存檔時就對。
+[*.ps1]
+charset = utf-8-bom

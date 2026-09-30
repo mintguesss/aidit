@@ -104,6 +104,11 @@ export type SolveContext = {
    * 不填、填錯、填了系統看不懂的詞，課表的可行性與判定都不會改變。
    */
   optional?: OptionalPreferences;
+  /**
+   * 使用者眼前課表的課號。規劃條件平手時優先保留這些課，對話中的調整才不會無緣無故大換血。
+   * 只影響平手時的順序，不影響可行性。
+   */
+  keep?: string[];
 };
 
 /**
@@ -145,6 +150,7 @@ export function describeConstraints(c: Constraints, prefs: CoursePreferences): s
   if (c.avoidDays?.length) out.push(`空出星期${c.avoidDays.map((d) => DAY_NAME[d] ?? d).join("、")}`);
   if (c.targetCourseCount) out.push(`期望 ${c.targetCourseCount} 堂課`);
   if (c.preferCompactDays) out.push("課程盡量集中在少數幾天");
+  if (c.maxDays !== undefined) out.push(`課排在 ${c.maxDays} 天內`);
   if (c.maxCredits !== undefined) out.push(`學期學分上限 ${c.maxCredits}`);
   return out;
 }
@@ -593,12 +599,59 @@ function attemptSolve(
   const reachesMin = complete.filter((s) => s.score.belowTermMin === 0);
   if (reachesMin.length > 0) complete = reachesMin;
 
+  // 「課排在 N 天內」是使用者畫的硬線（preferCompactDays 只是盡量）。排不進就照實說
+  // 最少要幾天、是哪幾天，由使用者決定要不要放寬 —— 不自動放寬（§1.4）。
+  //
+  // 必須排在學期學分下限**之後**：學則的下限不能拿去換使用者的偏好。
+  // 先前的版本順序相反，「把課集中在一天」會得到一份只有 2 門、6 學分的課表 ——
+  // 塞進一天了，卻低於學則的 9 學分下限。
+  //
+  // 含時段未知課程的組合不算數：時段不知道就無法確認它也落在那幾天。
+  // 否則時段未知的課不佔任何一天，等於免費塞進去 —— 實測 demo 的「把課集中在一天」
+  // 就是靠一門時段未知的課（IM4065）湊滿 9 學分，標題卻宣稱「已把課排在 1 天內」。
+  const maxDays = ctx.constraints.maxDays;
+  if (maxDays !== undefined) {
+    const verifiable = complete.filter((s) => !s.sel.some((c) => c.offering.slotsUnknown));
+    const within = verifiable.filter((s) => s.score.dayCount <= maxDays);
+    if (within.length === 0) {
+      const why =
+        reachesMin.length > 0
+          ? `要補足未修學分並達到學則的學期學分下限 ${ctx.termMinCredits}`
+          : "要補足未修學分";
+      let suggestion: string;
+      if (verifiable.length === 0) {
+        suggestion = `${why}的組合都含時段未知的課，無法確認能不能排在 ${maxDays} 天內`;
+      } else {
+        const fewest = verifiable.reduce((a, b) => (b.score.dayCount < a.score.dayCount ? b : a));
+        const days = [...new Set(fewest.sel.flatMap((c) => c.offering.slots.map((s) => s.day)))]
+          .sort((a, b) => a - b)
+          .map((d) => DAY_NAME[d]);
+        suggestion = `${why}，課最少得排在 ${fewest.score.dayCount} 天（星期${days.join("、")}），排不進 ${maxDays} 天`;
+      }
+      return {
+        ok: false,
+        infeasibilities: [
+          { category: "上課天數", candidatesBeforeFilter: complete.length, excludedBy: [], suggestion },
+        ],
+        excluded,
+        relaxations,
+      };
+    }
+    complete = within;
+  }
+
   const obj = objectiveFor(ctx);
+  // 規劃條件平手時，優先保留使用者眼前已經排好的課。
+  // 少了這一步，每一輪都從頭挑、平手時照課號排序，使用者只說「多選一堂」，
+  // 原本的 3 門卻被換掉 2 門 —— 條件沒有要求的變動，對使用者來說就是無緣無故。
+  const keep = new Set(ctx.keep ?? []);
+  const kept = (s: { sel: Candidate[] }) => s.sel.filter((c) => keep.has(c.offering.code)).length;
   const ranked = complete
     .sort(
       (a, b) =>
-        // 規劃條件永遠優先；契合度只在完全平手時才決定順序
+        // 規劃條件永遠優先；其次是少動使用者已經看到的課；契合度只在完全平手時才決定順序
         lexCompare(obj(a.score), obj(b.score)) ||
+        kept(b) - kept(a) ||
         b.score.affinity - a.score.affinity ||
         cmp(a.score.key, b.score.key),
     )
@@ -616,6 +669,12 @@ function attemptSolve(
  * 使用者指定保留的課不在檢查範圍內 —— 它們留在解裡是命令，不是最佳化的結果。
  */
 function isIrredundant(sel: Candidate[], ctx: SolveContext, pinnedCount: number): boolean {
+  // 使用者明講要修到 N 堂時，N 堂以內「可有可無」的課就是他要的，不是贅餘。
+  // 少了這條，「原本 3 門（剛好 9 學分）再加 1 門」永遠不是候選：求解器要湊到 4 門，
+  // 只能改挑學分較小的課讓 4 門都變成必要 —— 使用者只說「多選一堂」，
+  // 看到的卻是原本的課被換掉 2 門。
+  const target = ctx.constraints.targetCourseCount;
+  if (target !== undefined && sel.length <= target) return true;
   const base = score(sel, ctx);
   for (let i = pinnedCount; i < sel.length; i++) {
     const without = sel.filter((_, j) => j !== i);
@@ -653,13 +712,19 @@ function toPlan(
     );
   }
   if (ctx.constraints.targetCourseCount && s.countGap > 0) {
-    const why =
-      s.unmetAfter === 0 && s.belowTermMin === 0
-        ? `要同時補足未修學分並達到學則的學期學分下限 ${ctx.termMinCredits}`
-        : "要補足未修學分";
-    warnings.push(
-      `你期望 ${ctx.constraints.targetCourseCount} 堂課，但${why}，至少需要 ${s.courseCount} 堂。`,
-    );
+    const target = ctx.constraints.targetCourseCount;
+    if (target < s.courseCount) {
+      const why =
+        s.unmetAfter === 0 && s.belowTermMin === 0
+          ? `要同時補足未修學分並達到學則的學期學分下限 ${ctx.termMinCredits}`
+          : "要補足未修學分";
+      warnings.push(`你期望 ${target} 堂課，但${why}，至少需要 ${s.courseCount} 堂。`);
+    } else {
+      // 期望比排得進的多：原本也寫「至少需要」，方向是反的
+      warnings.push(
+        `你期望 ${target} 堂課，但在目前條件下（學分上限、時段、衝堂與可選的開課）最多只排得進 ${s.courseCount} 堂。`,
+      );
+    }
   }
   return {
     id: `${preset}-${idx + 1}`,

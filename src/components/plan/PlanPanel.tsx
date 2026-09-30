@@ -249,6 +249,7 @@ export function PlanPanel({
         fixture={fixture}
         term={term}
         constraints={state.constraints}
+        shownCourses={state.plans[0]?.courses.map((c) => c.code)}
         rulepackHref={`/rulepack${search}`}
         onPlanUpdate={onPlanUpdate}
         placeholder="例如：不要早八、空出星期五、為什麼沒有某某課"

@@ -120,6 +120,31 @@ export const LLM_TIMEOUT_MS = (() => {
   }
   return LLM.provider === "openai-compatible" ? 30_000 : 8_000;
 })();
+
+/**
+ * openai-compatible 端點的推理強度（reasoning_effort），未設定就不送這個欄位。
+ *
+ * 為什麼需要：qwen3 這類思考型模型預設會先想一大段再輸出。實測 qwen3:14b 在
+ * 家用主機上一次意圖解析要 14 秒、先想 466 字，常常超過 30 秒逾時；
+ * 送 reasoning_effort=none 之後同一題 1.2 秒、思考 0 字，輸出相同。
+ * 意圖解析只是分類加抽參數，用不到長鏈推理。
+ *
+ * 為什麼要設定才送：這是廠商相關的欄位。Ollama 認 none，別的端點可能只認
+ * low/medium/high 或直接拒絕，所以不能預設帶上。
+ */
+export const LLM_REASONING_EFFORT = (() => {
+  const raw = process.env.AIDIT_LLM_REASONING_EFFORT?.trim();
+  if (!raw) return undefined;
+  // 值打錯是錯誤，要大聲失敗
+  if (!["none", "low", "medium", "high"].includes(raw)) {
+    throw new Error(`AIDIT_LLM_REASONING_EFFORT="${raw}" 不支援。可選：none、low、medium、high`);
+  }
+  // 但換回 anthropic 時這一行不適用，不是錯誤：家用主機改接官方 API 時
+  // .env 裡很可能還留著它，為此讓整個 app 起不來不合理。
+  // Anthropic 的推理強度走 output_config.effort，由 StructuredRequest.effort 控制。
+  // 是否生效由 /api/health 的 llm.reasoningEffort 回報。
+  return LLM.provider === "openai-compatible" ? raw : undefined;
+})();
 /** 結構化輸出很小；刻意壓低上限以控成本，超過即視為輸出異常 */
 export const LLM_MAX_TOKENS = 1024;
 
@@ -243,6 +268,7 @@ async function callOpenAiCompatible<S extends z.ZodType>(
         type: "json_schema",
         json_schema: { name: "output", strict: true, schema },
       },
+      ...(LLM_REASONING_EFFORT ? { reasoning_effort: LLM_REASONING_EFFORT } : {}),
     }),
     signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
   });

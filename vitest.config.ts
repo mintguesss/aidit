@@ -29,6 +29,7 @@ export default defineConfig({
       AIDIT_LLM_MODEL: "",
       AIDIT_LLM_BASE_URL: "",
       AIDIT_LLM_API_KEY: "",
+      AIDIT_LLM_REASONING_EFFORT: "",
     },
   },
 });

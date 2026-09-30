@@ -16,7 +16,8 @@
     "rulepack:validate": "tsx scripts/validate-rulepack.ts",
     "ci": "tsx scripts/ci.ts",
     "ui:check": "node scripts/ui-check.mjs",
-    "shots": "node scripts/screenshots.mjs"
+    "shots": "node scripts/screenshots.mjs",
+    "chat:e2e": "node scripts/chat-e2e.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",

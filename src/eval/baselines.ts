@@ -1,6 +1,7 @@
 import type { AuditResult, CourseRecord, StudentRecord } from "@/lib/types";
 import type { RulePack, RuleCategory } from "@/lib/rules/schema";
 import { cmp } from "@/lib/util/text";
+import { courseNameMatches } from "@/lib/courses/names";
 
 /**
  * 基準方案（docs/SPEC.md §10）。
@@ -63,8 +64,8 @@ function greedyMatch(cat: RuleCategory, c: CourseRecord, pack: RulePack): boolea
     case "courseList":
       return cat.match.codes.includes(code);
     case "courseNames":
-      // 與引擎同一個規則：去掉空白後完全相等。基準要比的是指派策略，不是比對方式
-      return cat.match.names.some((n) => n.replace(/\s+/g, "") === c.name.replace(/\s+/g, ""));
+      // 與引擎同一個規則。基準要比的是指派策略，不是比對方式
+      return courseNameMatches(cat.match, c.name);
     case "selectType":
       return c.selectType === cat.match.value;
     case "deptElective":

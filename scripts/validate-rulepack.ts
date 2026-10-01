@@ -18,8 +18,18 @@ const FUZZY_MIN = 0.9;
 
 type Issue = { pack: string; level: "error" | "warn"; message: string };
 
+/**
+ * 不帶參數：驗證 src/lib/rules/packs/ 底下全部（CI 第 7 項）。
+ * 帶檔案路徑：只驗證指定的檔案，用於草稿進人工校對前 ——
+ *   npx tsx scripts/validate-rulepack.ts .data/drafts/fju-im-111.json
+ */
 function main() {
-  const files = existsSync(PACK_DIR) ? readdirSync(PACK_DIR).filter((f) => f.endsWith(".json")) : [];
+  const args = process.argv.slice(2);
+  const files = args.length > 0
+    ? args
+    : existsSync(PACK_DIR)
+      ? readdirSync(PACK_DIR).filter((f) => f.endsWith(".json")).map((f) => join(PACK_DIR, f))
+      : [];
   if (files.length === 0) {
     console.error(`${PACK_DIR} 中沒有任何規則包。`);
     process.exit(1);
@@ -27,7 +37,7 @@ function main() {
 
   const issues: Issue[] = [];
   for (const file of files) {
-    const raw: unknown = JSON.parse(readFileSync(join(PACK_DIR, file), "utf8"));
+    const raw: unknown = JSON.parse(readFileSync(file, "utf8"));
     const parsed = zRulePack.safeParse(raw);
     if (!parsed.success) {
       for (const i of parsed.error.issues) {

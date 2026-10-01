@@ -1,0 +1,294 @@
+{
+  "id": "fju-im-111",
+  "dept": "FJU-IM",
+  "admissionYear": 111,
+  "program": "day",
+  "version": "0.1",
+  "approvedAt": "2026-10-01",
+  "provenance": "draft",
+  "approvedBy": null,
+  "minCredits": 128,
+  "college": "FJU-MGT",
+  "documents": [
+    {
+      "id": "fju-im-rules-111",
+      "title": "輔仁大學資訊管理學系修業規則（適用 111 學年入學新生）",
+      "url": "https://www.im.fju.edu.tw/site/wp-content/uploads/2022/08/111資訊管理學系修業規則適用111學年度新生.pdf",
+      "corpusFile": "fju-im-rules-111.txt"
+    },
+    {
+      "id": "fju-im-plan-111",
+      "title": "輔仁大學 111 學年度學士班課程規劃表（資訊管理學系）",
+      "url": "https://www.im.fju.edu.tw/wp-content/uploads/2026/09/111學年度必選修科目表_資管系學士班_中英對照.pdf",
+      "corpusFile": "fju-im-plan-111.txt"
+    }
+  ],
+  "categories": [
+    {
+      "id": "holistic-core",
+      "name": "全人教育核心課程",
+      "shortName": "全人核心",
+      "credits": 8,
+      "order": 1,
+      "match": {
+        "type": "courseList",
+        "codes": [
+          "00155",
+          "00007",
+          "08824"
+        ]
+      },
+      "subRules": [],
+      "ambiguities": [],
+      "citation": {
+        "docId": "fju-im-rules-111",
+        "locator": "第 1 頁 第二條（一）",
+        "quote": "修滿全人教育核心課程 8學分"
+      }
+    },
+    {
+      "id": "basic-skills",
+      "name": "基本能力課程",
+      "shortName": "基本能力",
+      "credits": 12,
+      "order": 2,
+      "match": {
+        "type": "courseNames",
+        "names": [
+          "國文",
+          "外國語文"
+        ]
+      },
+      "subRules": [],
+      "ambiguities": [],
+      "citation": {
+        "docId": "fju-im-rules-111",
+        "locator": "第 1 頁 第二條（二）",
+        "quote": "修滿基本能力課程 12學分"
+      }
+    },
+    {
+      "id": "general",
+      "name": "通識涵養課程",
+      "shortName": "通識涵養",
+      "credits": 12,
+      "order": 3,
+      "match": {
+        "type": "selectType",
+        "value": "general"
+      },
+      "subRules": [
+        {
+          "type": "domainCoverage",
+          "id": "general-domains",
+          "name": "三大通識領域",
+          "domains": [
+            "人文與藝術",
+            "自然與科技",
+            "社會科學"
+          ],
+          "minPerDomain": 1,
+          "citation": {
+            "docId": "fju-im-plan-111",
+            "locator": "第 4 頁 畢業規定摘要",
+            "quote": "通識：12學分（人文與藝術(PT)4學分、自然與科技(NT)4學分、社會科學(ST)4學分"
+          }
+        }
+      ],
+      "ambiguities": [],
+      "citation": {
+        "docId": "fju-im-rules-111",
+        "locator": "第 1 頁 第二條（三）",
+        "quote": "修滿通識涵養課程 12學分"
+      }
+    },
+    {
+      "id": "dept-required",
+      "name": "院系必修課程",
+      "shortName": "院系必修",
+      "credits": 64,
+      "order": 4,
+      "match": {
+        "type": "courseList",
+        "codes": [
+          "02390",
+          "02412",
+          "05201",
+          "24495",
+          "14761",
+          "24496",
+          "16258",
+          "02222",
+          "02457",
+          "02490",
+          "30499",
+          "02492",
+          "01584",
+          "10681",
+          "01558",
+          "04317",
+          "04038",
+          "02631"
+        ]
+      },
+      "subRules": [],
+      "ambiguities": [],
+      "citation": {
+        "docId": "fju-im-rules-111",
+        "locator": "第 1 頁 第二條（四）",
+        "quote": "修滿專業必修課程 64學分"
+      }
+    },
+    {
+      "id": "major-elective",
+      "name": "本系專業選修",
+      "shortName": "系專選修",
+      "credits": 10,
+      "order": 5,
+      "match": {
+        "type": "deptElective",
+        "dept": "FJU-IM"
+      },
+      "subRules": [],
+      "ambiguities": [],
+      "citation": {
+        "docId": "fju-im-rules-111",
+        "locator": "第 1 頁 第二條（五）",
+        "quote": "選修課程中包含本系專業選修課程至少 10學分"
+      }
+    },
+    {
+      "id": "free-elective",
+      "name": "其他選修",
+      "shortName": "其他選修",
+      "credits": 22,
+      "order": 6,
+      "match": {
+        "type": "anyPassed"
+      },
+      "subRules": [],
+      "ambiguities": [],
+      "citation": {
+        "docId": "fju-im-rules-111",
+        "locator": "第 1 頁 第二條（六）",
+        "quote": "畢業學分數為全人教育核心課程、基本能力課程、通識涵養課程、專業必修課程及選修課程五者之學分數"
+      }
+    }
+  ],
+  "overflowPolicy": {
+    "holistic-core": {
+      "countsToTotal": false,
+      "transferable": false,
+      "citation": {
+        "docId": "fju-im-plan-111",
+        "locator": "第 4 頁 畢業規定摘要",
+        "quote": "超修的全人教育課程(含體育)、全民國防教育軍事訓練之學分數皆不可列入畢業學分"
+      }
+    },
+    "basic-skills": {
+      "countsToTotal": false,
+      "transferable": false,
+      "citation": {
+        "docId": "fju-im-plan-111",
+        "locator": "第 4 頁 畢業規定摘要",
+        "quote": "超修的全人教育課程(含體育)、全民國防教育軍事訓練之學分數皆不可列入畢業學分"
+      }
+    },
+    "general": {
+      "countsToTotal": false,
+      "transferable": false,
+      "citation": {
+        "docId": "fju-im-plan-111",
+        "locator": "第 4 頁 畢業規定摘要",
+        "quote": "超修的全人教育課程(含體育)、全民國防教育軍事訓練之學分數皆不可列入畢業學分"
+      }
+    },
+    "free-elective": {
+      "countsToTotal": true,
+      "transferable": false,
+      "citation": {
+        "docId": "fju-im-rules-111",
+        "locator": "第 1 頁 第二條（六）",
+        "quote": "畢業學分數為全人教育核心課程、基本能力課程、通識涵養課程、專業必修課程及選修課程五者之學分數"
+      }
+    }
+  },
+  "graduationChecks": [
+    {
+      "id": "pe",
+      "name": "體育（四學期）",
+      "rule": "evidence",
+      "contact": "（待人工校對填寫）",
+      "searchedSources": [],
+      "citation": {
+        "docId": "fju-im-plan-111",
+        "locator": "第 4 頁 畢業規定摘要",
+        "quote": "及體育0學分/8小時4學期"
+      }
+    },
+    {
+      "id": "info-test",
+      "name": "資訊學科學習能力檢測",
+      "rule": "evidence",
+      "contact": "（待人工校對填寫）",
+      "searchedSources": [],
+      "citation": {
+        "docId": "fju-im-rules-111",
+        "locator": "第 1 頁 第二條（七）",
+        "quote": "通過資訊學科學習能力檢測"
+      }
+    },
+    {
+      "id": "english",
+      "name": "英文能力（CEF B2）",
+      "rule": "evidence",
+      "contact": "（待人工校對填寫）",
+      "searchedSources": [],
+      "citation": {
+        "docId": "fju-im-rules-111",
+        "locator": "第 2 頁 第三條",
+        "quote": "學生須於畢業前至少參加一次英文檢定考試，且成績應達 CEF之B2 高階級"
+      }
+    },
+    {
+      "id": "emi",
+      "name": "英語授課專業課程 3 學分",
+      "rule": "evidence",
+      "contact": "（待人工校對填寫）",
+      "searchedSources": [],
+      "citation": {
+        "docId": "fju-im-rules-111",
+        "locator": "第 2 頁 第四條",
+        "quote": "學生於畢業前需至少選修 3 學分本院開設之「以英語授課的專業課程」"
+      }
+    },
+    {
+      "id": "programming-test",
+      "name": "程式語言機測",
+      "rule": "evidence",
+      "contact": "（待人工校對填寫）",
+      "searchedSources": [],
+      "citation": {
+        "docId": "fju-im-rules-111",
+        "locator": "第 2 頁 第四條",
+        "quote": "及通過「程式語言機測」"
+      }
+    }
+  ],
+  "yearLongCourses": [
+    "00007",
+    "02390",
+    "02412",
+    "02222",
+    "02457"
+  ],
+  "termLimits": {
+    "maxCredits": 25,
+    "minCredits": 12
+  },
+  "_draft": {
+    "extractedAt": "2026-10-01T16:23:37",
+    "extractedBy": "Claude（依兩份文字型 PDF 手動抽取，未經 scripts/extract-rulepack.ts）",
+    "reviewNotes": "docs/review/fju-im-111.md"
+  }
+}

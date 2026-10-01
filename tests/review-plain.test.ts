@@ -67,28 +67,61 @@ describe("A6：系選修框外的兩門課", () => {
   });
 
   describe("國防：從成績單的課名判斷（校對第 14 項）", () => {
-    const defense = (status: CourseRecord["status"], name = "全民國防教育軍事訓練"): CourseRecord => ({
-      code: "", name, credits: 0, year: 111, term: 1, status, selectType: "required", score: status === "passed" ? 80 : null,
+    const defense = (status: CourseRecord["status"], term: 1 | 2 = 1, name = "全民國防教育軍事訓練"): CourseRecord => ({
+      code: "", name, credits: 0, year: 111, term, status, selectType: "required", score: status === "passed" ? 80 : null,
     });
 
-    it("成績單上有通過的紀錄 → 通過", () => {
-      expect(audit([defense("passed")]).check("defense-education").status).toBe("satisfied");
+    it("上下學期都通過 → 通過", () => {
+      expect(audit([defense("passed", 1), defense("passed", 2)]).check("defense-education").status).toBe("satisfied");
     });
 
-    it("正在修 → 待確認、標「修課中」", () => {
-      const c = audit([defense("in_progress")]).check("defense-education");
+    it("只修一學期不夠（規劃表一上、一下各一欄）", () => {
+      const c = audit([defense("passed", 1)]).check("defense-education");
+      expect(c.status).toBe("hold");
+      expect(c.detail).toContain("只有 1 學期，需要 2 學期");
+    });
+
+    it("一學期通過、一學期正在修 → 「修課中」", () => {
+      const c = audit([defense("passed", 1), defense("in_progress", 2)]).check("defense-education");
       expect(c.status).toBe("hold");
       expect(c.label).toBe("修課中");
     });
 
     it("找不到 → 待確認，不判未修 —— 可能只是課名寫法不同", () => {
-      const c = audit([defense("passed", "全民國防教育(一)")]).check("defense-education");
+      const c = audit([defense("passed", 1, "全民國防教育(一)"), defense("passed", 2, "全民國防教育(二)")]).check("defense-education");
       expect(c.status).toBe("hold");
       expect(c.detail).toContain("資訊管理學系辦公室");
     });
 
-    it("沒通過（不及格）也不算", () => {
-      expect(audit([defense("failed")]).check("defense-education").status).toBe("hold");
+    it("不及格不算", () => {
+      expect(audit([defense("failed", 1), defense("passed", 2)]).check("defense-education").status).toBe("hold");
+    });
+  });
+
+  describe("外國語文：成績單把級別寫在括號裡", () => {
+    const lang = (name: string, term: 1 | 2): CourseRecord => ({
+      code: "", name, credits: 2, year: 111, term, status: "passed", selectType: "required", score: 85,
+    });
+
+    it("「外國語文(中級英文)」「外國語文(基礎日文)」都算基本能力", () => {
+      const r = audit([
+        lang("外國語文(中級英文)", 1), lang("外國語文(中級英文)", 2),
+        lang("國文", 1), lang("國文", 2),
+      ]);
+      expect(r.earned("basic-skills")).toBe(8);
+    });
+
+    it("沒有課號的紀錄：同課名、同學期才算重複（重修只採計一筆）", () => {
+      const failed = { ...lang("國文", 1), status: "failed" as const, score: 40 };
+      const r = audit([failed, { ...lang("國文", 1), year: 112 }, lang("國文", 2)]);
+      expect(r.earned("basic-skills")).toBe(4);
+      const dup = audit([lang("國文", 1), lang("國文", 1)]);
+      expect(dup.earned("basic-skills")).toBe(2);
+    });
+
+    it("只是課名裡有「英文」的選修不算（「英文閱讀(二):新聞英文閱讀-英-網」）", () => {
+      const r = audit([{ ...lang("英文閱讀(二):新聞英文閱讀-英-網", 1), selectType: "elective" }]);
+      expect(r.earned("basic-skills")).toBe(0);
     });
   });
 });

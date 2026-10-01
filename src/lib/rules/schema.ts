@@ -35,7 +35,17 @@ const zMatch = z.discriminatedUnion("type", [
    * 課名猜錯就會把學分算進錯的類別，寧可比不到（落到待確認或未修）也不要猜。
    * 成績單上的實際課名要在人工校對時確認並列全。
    */
-  z.object({ type: z.literal("courseNames"), names: z.array(z.string().min(1)).min(1) }),
+  z
+    .object({
+      type: z.literal("courseNames"),
+      names: z.array(z.string().min(1)).default([]),
+      /**
+       * 課名開頭。成績單把級別寫在括號裡（「外國語文(中級英文)」），規劃表只寫「外國語文」。
+       * 比對規則見 lib/courses/names.ts
+       */
+      prefixes: z.array(z.string().min(1)).optional(),
+    })
+    .refine((m) => m.names.length + (m.prefixes?.length ?? 0) > 0, { message: "courseNames 至少要有一個課名或開頭" }),
   /** 依選別欄位歸屬，如通識 */
   z.object({ type: z.literal("selectType"), value: z.enum(["required", "elective", "general"]) }),
   /** 本系（或指定系）開設之選修 */

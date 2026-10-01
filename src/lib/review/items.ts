@@ -19,6 +19,11 @@ export type ReviewItem = {
   details?: string[];
   /** 校對時要確認的事 */
   question: string;
+  /**
+   * 給校對者的補充說明（草稿的 `_draft.itemNotes`）—— 回覆上一輪的修正、解釋原文。
+   * 不算規則內容，不進 hash：加說明不會讓已通過的項目被迫重看。
+   */
+  note?: string;
   docId: string;
   /** 原始文件的標題與網址，校對時點開對照整份文件 */
   docTitle?: string;
@@ -49,6 +54,10 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
     string
   >;
   const yearLong = new Set((draft.yearLongCourses as string[] | undefined) ?? []);
+  const notes = ((draft._draft as { itemNotes?: Record<string, string> } | undefined)?.itemNotes ?? {}) as Record<
+    string,
+    string
+  >;
   const course = (code: string) =>
     `${titles[code] ?? "（課名未知）"}　${code}${yearLong.has(code) ? "　全學年（上下學期都要修）" : ""}`;
 
@@ -58,19 +67,26 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
     label: string,
     body: { extracted: string; details?: string[]; question: string },
     c: Citation | undefined,
+    /** 這一項背後的規則資料。雜湊只算它和引文，不算畫面上的文字 */
+    data: unknown,
   ) => {
     const doc = c ? docs.get(c.docId) : undefined;
     const pageMatch = c?.locator.match(/第\s*(\d+)\s*頁/);
-    const content = { label, ...body, docId: c?.docId ?? "", locator: c?.locator ?? "", quote: c?.quote };
     items.push({
       id,
       kind,
-      ...content,
+      label,
+      ...body,
+      docId: c?.docId ?? "",
+      locator: c?.locator ?? "",
+      quote: c?.quote,
       docTitle: doc?.title,
       docUrl: doc?.url,
       page: pageMatch ? Number(pageMatch[1]) : undefined,
       context: c?.quote ? locate(corpus.get(c.docId) ?? "", c.quote) : null,
-      hash: contentHash(content),
+      note: notes[id],
+      // 用規則資料算，不用畫面文字：改措辭不該讓已通過的項目被迫重看，改規則才該
+      hash: contentHash({ data, citation: c ?? null }),
     });
   };
 
@@ -88,6 +104,7 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
       question: `原文寫的畢業最低學分是不是 ${draft.minCredits}？`,
     },
     draft.minCreditsCitation as Citation | undefined,
+    { minCredits: draft.minCredits, admissionYear: draft.admissionYear, program: draft.program },
   );
 
   // ------------------------------------------------------------ 學分類別
@@ -118,12 +135,19 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
     ambiguities?: { id: string; description: string; contact: string; citation: Citation }[];
   };
 
+  type Check = { id: string; name: string; rule: string; contact: string; category?: string; citation: Citation };
+  const checks = (draft.graduationChecks as Check[] | undefined) ?? [];
   const cats = (draft.categories as Cat[] | undefined) ?? [];
   const catName = new Map(cats.map((c) => [c.id, c.name]));
   const minCredits = Number(draft.minCredits);
 
   for (const cat of cats) {
-    const need = `這一類要修滿 ${cat.credits} 學分。`;
+    // 0 學分的必修（體育）不影響學分數，但屬於這一類，寫出來免得看起來漏列
+    const members = checks.filter((g) => g.category === cat.id);
+    const memberText = members.length
+      ? `（另含${members.map((g) => `「${g.name}」`).join("、")}，0 學分，另列在「其他畢業條件」檢查）`
+      : "";
+    const need = `這一類要修滿 ${cat.credits} 學分${memberText}。`;
     let body: { extracted: string; details?: string[]; question: string };
     const m = cat.match;
     switch (m.type) {
@@ -168,7 +192,14 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
         break;
       }
     }
-    push(`category:${cat.id}`, "category", `學分類別：${cat.name}`, body, cat.citation);
+    const { subRules: _s, ambiguities: _a, ...rule } = cat;
+    const listed = m.type === "courseList" ? m.codes : [];
+    push(`category:${cat.id}`, "category", `學分類別：${cat.name}`, body, cat.citation, {
+      rule,
+      titles: listed.map((code) => [code, titles[code] ?? null, yearLong.has(code)]),
+      members: members.map((g) => g.name),
+      others: m.type === "anyPassed" ? cats.filter((c) => c !== cat).reduce((a, c) => a + c.credits, 0) : null,
+    });
 
     for (const s of cat.subRules ?? []) {
       const extracted =
@@ -187,6 +218,7 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
           question: "領域名稱和每個領域的要求和原文一樣嗎？",
         },
         s.citation,
+        { sub: s, titles: s.type === "minCoursesFromList" ? s.codes.map((code) => titles[code] ?? null) : null },
       );
     }
     for (const a of cat.ambiguities ?? []) {
@@ -199,13 +231,14 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
           question: "原文是否真的沒有說清楚、需要承辦單位認定？",
         },
         a.citation,
+        a,
       );
     }
   }
 
   // ------------------------------------------------------------ 畢業條件
-  type Check = { id: string; name: string; rule: string; contact: string; citation: Citation };
-  for (const g of (draft.graduationChecks as Check[] | undefined) ?? []) {
+  for (const g of checks) {
+    const within = g.category ? `屬於「${catName.get(g.category) ?? g.category}」，` : "";
     push(
       `check:${g.id}`,
       "graduationCheck",
@@ -213,11 +246,12 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
       {
         extracted:
           g.rule === "deptDefined"
-            ? `畢業前必須完成「${g.name}」。文件只寫由系上另訂，系統會請學生洽詢「${g.contact}」。`
-            : `畢業前必須完成「${g.name}」。這一項看成績單無法判斷，系統會請學生自行確認，或洽詢「${g.contact}」。`,
+            ? `畢業前必須完成「${g.name}」（${within}文件只寫由系上另訂）。系統會請學生洽詢「${g.contact}」。`
+            : `畢業前必須完成「${g.name}」${within ? `（${within.slice(0, -1)}）` : ""}。系統目前不從成績單判斷這一項，會請學生自行確認，或洽詢「${g.contact}」。`,
         question: "這真的是畢業條件嗎？名稱和要求和原文一樣嗎？",
       },
       g.citation,
+      { check: g, categoryName: g.category ? (catName.get(g.category) ?? null) : null },
     );
   }
 
@@ -239,6 +273,7 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
         question: "原文對修超過的學分是這樣規定的嗎？",
       },
       v.citation,
+      { policy: v, name },
     );
   }
 
@@ -264,24 +299,56 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
       "。排課時會照這個範圍。";
     const cites = limits.citations ?? [];
     const body = { extracted, question: "和這段原文對得起來嗎？（同一組數字分成幾段原文，請逐段確認）" };
-    if (cites.length === 0) push("termLimits:0", "meta", "每學期修課學分", body, undefined);
+    const { citations: _c, ...rule } = limits;
+    if (cites.length === 0) push("termLimits:0", "meta", "每學期修課學分", body, undefined, rule);
     cites.forEach((c, i) =>
-      push(`termLimits:${i}`, "meta", `每學期修課學分（${i + 1}/${cites.length}）`, body, c),
+      push(`termLimits:${i}`, "meta", `每學期修課學分（${i + 1}/${cites.length}）`, body, c, rule),
     );
   }
 
   return items;
 }
 
+/** 上下文單側最多幾個字；超過就截斷並標「…」 */
+const CONTEXT_MAX = 300;
+
+const lineStart = (s: string, i: number) => s.lastIndexOf("\n", i - 1) + 1;
+const lineEnd = (s: string, i: number) => {
+  const j = s.indexOf("\n", i);
+  return j < 0 ? s.length : j;
+};
+
+/**
+ * 高亮段落的前後文：往前補到上一個「非空白行」的行首，往後補到下一個非空白行的行尾。
+ *
+ * 以前固定前後各取 80 字，常常從句子中間切開（校對者回報「原文常常沒切完整」）。
+ * 條文是一行一行排的，以整行為單位才讀得懂。單側最多 CONTEXT_MAX 字，避免一大段表格整片倒出來。
+ */
+function around(source: string, start: number, end: number): { before: string; after: string } {
+  let from = lineStart(source, start);
+  while (from > 0) {
+    from = lineStart(source, from - 1);
+    if (source.slice(from, lineEnd(source, from)).trim() !== "") break;
+  }
+  let to = lineEnd(source, end);
+  while (to < source.length) {
+    const next = to + 1;
+    to = lineEnd(source, next);
+    if (source.slice(next, to).trim() !== "") break;
+  }
+  const cutBefore = start - from > CONTEXT_MAX;
+  const cutAfter = to - end > CONTEXT_MAX;
+  return {
+    before: (cutBefore ? "…" : "") + source.slice(cutBefore ? start - CONTEXT_MAX : from, start),
+    after: source.slice(end, cutAfter ? end + CONTEXT_MAX : to) + (cutAfter ? "…" : ""),
+  };
+}
+
 /** 在原文中定位 quote，回傳前後文供高亮 */
 export function locate(source: string, quote: string): ReviewItem["context"] {
   const idx = source.indexOf(quote);
   if (idx >= 0) {
-    return {
-      before: source.slice(Math.max(0, idx - 80), idx),
-      match: quote,
-      after: source.slice(idx + quote.length, idx + quote.length + 80),
-    };
+    return { ...around(source, idx, idx + quote.length), match: quote };
   }
 
   // 找不到完全相同的字串時，改用與 citation.verify 同一套正規化規則再找一次。
@@ -305,9 +372,8 @@ export function locate(source: string, quote: string): ReviewItem["context"] {
   const start = at[j]!;
   const end = at[j + q.length - 1]! + 1;
   return {
-    before: source.slice(Math.max(0, start - 80), start),
+    ...around(source, start, end),
     // 回傳原文實際的那一段（含排版空白），畫面高亮的才是原文，而不是引文
     match: source.slice(start, end),
-    after: source.slice(end, end + 80),
   };
 }

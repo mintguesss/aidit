@@ -3,7 +3,7 @@
   "dept": "IM",
   "admissionYear": 111,
   "program": "day",
-  "version": "0.3",
+  "version": "0.4",
   "approvedAt": "2026-10-01",
   "provenance": "draft",
   "approvedBy": null,
@@ -52,9 +52,9 @@
       "subRules": [],
       "ambiguities": [],
       "citation": {
-        "docId": "fju-im-rules-111",
-        "locator": "第 1 頁 第二條（一）",
-        "quote": "修滿全人教育核心課程 8學分"
+        "docId": "fju-im-plan-111",
+        "locator": "第 4 頁 畢業規定摘要",
+        "quote": "全人核心課程：8學分（大學入門2、人生哲學4、專業倫理2、及體育0學分/8小時4學期）"
       }
     },
     {
@@ -240,7 +240,8 @@
         "docId": "fju-im-plan-111",
         "locator": "第 4 頁 畢業規定摘要",
         "quote": "及體育0學分/8小時4學期"
-      }
+      },
+      "category": "holistic-core"
     },
     {
       "id": "info-test",
@@ -351,10 +352,10 @@
     ]
   },
   "_draft": {
-    "extractedAt": "2026-10-01T21:00:00",
+    "extractedAt": "2026-10-01T23:30:00",
     "extractedBy": "Claude（依兩份文字型 PDF 手動抽取，未經 scripts/extract-rulepack.ts）",
     "reviewNotes": "docs/review/fju-im-111.md",
-    "revision": "v0.3：A6 兩門框線外的課不算系專選；補畢業最低學分的原文出處",
+    "revision": "v0.4：體育歸入全人核心（校對第 2 項）；附校對補充說明",
     "courseTitles": {
       "00007": "人生哲學",
       "00155": "大學入門",
@@ -377,6 +378,11 @@
       "24495": "程式設計概論",
       "24496": "Web前端設計",
       "30499": "創新與設計思考"
+    },
+    "itemNotes": {
+      "category:holistic-core": "照你的修正：體育屬於全人核心（0 學分、要上 4 學期）。原文改用規劃表第 4 頁列出體育的那一行。體育本身仍由「其他畢業條件：體育」那一項檢查。",
+      "category:basic-skills": "國文分班、英文依學測分級都沒關係：系統比對的是成績單上的「課名」，不是班別。請照你成績單上這一類課的名稱抄下來（例如「大一英文（一）」「主題英文：…」，不用寫成績），按「需要修正」貼上，我就把它們列進來。",
+      "overflow:basic-skills": "規劃表第 3 頁寫「全人教育課程學分數 A = 32」，也就是全人核心 8 + 基本能力 12 + 通識 12。所以原文說的「超修的全人教育課程」包含基本能力課程，不只體育和國防：國文、英文修超過的學分一樣不算畢業學分。如果你同意，請改按「通過」。"
     }
   },
   "school": "fju"

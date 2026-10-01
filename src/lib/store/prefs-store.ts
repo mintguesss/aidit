@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, unlinkSync,
 import { join } from "node:path";
 import { dataDir } from "./paths";
 import { supabaseClient, supabaseConfigured } from "./supabase";
-import type { CoursePreferences } from "@/lib/types";
+import type { CoursePreferences, Declarations } from "@/lib/types";
 import type { OptionalPreferences } from "@/lib/ui/prefs";
 
 /**
@@ -27,6 +27,12 @@ export type StoredServerPrefs = {
   lastUsedAt: string;
   /** 學籍狀態，供自動刪除判定用；不存任何可識別欄位 */
   status?: string;
+  /**
+   * 畢業條件的自行勾選（學校資料看不出來的那幾項）。跟偏好一起存、一起刪。
+   * Supabase 上沒有獨立欄位（加欄位要跑遷移），存在 required 這個 jsonb 裡的 declarations 鍵，
+   * 讀寫時在這一層拆開 —— 外面看到的就是獨立欄位
+   */
+  declarations?: Declarations;
 };
 
 /** 最後使用日起算多久沒再用就自動刪除 */
@@ -168,11 +174,13 @@ class SupabasePrefsStore implements PrefsStore {
     if (!data) return null;
 
     const row = data as Row;
+    const { declarations, ...required } = row.required as CoursePreferences & { declarations?: Declarations };
     const v: StoredServerPrefs = {
-      required: row.required,
+      required: required as CoursePreferences,
       optional: row.optional ?? EMPTY_OPTIONAL,
       lastUsedAt: row.last_used_at,
       status: row.status ?? undefined,
+      ...(declarations ? { declarations } : {}),
     };
     if (stale(v)) {
       await this.delete(hash);
@@ -186,7 +194,7 @@ class SupabasePrefsStore implements PrefsStore {
     const db = await supabaseClient();
     const { error } = await db.from("preferences").upsert({
       student_hash: hash,
-      required: v.required,
+      required: v.declarations ? { ...v.required, declarations: v.declarations } : v.required,
       optional: v.optional ?? EMPTY_OPTIONAL,
       last_used_at: new Date().toISOString(),
       status: v.status ?? null,

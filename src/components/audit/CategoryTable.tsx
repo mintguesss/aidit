@@ -84,8 +84,15 @@ function Row({
     window.addEventListener("hashchange", apply);
     return () => window.removeEventListener("hashchange", apply);
   }, [c.id]);
+  // 全學年課程上下學期同課號：每個課號要對到不同的修課紀錄，
+  // 不然兩列都會顯示上學期那一筆
+  const used = new Set<CourseRecord>();
   const assigned = c.assignedCodes
-    .map((code) => courses.find((x) => (x.equivalentOf ?? x.code) === code || x.code === code))
+    .map((code) => {
+      const hit = courses.find((x) => !used.has(x) && ((x.equivalentOf ?? x.code) === code || x.code === code));
+      if (hit) used.add(hit);
+      return hit;
+    })
     .filter((x): x is CourseRecord => Boolean(x))
     // 照修課順序排：學生是按學期修過來的，照課號排等於要他自己在腦中重排一次
     .sort((a, b) => a.year - b.year || termRank(a.term) - termRank(b.term) || a.code.localeCompare(b.code));
@@ -131,6 +138,7 @@ function Row({
                   <thead>
                     <tr>
                       <th>課號與科目</th>
+                      <th className="nowrap">選別</th>
                       <th className="num">學分</th>
                       <th className="nowrap">學期</th>
                       <th className="nowrap">狀態</th>
@@ -143,6 +151,7 @@ function Row({
                           {x.code}　{x.name}
                           {x.equivalentOf ? <span className="meth">（等同 {x.equivalentOf}）</span> : null}
                         </td>
+                        <td className="nowrap" data-lb="選別">{selectLabel(x)}</td>
                         <td className="num" data-lb="學分">{x.credits}</td>
                         <td className="nowrap" data-lb="學期">{`${x.year}-${x.term}`}</td>
                         <td className="nowrap" data-lb="狀態">{STATUS_LABEL[x.status] ?? x.status}</td>
@@ -256,4 +265,10 @@ function buildTags(
   if (c.overflow > 0) tags.push({ text: `超修 ${c.overflow} 學分`, kind: "plain" });
   if (holds.length > 0) tags.push({ text: `${holds.length} 項採計待確認`, kind: "hold" });
   return tags;
+}
+
+/** 成績單上的選別；通識另外標領域（領域分布是通識的分項規定，看得到才知道還缺哪一塊） */
+function selectLabel(x: CourseRecord): string {
+  if (x.selectType === "general") return x.generalDomain ? `通識・${x.generalDomain}` : "通識";
+  return x.selectType === "required" ? "必修" : "選修";
 }

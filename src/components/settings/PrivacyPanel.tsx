@@ -22,11 +22,14 @@ import { erase, fetchPreferences } from "@/lib/ui/sync";
 export function PrivacyPanel({
   defaults,
   studentStatus,
+  declared = [],
   fixture,
   term,
 }: {
   defaults: CoursePreferences;
   studentStatus?: string;
+  /** 自行勾選已通過的畢業條件（存在伺服器，跟偏好一起刪） */
+  declared?: string[];
   fixture: string;
   term: string;
 }) {
@@ -126,6 +129,16 @@ export function PrivacyPanel({
               k="想避開的課程類型"
               v={o.avoidCourseTypes.length > 0 ? o.avoidCourseTypes.join("、") : "（未填）"}
             />
+          </dl>
+        </div>
+
+        <div className="pv-sec">
+          <div className="pv-hd">
+            <b>畢業條件自行勾選</b>
+            <span>存在伺服器，刪除偏好時一併刪除</span>
+          </div>
+          <dl className="pv-list">
+            <Row k="已勾選" v={declared.length > 0 ? declared.join("、") : "（沒有）"} />
           </dl>
         </div>
 

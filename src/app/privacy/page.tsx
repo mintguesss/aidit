@@ -23,6 +23,11 @@ export default async function PrivacyPage({
       <PrivacyPanel
         defaults={session.preferences}
         studentStatus={student?.status}
+        declared={
+          session.outcome.ok
+            ? session.outcome.audit.graduationChecks.filter((g) => g.selfDeclared).map((g) => g.name)
+            : []
+        }
         fixture={fixture}
         term={term}
       />

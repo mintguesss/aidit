@@ -1,4 +1,5 @@
 import type { CoursePreferences, CourseRecord, StudentRecord, Student, Term } from "@/lib/types";
+import { FJU_FIXTURES } from "./fixtures-fju";
 
 /**
  * 合成學籍與修課資料。
@@ -189,13 +190,16 @@ export type FixtureId =
   | "repeat-course"
   | "cross-college"
   | "domain-unmet-credits-ok"
-  | "no-enrollment-data";
+  | "no-enrollment-data"
+  | (typeof FJU_FIXTURES)[number]["id"];
 
 export type Fixture = {
   id: FixtureId;
   title: string;
   /** 這份資料在測什麼 */
   tests: string;
+  /** 這個案例的「目前學期」；沒填用全站預設（114-2）。大二結束的案例是 112-2 */
+  term?: string;
   record: StudentRecord;
 };
 
@@ -366,6 +370,8 @@ export const FIXTURES: Fixture[] = [
     tests: "capabilities 缺項應進 holds，不得猜測",
     record: record({ ...BASE_STUDENT, id: "S-NOENR-001" }, DEMO_COURSES.filter((x) => x.status !== "in_progress")),
   },
+  // 輔大資管 111：真實規則＋真實修課紀錄（只有課名、學分、學期），見 fixtures-fju.ts
+  ...FJU_FIXTURES,
 ];
 
 export function fixture(id: FixtureId): Fixture {

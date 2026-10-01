@@ -149,7 +149,10 @@ export function ProgressRuler({
       <p className="pg-foot">
         每一段的寬度等於該類別的應修學分，合計 {minCredits} 學分。
         {overflow > 0
-          ? `自由選修超修的 ${overflow} 學分計入修得總學分，但依學則不得流用至其他類別，因此畫在框外。`
+          ? `超修的 ${overflow} 學分（${categories
+              .filter((c) => c.overflow > 0)
+              .map((c) => `${c.shortName} ${c.overflow}`)
+              .join("、")}）計入修得總學分，但依學則不得流用至其他類別，因此畫在框外。`
           : "目前無超修學分。"}
       </p>
     </div>

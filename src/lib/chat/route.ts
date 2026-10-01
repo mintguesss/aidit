@@ -404,6 +404,7 @@ const STEP_LABEL: Record<ExclusionReason["step"], string> = {
   "avoid-day": "落在你指定要空出的星期",
   "avoid-period": "落在你指定要空出的節次",
   "excluded-by-user": "你指定要排除",
+  "already-taken": "已經修過",
   "not-chosen": "有資格但未被選入",
   chosen: "已經排在課表裡",
 };

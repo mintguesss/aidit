@@ -17,6 +17,7 @@ import type { CoursePreferences } from "@/lib/types";
 import type { OptionalPreferences } from "@/lib/ui/prefs";
 import { termLimitsFor } from "@/lib/rules/term-limits";
 import { schoolOf } from "@/lib/schools";
+import { takenCourseCodes } from "@/lib/solver/taken";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -89,6 +90,7 @@ export async function POST(req: Request) {
         .filter((c) => c.status === "passed" || c.status === "waived")
         .map((c) => c.equivalentOf ?? c.code),
     ),
+    takenCodes: takenCourseCodes(record.courses, pack),
     reserved: reservedFrom(record.plannedCommitments),
     preferences,
     constraints,

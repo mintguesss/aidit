@@ -18,6 +18,11 @@ export type Announcement = {
   /** 解析後的適用學年；null 表示未載明 */
   appliesToYears: number[] | null;
   scope: "general" | "dept" | "university";
+  /**
+   * 哪一所學校的公告（lib/schools.ts）。公告用類別 id 對應規則包，
+   * 不同學校的規則包可能剛好有同名的 id（輔大也有 general、english）—— 不分學校就會套錯人
+   */
+  school: string;
   /** 本公告所影響的規則包類別或畢業條件 id */
   targets: string[];
   contentDocId: string;
@@ -32,6 +37,7 @@ export const ANNOUNCEMENTS: Announcement[] = [
     appliesToYears: [114, 115, 116, 117, 118],
     scope: "general",
     targets: ["general"],
+    school: "demo",
     contentDocId: "ann-ge-114",
   },
   {
@@ -43,6 +49,7 @@ export const ANNOUNCEMENTS: Announcement[] = [
     appliesToYears: null,
     scope: "dept",
     targets: ["english"],
+    school: "demo",
     contentDocId: "ann-eng-cert",
   },
 ];
@@ -51,6 +58,7 @@ export function citationOf(a: Announcement, locator: string, quote?: string): Ci
   return { docId: a.contentDocId, docTitle: a.title, locator, quote, url: a.url, publishedAt: a.publishedAt };
 }
 
-export function announcementsFor(targets: string[]): Announcement[] {
-  return ANNOUNCEMENTS.filter((a) => a.targets.some((t) => targets.includes(t)));
+/** 只取這所學校的公告 */
+export function announcementsFor(school: string): Announcement[] {
+  return ANNOUNCEMENTS.filter((a) => a.school === school);
 }

@@ -148,7 +148,8 @@ export type CitationVerdict = {
   ok: boolean;
   method?: "exact" | "fuzzy";
   ratio?: number;
-  reason?: "document_missing" | "quote_missing" | "quote_not_found";
+  /** number_mismatch：模糊比對夠像，但數字跟原文不同 —— 規則裡最關鍵的就是數字 */
+  reason?: "document_missing" | "quote_missing" | "quote_not_found" | "number_mismatch";
 };
 
 // ---------------------------------------------------------------- 審查結果

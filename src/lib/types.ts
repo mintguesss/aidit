@@ -127,8 +127,12 @@ export type Offering = {
   category: string[];
   generalDomain?: string;
   prerequisites: Prerequisite[];
-  capacity: number;
-  enrolled: number;
+  /**
+   * 修課人數上限與已選人數。**可能未知**：系上課表沒有這兩個數字，只有教務處系統有。
+   * 未知時不是 0 —— 不能當成額滿排除，也不能編一個餘額出來。見 remainingSeats()。
+   */
+  capacity?: number;
+  enrolled?: number;
   syllabusUrl?: string;
 };
 
@@ -368,7 +372,8 @@ export type PlanCourse = {
   teacher: string;
   category: string;
   categoryLabel: string;
-  remaining: number;
+  /** 修課餘額；null 表示開課資料沒有提供，不是額滿 */
+  remaining: number | null;
   clash?: { with: string; alternative?: { code: string; name: string; slotText: string } };
   /** 低信心先修，僅提示不排除 */
   prereqWarning?: string;

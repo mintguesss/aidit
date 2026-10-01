@@ -1,6 +1,6 @@
 {
   "id": "fju-im-111",
-  "dept": "FJU-IM",
+  "dept": "IM",
   "admissionYear": 111,
   "program": "day",
   "version": "0.2",
@@ -8,7 +8,7 @@
   "provenance": "draft",
   "approvedBy": null,
   "minCredits": 128,
-  "college": "FJU-MGT",
+  "college": "MGT",
   "documents": [
     {
       "id": "fju-im-rules-111",
@@ -154,7 +154,7 @@
       "order": 5,
       "match": {
         "type": "deptElective",
-        "dept": "FJU-IM"
+        "dept": "IM"
       },
       "subRules": [],
       "ambiguities": [],
@@ -346,5 +346,6 @@
     "extractedBy": "Claude（依兩份文字型 PDF 手動抽取，未經 scripts/extract-rulepack.ts）",
     "reviewNotes": "docs/review/fju-im-111.md",
     "revision": "v0.2：依校對清單 A1、A3、C1、C2 的回覆修改"
-  }
+  },
+  "school": "fju"
 }

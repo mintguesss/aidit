@@ -10,6 +10,7 @@ import {
   type SolveContext,
 } from "@/lib/solver/schedule";
 import { preferencesOf } from "@/lib/chat/apply";
+import { termLimitsFor } from "@/lib/rules/term-limits";
 
 /**
  * 步驟 8：選課組合求解。
@@ -26,6 +27,7 @@ export const solveScheduleStep: Step = {
   async run({ trace, state }) {
     const audit = state.audit!;
     const requirements = requirementsFrom(audit);
+    const limits = termLimitsFor(state.pack!, state.record!.student, state.nextTerm);
     const preferences = preferencesOf(state.record!.preferences);
     const passedCodes = new Set(
       state.record!.courses
@@ -39,10 +41,10 @@ export const solveScheduleStep: Step = {
       passedCodes,
       reserved: reservedFrom(state.record!.plannedCommitments),
       preferences,
-      constraints: constraintsFrom(preferences, state.pack!.termLimits),
+      constraints: constraintsFrom(preferences, limits),
       termLabel: state.nextTerm,
-      termMinCredits: state.pack!.termLimits.minCredits,
-      termMaxCredits: state.pack!.termLimits.maxCredits,
+      termMinCredits: limits.minCredits,
+      termMaxCredits: limits.maxCredits,
     };
 
     const calls: ToolCall[] = [];

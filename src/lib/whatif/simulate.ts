@@ -18,6 +18,7 @@ import {
 } from "@/lib/solver/schedule";
 import { offeringsFor, activeCourseCodes } from "@/lib/offerings";
 import { loadRulePacks } from "@/lib/rules/loader";
+import { termLimitsFor } from "@/lib/rules/term-limits";
 
 /**
  * 情境試算的確定性推算（docs/SPEC.md §12 步驟 3）。
@@ -373,6 +374,8 @@ function buildSolveContext(
   term: 1 | 2,
   requirements: ReturnType<typeof requirementsFrom>,
 ): SolveContext {
+  // 試算可能跨好幾個學期，每個學期用它自己的學年算上下限
+  const limits = termLimitsFor(pack, record.student, `${year}-${term}`);
   return {
     offerings: offeringsFor(year, term),
     requirements,
@@ -387,11 +390,11 @@ function buildSolveContext(
     preferences: { ...(record.preferences ?? DEFAULT_PREFERENCES), goal: "asap" },
     constraints: constraintsFrom(
       { ...(record.preferences ?? DEFAULT_PREFERENCES), goal: "asap", maxCredits: undefined },
-      pack.termLimits,
+      limits,
     ),
     termLabel: `${year}-${term}`,
-    termMinCredits: pack.termLimits.minCredits,
-    termMaxCredits: pack.termLimits.maxCredits,
+    termMinCredits: limits.minCredits,
+    termMaxCredits: limits.maxCredits,
   };
 }
 

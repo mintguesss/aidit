@@ -139,8 +139,14 @@ const zGraduationCheck = z.object({
   /**
    * evidence   —— 依 StudentRecord.graduationEvidence 判定
    * deptDefined —— 規劃表僅記載「各系自訂」，須另尋公告；找不到就是 hold
+   * passedCourse —— 成績單上有這門課就算（輔大的全民國防教育軍事訓練：0 學分，但成績單上有）。
+   *                 課名去空白後完全比對；找不到一律 hold，不判未修 —— 可能只是課名寫法不同
    */
-  rule: z.enum(["evidence", "deptDefined"]),
+  rule: z.enum(["evidence", "deptDefined", "passedCourse"]),
+  /** rule = passedCourse：成績單上的課名，任一個相符即可 */
+  courseNames: z.array(z.string().min(1)).optional(),
+  /** rule = passedCourse：至少要修過幾個學期（體育是 4），預設 1 */
+  minTerms: z.number().int().positive().optional(),
   /**
    * 屬於哪個學分類別（選填）。0 學分的必修 —— 輔大的體育 —— 不影響學分數，但規劃表把它列在
    * 全人核心裡。記下歸屬，顯示時才不會讓人以為那一類漏了它。
@@ -259,6 +265,9 @@ export const zRulePack = z
     });
     pack.graduationChecks.forEach((g, i) => {
       check(g.citation, ["graduationChecks", i]);
+      if (g.rule === "passedCourse" && !g.courseNames?.length) {
+        ctx.addIssue({ code: "custom", message: `畢業條件 ${g.id} 是 passedCourse，但沒有 courseNames`, path: ["graduationChecks", i, "courseNames"] });
+      }
       if (g.category && !pack.categories.some((c) => c.id === g.category)) {
         ctx.addIssue({ code: "custom", message: `畢業條件 ${g.id} 的 category "${g.category}" 不是任何學分類別`, path: ["graduationChecks", i, "category"] });
       }

@@ -260,6 +260,24 @@ function toItems(draft: Record<string, unknown>, corpus: Map<string, string>): R
     push(`overflow:${k}`, "overflowPolicy", `超修規定　${k}`, JSON.stringify(v), v.citation);
   }
 
+  // 修課學分上下限是排課的硬限制，與類別一樣要對照原文
+  type Limits = {
+    maxCredits: number;
+    minCredits: number;
+    byStudyYear?: { fromYear: number; maxCredits?: number; minCredits?: number }[];
+    citations?: { docId: string; locator: string; quote?: string }[];
+  };
+  const limits = draft.termLimits as Limits | undefined;
+  if (limits) {
+    const adjust = (limits.byStudyYear ?? [])
+      .map((o) => `第 ${o.fromYear} 學年起${o.minCredits ? `下限 ${o.minCredits}` : ""}${o.maxCredits ? `、上限 ${o.maxCredits}` : ""}`)
+      .join("；");
+    const summary = `上限 ${limits.maxCredits}、下限 ${limits.minCredits}${adjust ? `；${adjust}` : ""}`;
+    const cites = limits.citations ?? [];
+    if (cites.length === 0) push("termLimits:0", "meta", "修課學分上下限", summary, undefined);
+    cites.forEach((c, i) => push(`termLimits:${i}`, "meta", "修課學分上下限", summary, c));
+  }
+
   return items;
 }
 

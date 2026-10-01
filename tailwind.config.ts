@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
 /**
- * Design token 直接沿用 aidit-demo-v5.html 的 CSS 變數。
+ * Design token 直接沿用 docs/design/aidit-demo-v5.html 的 CSS 變數。
  * 顏色以 CSS 變數為單一事實來源（globals.css :root），此處僅建立 Tailwind 別名，
  * 避免同一個色票在兩個地方各寫一份而走鐘。
  */

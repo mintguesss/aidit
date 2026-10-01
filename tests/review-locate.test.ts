@@ -42,3 +42,35 @@ describe("校對頁的原文定位", () => {
     expect(locate(source, "修滿全人教育核心課程 10學分")).toBeNull();
   });
 });
+
+describe("前後文以整行為單位", () => {
+  const rules = [
+    "第二條 本系學士班畢業應修之課程如下：",
+    "",
+    "（五）選修課程中包含本系專業選修課程至少 10學分。",
+    "（六）畢業學分數為全人教育核心課程、基本能力課程、通識涵養課程、專業必修課程及",
+    "     選修課程五者之學分數，至少         128學分(同註1)。",
+    "",
+    "（七）學科學習能力檢測：通過資訊學科學習能力檢測。",
+  ].join("\n");
+
+  it("往前補到上一個非空白行，往後補到下一個非空白行 —— 不從句子中間切", () => {
+    const c = locate(rules, "選修課程五者之學分數，至少 128學分")!;
+    expect(c.before.startsWith("（六）畢業學分數為")).toBe(true);
+    expect(c.after).toContain("(同註1)。");
+    expect(c.after.trim().endsWith("（七）學科學習能力檢測：通過資訊學科學習能力檢測。")).toBe(true);
+  });
+
+  it("跳過空白行再找上一行", () => {
+    const c = locate(rules, "（五）選修課程中包含本系專業選修課程")!;
+    expect(c.before.startsWith("第二條")).toBe(true);
+  });
+
+  it("單側太長時截斷並標「…」", () => {
+    const long = "甲".repeat(1000) + "目標句" + "乙".repeat(1000);
+    const c = locate(long, "目標句")!;
+    expect(c.before.startsWith("…")).toBe(true);
+    expect(c.after.endsWith("…")).toBe(true);
+    expect(c.before.length).toBeLessThanOrEqual(301);
+  });
+});

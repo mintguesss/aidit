@@ -10,6 +10,8 @@ export type Term = 1 | 2 | "summer";
 export type Student = {
   /** 去識別後的代號，非學號 */
   id: string;
+  /** 學校代號（lib/schools.ts）。未填為 "demo"，即合成資料 */
+  school?: string;
   dept: string;
   /** 學籍入學學年 —— 畢業條件綁定此欄 */
   admissionYear: number;

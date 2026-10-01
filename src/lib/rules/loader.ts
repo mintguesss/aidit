@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { zRulePack, type RulePack } from "./schema";
 import type { Student, TransferApproval } from "@/lib/types";
 import { contentHash } from "@/lib/util/identity";
+import { schoolOf } from "@/lib/schools";
 
 /**
  * 規則包載入與版本判定（docs/SPEC.md §6 step 2）。
@@ -129,8 +130,10 @@ export function resolveRulePack(student: Student, transfer?: TransferApproval): 
       };
     }
   }
+  // 學校也要對上：合成的 im-111 與輔大資管 111 是同一組系所、學年、學制
   const pack = loadRulePacks().find(
     (p) =>
+      p.school === schoolOf(student) &&
       p.dept === student.dept &&
       p.admissionYear === student.admissionYear &&
       p.program === student.program,

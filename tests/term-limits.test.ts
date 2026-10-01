@@ -51,3 +51,17 @@ describe("依學年的修課學分上下限", () => {
     });
   });
 });
+
+describe("學校", () => {
+  it("同系所、同學年、同學制，不同學校不會對到同一份規則包", async () => {
+    const { resolveRulePack } = await import("@/lib/rules/loader");
+    const base = { id: "S-T", dept: "IM", admissionYear: 111, actualAdmissionYear: 111,
+      status: "enrolled" as const, program: "day" as const };
+    // 沒填學校＝合成資料
+    const demo = resolveRulePack(base);
+    expect(demo.ok && demo.pack.id).toBe("im-111");
+    // 輔大的規則包還在草稿，不會被載入 —— 重點是不能退而求其次拿到合成的 im-111
+    const fju = resolveRulePack({ ...base, school: "fju" });
+    expect(fju.ok).toBe(false);
+  });
+});

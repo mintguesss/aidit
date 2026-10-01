@@ -83,6 +83,17 @@ export function fuzzyBestMatch(needle: string, haystack: string): FuzzyMatch {
   return best;
 }
 
+/**
+ * 文字裡的數字，依出現順序：阿拉伯數字與國字數字的連續段落。
+ *
+ * 模糊比對用來容忍排版或 OCR 的小差異，但規則裡最關鍵的就是數字 ——
+ * 「上限為二十五學分」改成「二十八學分」只差一個字，相似度 95%，
+ * 模糊比對會判通過。引用回查拿這個函式確認兩邊的數字完全一樣。
+ */
+export function numeralsOf(s: string): string[] {
+  return s.match(/[0-9零〇一二兩三四五六七八九十百千萬]+/g) ?? [];
+}
+
 /** 穩定字串比較，供指派決勝使用（不依賴 locale） */
 export function cmp(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;

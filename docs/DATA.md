@@ -29,6 +29,9 @@
 | **課綱原文語料** | `src/lib/rules/corpus/*.txt`（6 檔，約 10KB） | 儲存層，但**冷啟動預載成記憶體 Map**，不要改成 async |
 | **開課資料** | `src/lib/offerings/raw.ts`（合成） | 儲存層＋抓取正規化，BACKEND.md §4 |
 | **測試夾具** | `src/lib/providers/fixtures.ts`（合成） | **留在 repo**，它是 golden set 的回歸基準 |
+| **輔大資管規則包草稿** | 草稿儲存層（`rulepack_drafts`）；副本在 `docs/review/` | 真實規則，校對鎖版前不用於判定 |
+| **輔大原文語料** | `src/lib/rules/corpus/fju-im-*.txt` | 公開文件，引用回查用 |
+| **輔大開課資料** | `docs/review/fju-offerings-115-2.json` | 系上公開課表抽出，**尚未接進排課** |
 
 ## 三、作業紀錄
 

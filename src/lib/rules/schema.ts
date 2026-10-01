@@ -150,6 +150,8 @@ export const zOverflowPolicy = z.object({
 export const zRulePack = z
   .object({
     id: z.string().min(1),
+    /** 學校代號（lib/schools.ts）。未填為 "demo"，即合成資料 */
+    school: z.string().min(1).default("demo"),
     dept: z.string().min(1),
     admissionYear: z.number().int(),
     program: z.enum(["day", "night"]),

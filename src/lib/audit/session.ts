@@ -6,6 +6,7 @@ import { preferencesOf } from "@/lib/chat/apply";
 import { purgeDaily } from "@/lib/store/purge";
 import type { FixtureId } from "@/lib/providers/fixtures";
 import type { CoursePreferences } from "@/lib/types";
+import { termLimitsFor } from "@/lib/rules/term-limits";
 
 /**
  * 審查結果快取（docs/BACKEND.md §8）。
@@ -52,7 +53,8 @@ export async function getAuditSession(fixture: FixtureId, currentTerm: string): 
   if (outcome.ok) {
     const record = outcome.state.record!;
     const pack = resolveRulePack(record.student);
-    if (pack.ok) termLimits = pack.pack.termLimits;
+    // 用排課那個學期的學年算（大三下替大四上排課，用的是大四的上下限）
+    if (pack.ok) termLimits = termLimitsFor(pack.pack, record.student, outcome.audit.nextTerm);
     preferences = preferencesOf(record.preferences);
   }
 

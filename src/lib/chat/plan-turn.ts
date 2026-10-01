@@ -11,6 +11,7 @@ import {
 } from "@/lib/solver/schedule";
 import { describeSet, toSolverConstraints } from "./apply";
 import type { ConstraintSet } from "./types";
+import { termLimitsFor } from "@/lib/rules/term-limits";
 
 /**
  * A 介面的一輪（docs/CONVERSATION.md §1.3、§1.4）。
@@ -41,6 +42,7 @@ export function buildContext(
   set: ConstraintSet,
 ): SolveContext {
   const [year, term] = parseTerm(audit.nextTerm);
+  const limits = termLimitsFor(pack, record.student, audit.nextTerm);
   return {
     offerings: offeringsFor(year, term),
     requirements: requirementsFrom(audit),
@@ -60,10 +62,10 @@ export function buildContext(
       note: set.note,
       extraGoals: [],
     },
-    constraints: toSolverConstraints(set, pack.termLimits),
+    constraints: toSolverConstraints(set, limits),
     termLabel: audit.nextTerm,
-    termMinCredits: pack.termLimits.minCredits,
-    termMaxCredits: pack.termLimits.maxCredits,
+    termMinCredits: limits.minCredits,
+    termMaxCredits: limits.maxCredits,
   };
 }
 

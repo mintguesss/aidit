@@ -1,4 +1,4 @@
-import { periodTime, PERIOD_TABLE } from "@/lib/offerings/periods";
+import { periodScheme, periodRow, type PeriodScheme } from "@/lib/offerings/period-scheme";
 import type { Plan } from "@/lib/types";
 
 /**
@@ -8,7 +8,8 @@ import type { Plan } from "@/lib/types";
  * （docs/DATA.md：課表不存，每次由審查結果＋偏好重算）。
  * 「匯出」正是「不儲存」的那個替代方案：要留存的人自己留一份。
  *
- * **時間資料的可信度**：節次對照 `PERIOD_TABLE` 與下方的學期起訖都是合成資料。
+ * **時間資料的可信度**：節次鐘點依學校（lib/offerings/period-scheme.ts）—— 輔大照教務處原文，
+ * 合成資料是合成的；下方的學期起訖目前一律是合成資料。
  * 匯出的檔案會把這件事寫進去 —— 一份看起來很真、時間卻是假的行事曆，
  * 比沒有行事曆更糟。真實開課資料進來時兩者都必須一併更新。
  */
@@ -41,7 +42,7 @@ const DAY_NAMES = ["", "一", "二", "三", "四", "五", "六", "日"];
 // ---------------------------------------------------------------- CSV
 
 /** CSV：不需要任何日期假設，欄位就是課表上看得到的東西。 */
-export function toCsv(plan: Plan): string {
+export function toCsv(plan: Plan, scheme: PeriodScheme = periodScheme()): string {
   const rows: string[][] = [
     ["課號", "課程名稱", "學分", "教師", "類別", "星期", "節次", "時間", "時段原文"],
   ];
@@ -52,11 +53,12 @@ export function toCsv(plan: Plan): string {
       continue;
     }
     for (const s of c.slots) {
-      const times = s.periods.map(periodTime).filter((t) => t !== undefined);
+      const times = s.periods.map((p) => periodRow(scheme, p)).filter((t) => t !== undefined);
       const span = times.length > 0 ? `${times[0]!.start}-${times[times.length - 1]!.end}` : "";
       rows.push([
         c.code, c.name, String(c.credits), c.teacher, c.categoryLabel,
-        DAY_NAMES[s.day] ?? String(s.day), s.periods.join("、"), span, c.slotText,
+        // 節次欄印節次名稱，不印內部編號（輔大的內部第 6 節是 D5）
+        DAY_NAMES[s.day] ?? String(s.day), s.periods.map((p) => periodRow(scheme, p)?.label ?? String(p)).join("、"), span, c.slotText,
       ]);
     }
   }
@@ -78,7 +80,7 @@ function csvCell(v: string): string {
  * 對校內課表這是對的：課就在當地的那個鐘點，不隨時區移動。帶 TZID 就得一併
  * 塞 VTIMEZONE，為了單一時區的課表不值得。
  */
-export function toIcs(plan: Plan, now = new Date()): string {
+export function toIcs(plan: Plan, now = new Date(), scheme: PeriodScheme = periodScheme()): string {
   const dates = TERM_DATES.of(plan.term);
   if (!dates) throw new Error(`無法解析學期代號 ${plan.term}`);
 
@@ -96,7 +98,7 @@ export function toIcs(plan: Plan, now = new Date()): string {
 
   for (const c of plan.courses) {
     for (const [i, s] of c.slots.entries()) {
-      const times = s.periods.map(periodTime).filter((t) => t !== undefined);
+      const times = s.periods.map((p) => periodRow(scheme, p)).filter((t) => t !== undefined);
       if (times.length === 0) continue;
 
       const day = firstDateOn(dates.start, s.day).replace(/-/g, "");
@@ -115,7 +117,7 @@ export function toIcs(plan: Plan, now = new Date()): string {
             c.teacher ? `教師：${c.teacher}` : "",
             `時段：${c.slotText}`,
             "",
-            `節次時間來源：${PERIOD_TABLE.source}（${PERIOD_TABLE.asOf}）`,
+            `節次時間來源：${scheme.source}（${scheme.asOf}）`,
             `學期起訖來源：${TERM_DATES.source}（${TERM_DATES.asOf}）`,
             "本檔為選課建議，非選課結果；實際開課時間以校方公告為準。",
           ].filter(Boolean).join("\n"),

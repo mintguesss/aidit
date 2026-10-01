@@ -9,7 +9,7 @@ import {
   PRESET_OF_GOAL,
   type SolveContext,
 } from "@/lib/solver/schedule";
-import { describeSet, toSolverConstraints } from "./apply";
+import { describeSet, toSolverConstraints, DEMO_PERIOD_NAMES, type PeriodNames } from "./apply";
 import type { ConstraintSet } from "./types";
 import { termLimitsFor } from "@/lib/rules/term-limits";
 import { schoolOf } from "@/lib/schools";
@@ -75,6 +75,8 @@ export function runPlanTurn(
   set: ConstraintSet,
   before: Plan | undefined,
   changed: string[],
+  /** 節次的說法依學校（輔大說 D1–D4，不說第 1–4 節） */
+  names: PeriodNames = DEMO_PERIOD_NAMES,
 ): PlanTurnOutcome {
   // §1.4：對話中不自動放寬。solve() 走嚴格路徑，放寬只作為建議提出。
   const result = solve(ctx, PRESET_OF_GOAL[set.goal]);
@@ -91,7 +93,7 @@ export function runPlanTurn(
     diff: { added, removed, unchanged: added.length === 0 && removed.length === 0 },
     costs: computeCosts(ctx, before, after, result),
     relaxOptions: result.ok ? [] : relaxationOptions(set, result),
-    constraints: describeSet(set),
+    constraints: describeSet(set, names),
   };
 }
 

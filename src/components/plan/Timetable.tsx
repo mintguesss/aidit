@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { PlanCourse, TimeSlot } from "@/lib/types";
-import { periodTime } from "@/lib/offerings/periods";
+import { periodScheme, periodRow } from "@/lib/offerings/period-scheme";
 
 /**
  * 週課表格線。
@@ -33,19 +33,25 @@ export function Timetable({
   courses,
   reserved,
   search = "",
+  school,
 }: {
   courses: PlanCourse[];
   reserved: { label: string; slots: TimeSlot[] }[];
   search?: string;
+  /** 學校：節次名稱與鐘點依各校作息（輔大的內部第 6 節是 D5） */
+  school?: string;
 }) {
+  const scheme = periodScheme(school);
   const grid = new Map<string, Block>();
   const at = (d: number, p: number) => `${d}-${p}`;
-  let maxPeriod = 8;
+  let maxPeriod = scheme.defaultLast;
+  let minPeriod = 1;
 
   for (const c of courses) {
     for (const s of c.slots) {
       for (const p of s.periods) {
         maxPeriod = Math.max(maxPeriod, p);
+        minPeriod = Math.min(minPeriod, p);
         grid.set(at(s.day, p), {
           key: c.code,
           name: c.name,
@@ -62,6 +68,7 @@ export function Timetable({
     for (const s of r.slots) {
       for (const p of s.periods) {
         maxPeriod = Math.max(maxPeriod, p);
+        minPeriod = Math.min(minPeriod, p);
         if (!grid.has(at(s.day, p))) {
           grid.set(at(s.day, p), { key: `r-${r.label}`, name: r.label, kind: "reserved" });
         }
@@ -71,7 +78,8 @@ export function Timetable({
 
   const days = [1, 2, 3, 4, 5, 6, 7];
   const usesWeekend = [...grid.keys()].some((k) => k.startsWith("6-") || k.startsWith("7-"));
-  const periods = Array.from({ length: maxPeriod }, (_, i) => i + 1);
+  // 一般從第 1 節畫起；排到輔大特早節（內部第 0 節）才往上延伸
+  const periods = Array.from({ length: maxPeriod - minPeriod + 1 }, (_, i) => i + minPeriod);
   const unknown = courses.filter((c) => c.slots.length === 0);
   const skip = new Map<number, number>();
 
@@ -90,11 +98,11 @@ export function Timetable({
         </thead>
         <tbody>
           {periods.map((p) => {
-            const t = periodTime(p);
+            const t = periodRow(scheme, p);
             return (
               <tr key={p}>
                 <th className="tt-p">
-                  <span className="n">{p}</span>
+                  <span className="n">{t?.label ?? p}</span>
                   {t ? (
                     <span className="hm">
                       {t.start}
@@ -126,7 +134,9 @@ export function Timetable({
         </tbody>
       </table>
 
-      <p className="tt-legend">點課程格可看課綱。</p>
+      <p className="tt-legend">
+        點課程格可看課綱。節次時間：{scheme.source}（{scheme.asOf}）。
+      </p>
 
       {unknown.length > 0 ? (
         <p className="tt-note">

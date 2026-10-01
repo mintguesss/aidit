@@ -3,7 +3,7 @@ import { getAuditSession } from "@/lib/audit/session";
 import { parsePageParams } from "@/lib/ui/params";
 import { resolveRulePack } from "@/lib/rules/loader";
 import { askTurn, planTurn, type TurnContext } from "@/lib/chat/route";
-import { constraintSetFrom, describeSet, preferencesOf, sanitiseConstraintSet } from "@/lib/chat/apply";
+import { constraintSetFrom, describeSet, preferencesOf, sanitiseConstraintSet, periodNamesFor } from "@/lib/chat/apply";
 import { render } from "@/lib/chat/compose";
 import { isCourseCode } from "@/lib/courses/code";
 
@@ -163,7 +163,7 @@ export async function POST(req: Request) {
           conflicts: turn.plan.solve.ok ? undefined : turn.plan.solve.infeasibilities,
           excluded: turn.plan.solve.excluded,
           constraints: turn.plan.constraintSet,
-          constraintLabels: describeSet(turn.plan.constraintSet),
+          constraintLabels: describeSet(turn.plan.constraintSet, periodNamesFor(record.student.school)),
           changed: turn.plan.changed,
           diff: turn.plan.diff,
           costs: turn.plan.costs,

@@ -149,8 +149,14 @@ export function clashes(a: TimeSlot[], b: TimeSlot[]): boolean {
 const DAY_LABEL = ["", "一", "二", "三", "四", "五", "六", "日"];
 const PERIOD_LABEL = (p: number) => (p >= 11 ? String.fromCharCode(65 + p - 11) : String(p));
 
-/** 回寫成可讀字串，用於 UI 與選課建議表 */
-export function formatSlots(slots: TimeSlot[], unknown = false): string {
+/**
+ * 回寫成可讀字串，用於 UI 與選課建議表。
+ *
+ * label 把內部整數節次換成給人看的名稱。輔大的內部第 6 節是 D5，
+ * 不換的話會把 D5-D7 印成「6-8」—— 用 lib/offerings/period-scheme.ts 的 periodLabel。
+ * 不給就是合成資料的寫法。
+ */
+export function formatSlots(slots: TimeSlot[], unknown = false, label: (p: number) => string = PERIOD_LABEL): string {
   if (unknown) return "時段未知";
   if (slots.length === 0) return "無上課時間";
   return slots
@@ -159,8 +165,8 @@ export function formatSlots(slots: TimeSlot[], unknown = false): string {
       const contiguous = ps.every((p, i) => i === 0 || p === ps[i - 1]! + 1);
       const body =
         contiguous && ps.length > 1
-          ? `${PERIOD_LABEL(ps[0]!)}-${PERIOD_LABEL(ps[ps.length - 1]!)}`
-          : ps.map(PERIOD_LABEL).join(",");
+          ? `${label(ps[0]!)}-${label(ps[ps.length - 1]!)}`
+          : ps.map(label).join(",");
       return `${DAY_LABEL[s.day]} ${body}`;
     })
     .join(" / ");

@@ -1,6 +1,7 @@
 "use client";
 
 import { toCsv, toIcs } from "@/lib/plan/export";
+import { periodScheme } from "@/lib/offerings/period-scheme";
 import type { Plan } from "@/lib/types";
 
 /**
@@ -10,7 +11,9 @@ import type { Plan } from "@/lib/types";
  * 「匯出」正是「不儲存」的那個替代方案：要留存的人自己留一份，
  * 而不是由系統替所有人保存一份。
  */
-export function ExportButtons({ plan }: { plan: Plan }) {
+export function ExportButtons({ plan, school }: { plan: Plan; school?: string }) {
+  // 鐘點依學校作息：輔大學生匯出的行事曆不能用合成資料的鐘點
+  const scheme = periodScheme(school);
   const download = (name: string, mime: string, body: string) => {
     const url = URL.createObjectURL(new Blob([body], { type: mime }));
     const a = document.createElement("a");
@@ -26,7 +29,7 @@ export function ExportButtons({ plan }: { plan: Plan }) {
       <button
         type="button"
         className="linkish"
-        onClick={() => download(`aidit-${plan.term}.ics`, "text/calendar;charset=utf-8", toIcs(plan))}
+        onClick={() => download(`aidit-${plan.term}.ics`, "text/calendar;charset=utf-8", toIcs(plan, new Date(), scheme))}
         title="匯入 Google 日曆、Apple 行事曆等"
       >
         匯出行事曆
@@ -34,7 +37,7 @@ export function ExportButtons({ plan }: { plan: Plan }) {
       <button
         type="button"
         className="linkish"
-        onClick={() => download(`aidit-${plan.term}.csv`, "text/csv;charset=utf-8", toCsv(plan))}
+        onClick={() => download(`aidit-${plan.term}.csv`, "text/csv;charset=utf-8", toCsv(plan, scheme))}
         title="用試算表開啟"
       >
         匯出 CSV

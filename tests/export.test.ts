@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { toCsv, toIcs, TERM_DATES } from "@/lib/plan/export";
+import { periodScheme } from "@/lib/offerings/period-scheme";
 import type { Plan } from "@/lib/types";
 
 const plan: Plan = {
@@ -99,5 +100,35 @@ describe("ICS", () => {
   it("把時間資料是合成的這件事寫進檔案", () => {
     expect(ics).toContain("合成資料");
     expect(ics).toContain("以校方公告為準");
+  });
+});
+
+describe("輔大：鐘點與節次名稱依學校", () => {
+  // 內部第 2–4 節＝輔大 D2–D4（09:10–12:00）；內部第 6–8 節＝D5–D7（13:40–16:30）
+  const fjuPlan: Plan = {
+    ...plan,
+    term: "115-2",
+    courses: [
+      { code: "02492", name: "資料結構", credits: 3, slotText: "四 D2-D4", slots: [{ day: 4, periods: [2, 3, 4] }],
+        teacher: "王冠云", category: "dept-required", categoryLabel: "院系必修", remaining: null },
+      { code: "02631", name: "管理資訊系統", credits: 3, slotText: "一 D5-D7", slots: [{ day: 1, periods: [6, 7, 8] }],
+        teacher: "林湘霖", category: "dept-required", categoryLabel: "院系必修", remaining: null },
+    ],
+  };
+  const scheme = periodScheme("fju");
+
+  it("ICS 用輔大的鐘點，不是合成資料的", () => {
+    const ics = toIcs(fjuPlan, new Date("2026-10-01T00:00:00Z"), scheme);
+    expect(ics).toMatch(/DTSTART:\d{8}T091000/);
+    expect(ics).toMatch(/DTEND:\d{8}T120000/);
+    expect(ics).toMatch(/DTSTART:\d{8}T134000/);
+    expect(ics).toContain("教務處");
+  });
+
+  it("CSV 的節次欄寫節次名稱，不寫內部編號", () => {
+    const csv = toCsv(fjuPlan, scheme);
+    expect(csv).toContain("D2、D3、D4");
+    expect(csv).toContain("D5、D6、D7");
+    expect(csv).toContain("13:40-16:30");
   });
 });

@@ -81,3 +81,35 @@ describe("早八", () => {
     expect(isEarlyMorning(parseSlots("二 D2-D3").slots)).toBe(false);
   });
 });
+
+describe("對話裡的節次說法依學校", async () => {
+  const { describeSet, periodNamesFor, DEMO_PERIOD_NAMES, constraintSetFrom, preferencesOf } = await import("@/lib/chat/apply");
+  const base = constraintSetFrom(preferencesOf(undefined));
+  const weekdays = (ps: number[]) => [1, 2, 3, 4, 5].map((day) => ({ day, periods: ps }));
+
+  it("合成資料維持原本的說法，逐字不變", () => {
+    expect(periodNamesFor()).toBe(DEMO_PERIOD_NAMES);
+    expect(describeSet({ ...base, avoidEarly: true })).toContain("不排早八（第 1 節）");
+    expect(describeSet({ ...base, avoidPeriods: weekdays([1, 2, 3, 4]) })).toContain("不排早上的課（第 1–4 節）");
+  });
+
+  it("輔大的早八包含特早節 D0 —— 那正是「不排早八」實際擋掉的", () => {
+    expect(describeSet({ ...base, avoidEarly: true }, periodNamesFor("fju"))).toContain("不排早八（D0、D1）");
+  });
+
+  it("輔大的早上是 D1–D4、下午是 DN–D8", () => {
+    const fju = periodNamesFor("fju");
+    expect(describeSet({ ...base, avoidPeriods: weekdays([1, 2, 3, 4]) }, fju)).toContain("不排早上的課（D1–D4）");
+    expect(describeSet({ ...base, avoidPeriods: weekdays([5, 6, 7, 8, 9]) }, fju)).toContain("不排下午的課（DN–D8）");
+  });
+
+  it("輔大的晚上只到 E4，不能印出不存在的節次", () => {
+    const s = describeSet({ ...base, avoidPeriods: weekdays([10, 11, 12, 13, 14, 15]) }, periodNamesFor("fju"));
+    expect(s).toContain("不排晚上的課（E0–E4）");
+  });
+
+  it("列舉個別節次用節次名稱：內部 6、7 是 D5、D6", () => {
+    const s = describeSet({ ...base, avoidPeriods: [{ day: 3, periods: [6, 7] }] }, periodNamesFor("fju"));
+    expect(s).toContain("空出星期三 D5、D6");
+  });
+});

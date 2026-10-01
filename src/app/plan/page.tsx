@@ -4,7 +4,7 @@ import { Shell, PageHead } from "@/components/shell/Shell";
 import { AbortNotice } from "@/components/shell/AbortNotice";
 import { PlanPanel } from "@/components/plan/PlanPanel";
 import { ExtraGoals } from "@/components/audit/ExtraGoals";
-import { constraintSetFrom, describeSet } from "@/lib/chat/apply";
+import { constraintSetFrom, describeSet, periodNamesFor } from "@/lib/chat/apply";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +45,7 @@ export default async function PlanPage({
             initial={{
               plans: outcome.state.plans,
               constraints,
-              constraintLabels: describeSet(constraints),
+              constraintLabels: describeSet(constraints, periodNamesFor(outcome.audit.student.school)),
               excluded: outcome.state.solve?.excluded,
               conflicts:
                 outcome.state.solve && !outcome.state.solve.ok
@@ -62,6 +62,7 @@ export default async function PlanPage({
             termLimits={termLimits}
             reserved={outcome.state.record?.plannedCommitments ?? []}
             search={search}
+            school={outcome.audit.student.school}
           />
         </>
       )}

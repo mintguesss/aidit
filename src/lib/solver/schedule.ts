@@ -77,7 +77,8 @@ export function requirementsFrom(audit: AuditResult): Requirement[] {
 
 type Candidate = {
   offering: Offering;
-  remaining: number;
+  /** null：開課資料沒有提供人數，不是額滿 */
+  remaining: number | null;
   /** 本課程可滿足哪些需求 */
   satisfies: string[];
   early: boolean;
@@ -210,9 +211,10 @@ function filterCandidates(ctx: SolveContext): {
       continue;
     }
 
-    // 3. 餘額 > 0
-    const remaining = Math.max(0, o.capacity - o.enrolled);
-    if (remaining <= 0) {
+    // 3. 餘額 > 0。人數未知時不排除 —— 未知不是額滿（輔大的系上課表就沒有人數）
+    const remaining =
+      o.capacity === undefined || o.enrolled === undefined ? null : Math.max(0, o.capacity - o.enrolled);
+    if (remaining !== null && remaining <= 0) {
       drop("no-seat", "修課餘額為 0");
       continue;
     }

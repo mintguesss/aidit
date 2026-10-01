@@ -174,3 +174,19 @@ describe("無解與放寬", () => {
     }
   });
 });
+
+describe("修課人數未知（系上課表沒有人數）", () => {
+  it("未知不是額滿：不排除，課表上的餘額是 null 而不是編出來的數字", async () => {
+    // 把所有開課的人數拿掉，模擬只有系上課表、沒有教務處人數資料的情況
+    const base = await demoContext();
+    const unknownSeats = base.offerings.map(({ capacity: _c, enrolled: _e, ...o }) => o);
+    const result = solveWithRelaxation({ ...base, offerings: unknownSeats }, PRESET_OF_GOAL[base.preferences.goal], []);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const courses = result.plans[0]!.courses;
+    expect(courses.length).toBeGreaterThan(0);
+    expect(courses.every((c) => c.remaining === null)).toBe(true);
+    // 沒有任何一門因為「餘額為 0」被排除
+    expect(result.excluded.excludedBy.some((e) => e.reason.includes("餘額"))).toBe(false);
+  });
+});

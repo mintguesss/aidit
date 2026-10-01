@@ -68,7 +68,12 @@ export function activeCourseCodes(): Set<string> {
   return new Set(allOfferings().map((o) => o.code));
 }
 
-export function remainingSeats(o: Offering): number {
+/**
+ * 修課餘額。開課資料沒有提供人數時回傳 null —— **未知不是 0**：
+ * 當成 0 會把課全部當額滿排除，當成有位置又是編造。呼叫端要分開處理。
+ */
+export function remainingSeats(o: Pick<Offering, "capacity" | "enrolled">): number | null {
+  if (o.capacity === undefined || o.enrolled === undefined) return null;
   return Math.max(0, o.capacity - o.enrolled);
 }
 

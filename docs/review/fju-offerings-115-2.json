@@ -1,0 +1,699 @@
+{
+  "source": ".data/sources/fju-im/timetable-115-2.pdf",
+  "offerings": [
+    {
+      "code": "24496",
+      "codeVia": "課名",
+      "name": "Web前端設計",
+      "credits": 2,
+      "totalCredits": 2,
+      "kind": "required",
+      "teacher": "廖建翔",
+      "rooms": [
+        "LE4A"
+      ],
+      "tags": [],
+      "classes": [
+        "資一甲"
+      ],
+      "slotText": "一 D7-D8 / 一 E0",
+      "section": 2
+    },
+    {
+      "code": "02412",
+      "codeVia": "課名",
+      "name": "會計學",
+      "credits": 3,
+      "totalCredits": 6,
+      "kind": "required",
+      "teacher": "洪玉舜",
+      "rooms": [
+        "LM503"
+      ],
+      "tags": [],
+      "classes": [
+        "資一甲"
+      ],
+      "slotText": "二 D2-D4 / 二 DN",
+      "section": 2
+    },
+    {
+      "code": "14761",
+      "codeVia": "課名",
+      "name": "進階程式設計",
+      "credits": 3,
+      "totalCredits": 3,
+      "kind": "required",
+      "teacher": "李博逸",
+      "rooms": [
+        "LE4A"
+      ],
+      "tags": [],
+      "classes": [
+        "資一甲"
+      ],
+      "slotText": "二 D5-D7 / 二 D8",
+      "section": 2
+    },
+    {
+      "code": "02390",
+      "codeVia": "課名",
+      "name": "微積分",
+      "credits": 3,
+      "totalCredits": 6,
+      "kind": "required",
+      "teacher": "教師未定",
+      "rooms": [
+        "LM409"
+      ],
+      "tags": [],
+      "classes": [
+        "資一甲"
+      ],
+      "slotText": "四 D2-D4 / 四 D1",
+      "section": 2
+    },
+    {
+      "code": "13517",
+      "codeVia": "課名＋「-英」",
+      "name": "資訊管理導論",
+      "credits": 3,
+      "totalCredits": 3,
+      "kind": "elective",
+      "teacher": "黃智榮",
+      "rooms": [
+        "LM511"
+      ],
+      "tags": [
+        "英語授課"
+      ],
+      "classes": [
+        "資一甲",
+        "資一乙"
+      ],
+      "slotText": "四 D5-D7",
+      "section": null
+    },
+    {
+      "code": null,
+      "codeVia": null,
+      "name": "資料處理程式設計",
+      "credits": null,
+      "totalCredits": null,
+      "kind": "elective",
+      "teacher": "林青峰",
+      "rooms": [
+        "SF337"
+      ],
+      "tags": [
+        "英語授課",
+        "遠距授課"
+      ],
+      "classes": [
+        "資一甲",
+        "資一乙"
+      ],
+      "slotText": "五 D2-D4"
+    },
+    {
+      "code": "24496",
+      "codeVia": "課名",
+      "name": "Web前端設計",
+      "credits": 2,
+      "totalCredits": 2,
+      "kind": "required",
+      "teacher": "廖建翔",
+      "rooms": [
+        "ES601"
+      ],
+      "tags": [],
+      "classes": [
+        "資一乙"
+      ],
+      "slotText": "一 D3-D4 / 一 D2",
+      "section": 1
+    },
+    {
+      "code": "02390",
+      "codeVia": "課名",
+      "name": "微積分",
+      "credits": 3,
+      "totalCredits": 6,
+      "kind": "required",
+      "teacher": "教師未定",
+      "rooms": [
+        "LM409"
+      ],
+      "tags": [],
+      "classes": [
+        "資一乙"
+      ],
+      "slotText": "二 D2-D4 / 二 D1",
+      "section": 1
+    },
+    {
+      "code": "02412",
+      "codeVia": "課名",
+      "name": "會計學",
+      "credits": 3,
+      "totalCredits": 6,
+      "kind": "required",
+      "teacher": "洪玉舜",
+      "rooms": [
+        "LM503"
+      ],
+      "tags": [],
+      "classes": [
+        "資一乙"
+      ],
+      "slotText": "二 D5-D7 / 二 D8",
+      "section": 1
+    },
+    {
+      "code": "14761",
+      "codeVia": "課名",
+      "name": "進階程式設計",
+      "credits": 3,
+      "totalCredits": 3,
+      "kind": "required",
+      "teacher": "李博逸",
+      "rooms": [
+        "LE4A"
+      ],
+      "tags": [],
+      "classes": [
+        "資一乙"
+      ],
+      "slotText": "四 D2-D4 / 四 D1",
+      "section": 1
+    },
+    {
+      "code": "09514",
+      "codeVia": "課名",
+      "name": "電子商務",
+      "credits": 3,
+      "totalCredits": 3,
+      "kind": "elective",
+      "teacher": "張銀益",
+      "rooms": [
+        "LM503"
+      ],
+      "tags": [],
+      "classes": [
+        "資二甲",
+        "資二乙"
+      ],
+      "slotText": "一 D5-D7",
+      "section": null
+    },
+    {
+      "code": "19663",
+      "codeVia": "課名",
+      "name": "組織領導與社會創新實務",
+      "credits": 2,
+      "totalCredits": 2,
+      "kind": "elective",
+      "teacher": "李禮孟",
+      "rooms": [
+        "LM302"
+      ],
+      "tags": [],
+      "classes": [
+        "資二甲",
+        "資二乙",
+        "資三甲",
+        "資三乙",
+        "資四甲乙"
+      ],
+      "slotText": "一 D8-E0",
+      "section": null
+    },
+    {
+      "code": "01584",
+      "codeVia": "課名",
+      "name": "系統分析與設計",
+      "credits": 3,
+      "totalCredits": 3,
+      "kind": "required",
+      "teacher": "吳濟聰",
+      "rooms": [
+        "BS440"
+      ],
+      "tags": [],
+      "classes": [
+        "資二甲"
+      ],
+      "slotText": "二 D2-D4",
+      "section": 2
+    },
+    {
+      "code": "10681",
+      "codeVia": "課名",
+      "name": "資料通訊與網路",
+      "credits": 3,
+      "totalCredits": 3,
+      "kind": "required",
+      "teacher": "林青峰",
+      "rooms": [
+        "BS336"
+      ],
+      "tags": [],
+      "classes": [
+        "資二甲"
+      ],
+      "slotText": "二 D5-D7",
+      "section": 2
+    },
+    {
+      "code": "02222",
+      "codeVia": "課名",
+      "name": "統計學",
+      "credits": 3,
+      "totalCredits": 6,
+      "kind": "required",
+      "teacher": "鄭美娟",
+      "rooms": [
+        "LM503"
+      ],
+      "tags": [
+        "英語授課"
+      ],
+      "classes": [
+        "資二甲"
+      ],
+      "slotText": "三 D2-D4 / 三 D1",
+      "section": 2
+    },
+    {
+      "code": "02492",
+      "codeVia": "課名",
+      "name": "資料結構",
+      "credits": 3,
+      "totalCredits": 3,
+      "kind": "required",
+      "teacher": "王冠云",
+      "rooms": [
+        "BS440"
+      ],
+      "tags": [],
+      "classes": [
+        "資二甲"
+      ],
+      "slotText": "四 D2-D4 / 四 DN",
+      "section": 2
+    },
+    {
+      "code": "02457",
+      "codeVia": "課名",
+      "name": "經濟學",
+      "credits": 3,
+      "totalCredits": 6,
+      "kind": "required",
+      "teacher": "李映萱",
+      "rooms": [
+        "LM411"
+      ],
+      "tags": [],
+      "classes": [
+        "資二甲"
+      ],
+      "slotText": "四 D5-D7 / 四 D8",
+      "section": 2
+    },
+    {
+      "code": "19411",
+      "codeVia": "課名",
+      "name": "雲端應用程式設計",
+      "credits": 3,
+      "totalCredits": 3,
+      "kind": "elective",
+      "teacher": "李博逸",
+      "rooms": [
+        "ES301"
+      ],
+      "tags": [],
+      "classes": [
+        "資二甲",
+        "資二乙"
+      ],
+      "slotText": "五 D2-D4",
+      "section": null
+    },
+    {
+      "code": "10681",
+      "codeVia": "課名",
+      "name": "資料通訊與網路",
+      "credits": 3,
+      "totalCredits": 3,
+      "kind": "required",
+      "teacher": "林青峰",
+      "rooms": [
+        "BS336"
+      ],
+      "tags": [],
+      "classes": [
+        "資二乙"
+      ],
+      "slotText": "二 D2-D4",
+      "section": 1
+    },
+    {
+      "code": "01584",
+      "codeVia": "課名",
+      "name": "系統分析與設計",
+      "credits": 3,
+      "totalCredits": 3,
+      "kind": "required",
+      "teacher": "吳濟聰",
+      "rooms": [
+        "BS440"
+      ],
+      "tags": [],
+      "classes": [
+        "資二乙"
+      ],
+      "slotText": "二 D5-D7",
+      "section": 1
+    },
+    {
+      "code": "02492",
+      "codeVia": "課名",
+      "name": "資料結構",
+      "credits": 3,
+      "totalCredits": 3,
+      "kind": "required",
+      "teacher": "王冠云",
+      "rooms": [
+        "BS440"
+      ],
+      "tags": [],
+      "classes": [
+        "資二乙"
+      ],
+      "slotText": "三 D2-D4 / 三 DN",
+      "section": 1
+    },
+    {
+      "code": "02457",
+      "codeVia": "課名",
+      "name": "經濟學",
+      "credits": 3,
+      "totalCredits": 6,
+      "kind": "required",
+      "teacher": "林雪瑜",
+      "rooms": [
+        "LM503"
+      ],
+      "tags": [],
+      "classes": [
+        "資二乙"
+      ],
+      "slotText": "四 D2-D4 / 四 D1",
+      "section": 1
+    },
+    {
+      "code": "02222",
+      "codeVia": "課名",
+      "name": "統計學",
+      "credits": 3,
+      "totalCredits": 6,
+      "kind": "required",
+      "teacher": "鄭美娟",
+      "rooms": [
+        "LM503"
+      ],
+      "tags": [
+        "英語授課"
+      ],
+      "classes": [
+        "資二乙"
+      ],
+      "slotText": "四 D5-D7 / 四 D8",
+      "section": 1
+    },
+    {
+      "code": "24500",
+      "codeVia": "課名",
+      "name": "服務科學",
+      "credits": 3,
+      "totalCredits": 3,
+      "kind": "elective",
+      "teacher": "董惟鳳",
+      "rooms": [
+        "LM511"
+      ],
+      "tags": [],
+      "classes": [
+        "資三甲",
+        "資三乙"
+      ],
+      "slotText": "一 D2-D4",
+      "section": null
+    },
+    {
+      "code": "02631",
+      "codeVia": "課名",
+      "name": "管理資訊系統",
+      "credits": 3,
+      "totalCredits": 3,
+      "kind": "required",
+      "teacher": "林湘霖",
+      "rooms": [
+        "BS440"
+      ],
+      "tags": [],
+      "classes": [
+        "資三甲"
+      ],
+      "slotText": "一 D5-D7",
+      "section": 2
+    },
+    {
+      "code": "00007",
+      "codeVia": "課名",
+      "name": "人生哲學",
+      "credits": 2,
+      "totalCredits": 4,
+      "kind": "required",
+      "teacher": "吳明峰",
+      "rooms": [
+        "LM411"
+      ],
+      "tags": [],
+      "classes": [
+        "資三甲"
+      ],
+      "slotText": "二 D3-D4",
+      "section": 2
+    },
+    {
+      "code": "10211",
+      "codeVia": "課名",
+      "name": "網路行銷",
+      "credits": 3,
+      "totalCredits": 3,
+      "kind": null,
+      "teacher": "黃智榮",
+      "rooms": [
+        "LM511"
+      ],
+      "tags": [
+        "英語授課"
+      ],
+      "classes": [
+        "資三甲",
+        "資三乙"
+      ],
+      "slotText": "二 D5-D7",
+      "section": null
+    },
+    {
+      "code": "34635",
+      "codeVia": "課名＋「-英」",
+      "name": "空間資訊管理",
+      "credits": 3,
+      "totalCredits": 3,
+      "kind": "elective",
+      "teacher": "林雅文",
+      "rooms": [
+        "LE402"
+      ],
+      "tags": [
+        "英語授課"
+      ],
+      "classes": [
+        "資三甲",
+        "資三乙",
+        "資四甲乙"
+      ],
+      "slotText": "四 D5-D7",
+      "section": null
+    },
+    {
+      "code": "34085",
+      "codeVia": "課名",
+      "name": "C++程式設計",
+      "credits": 3,
+      "totalCredits": 3,
+      "kind": "elective",
+      "teacher": "蔡明志",
+      "rooms": [
+        "LE401"
+      ],
+      "tags": [],
+      "classes": [
+        "資三甲",
+        "資三乙",
+        "資四甲乙"
+      ],
+      "slotText": "四 DN-D6",
+      "section": null
+    },
+    {
+      "code": null,
+      "codeVia": null,
+      "name": "自然語言處理",
+      "credits": null,
+      "totalCredits": null,
+      "kind": "elective",
+      "teacher": "王冠云",
+      "rooms": [
+        "BS440"
+      ],
+      "tags": [
+        "英語授課"
+      ],
+      "classes": [
+        "資三甲",
+        "資三乙",
+        "資四甲乙"
+      ],
+      "slotText": "五 D2-D4"
+    },
+    {
+      "code": "34636",
+      "codeVia": "課名",
+      "name": "資料視覺化分析與應用",
+      "credits": 3,
+      "totalCredits": 3,
+      "kind": "elective",
+      "teacher": "石佳惠",
+      "rooms": [
+        "ES301"
+      ],
+      "tags": [],
+      "classes": [
+        "資三甲",
+        "資三乙",
+        "資四甲乙"
+      ],
+      "slotText": "五 D5-D7",
+      "section": null
+    },
+    {
+      "code": "00007",
+      "codeVia": "課名",
+      "name": "人生哲學",
+      "credits": 2,
+      "totalCredits": 4,
+      "kind": "required",
+      "teacher": "范家榮",
+      "rooms": [
+        "LM411"
+      ],
+      "tags": [],
+      "classes": [
+        "資三乙"
+      ],
+      "slotText": "一 D5-D6",
+      "section": 1
+    },
+    {
+      "code": "02631",
+      "codeVia": "課名",
+      "name": "管理資訊系統",
+      "credits": 3,
+      "totalCredits": 3,
+      "kind": "required",
+      "teacher": "林湘霖",
+      "rooms": [
+        "LM410"
+      ],
+      "tags": [],
+      "classes": [
+        "資三乙"
+      ],
+      "slotText": "二 D2-D4",
+      "section": 1
+    },
+    {
+      "code": "08824",
+      "codeVia": "課名",
+      "name": "專業倫理-企業倫理",
+      "credits": 2,
+      "totalCredits": 2,
+      "kind": "required",
+      "teacher": "林雅文",
+      "rooms": [
+        "BS336"
+      ],
+      "tags": [],
+      "classes": [
+        "資四甲乙"
+      ],
+      "slotText": "一 D3-D4",
+      "section": 1
+    },
+    {
+      "code": "08824",
+      "codeVia": "課名",
+      "name": "專業倫理-企業倫理",
+      "credits": 2,
+      "totalCredits": 2,
+      "kind": "required",
+      "teacher": "林雅文",
+      "rooms": [
+        "LM409"
+      ],
+      "tags": [],
+      "classes": [
+        "資四甲乙"
+      ],
+      "slotText": "二 D3-D4",
+      "section": 2
+    },
+    {
+      "code": "13587",
+      "codeVia": "課名",
+      "name": "網路管理",
+      "credits": 3,
+      "totalCredits": 3,
+      "kind": "elective",
+      "teacher": "張銀益",
+      "rooms": [
+        "LM411"
+      ],
+      "tags": [],
+      "classes": [
+        "資四甲乙"
+      ],
+      "slotText": "二 D5-D7",
+      "section": null
+    }
+  ],
+  "unmatched": [
+    "自然語言處理",
+    "資料處理程式設計"
+  ],
+  "groupCourses": [
+    "國文",
+    "外國語文(英語)",
+    "體育"
+  ],
+  "issues": [
+    "課號 19664 同時對到「資訊系統專案管理」與「組織學習與社會探究」",
+    "「微積分」（資一甲）教師未定",
+    "「微積分」（資一乙）教師未定",
+    "「網路行銷」課表上沒有標必修或選修"
+  ]
+}

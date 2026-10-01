@@ -559,6 +559,9 @@ function attemptSolve(
       const c = sorted[j]!;
       // 剪枝：已選學分 > maxCredits
       if (credits + c.offering.credits > maxCredits) continue;
+      // 同一門課分好幾班（輔大的微積分有甲、乙兩班，同一個課號、不同時段），
+      // 一份課表只能選其中一班。合成資料沒有多班的課，這條以前從沒被觸發過
+      if (sel.some((s) => s.offering.code === c.offering.code)) continue;
       if (sel.some((s) => !s.offering.slotsUnknown && !c.offering.slotsUnknown && clashes(s.offering.slots, c.offering.slots))) {
         continue;
       }

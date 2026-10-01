@@ -1,6 +1,9 @@
 import type { Offering, Prerequisite, Term } from "@/lib/types";
 import { parseSlots } from "@/lib/solver/slots";
 import { RAW_OFFERINGS, type RawOffering } from "./raw";
+import { DEFAULT_SCHOOL } from "@/lib/schools";
+// 輔大資管系 115-2 系上課表（scripts/fju-timetable.py → fju-offerings-raw.py）
+import FJU_115_2 from "./data/fju-115-2.json";
 import { findCourseCodes } from "@/lib/courses/code";
 
 /**
@@ -15,6 +18,7 @@ import { findCourseCodes } from "@/lib/courses/code";
 export function normalizeOffering(raw: RawOffering): Offering {
   const parsed = parseSlots(raw.slotText);
   return {
+    school: raw.school ?? DEFAULT_SCHOOL,
     code: raw.code,
     name: raw.name,
     credits: raw.credits,
@@ -52,18 +56,28 @@ function toPrerequisites(raw: RawOffering): Prerequisite[] {
   return out;
 }
 
+const ALL_RAW: RawOffering[] = [...RAW_OFFERINGS, ...(FJU_115_2 as RawOffering[])];
+
 let cache: Offering[] | null = null;
 
-export function allOfferings(): Offering[] {
-  if (!cache) cache = RAW_OFFERINGS.map(normalizeOffering);
-  return cache;
+/**
+ * 全部開課資料。指定學校時只回傳那一所的。
+ *
+ * 用課號查詢（課程頁、名稱對照）時可以不指定：各校課號格式不重疊
+ * （合成資料 IM4045、輔大 02390），全域查不會查錯。
+ * **用課名找課、排課時一定要指定**：各校常有同名的課（資料結構、微積分這類），不分學校就會拿到別校的課。
+ */
+export function allOfferings(school?: string): Offering[] {
+  if (!cache) cache = ALL_RAW.map(normalizeOffering);
+  return school === undefined ? cache : cache.filter((o) => o.school === school);
 }
 
-export function offeringsFor(year: number, term: Term): Offering[] {
-  return allOfferings().filter((o) => o.year === year && o.term === term);
+/** 某一所學校某一學期的開課。排課只能用這個 —— 不能把別校的課排進課表 */
+export function offeringsFor(year: number, term: Term, school: string = DEFAULT_SCHOOL): Offering[] {
+  return allOfferings(school).filter((o) => o.year === year && o.term === term);
 }
 
-/** 現行有開課的課號集合：判斷抵免課號是否已停開 */
+/** 現行有開課的課號集合：判斷抵免課號是否已停開。各校課號格式不重疊，全域即可 */
 export function activeCourseCodes(): Set<string> {
   return new Set(allOfferings().map((o) => o.code));
 }
@@ -78,10 +92,11 @@ export function remainingSeats(o: Pick<Offering, "capacity" | "enrolled">): numb
 }
 
 /** 資料時效：決賽要能說明開課資料抓取時間 */
-export function fetchedAt(): string {
-  return RAW_OFFERINGS.reduce(
+export function fetchedAt(school: string = DEFAULT_SCHOOL): string {
+  const rows = ALL_RAW.filter((r) => (r.school ?? DEFAULT_SCHOOL) === school);
+  return rows.reduce(
     (latest, r) => (r.fetchedAt > latest ? r.fetchedAt : latest),
-    RAW_OFFERINGS[0]?.fetchedAt ?? new Date().toISOString(),
+    rows[0]?.fetchedAt ?? new Date().toISOString(),
   );
 }
 

@@ -8,6 +8,8 @@
  */
 
 export type RawOffering = {
+  /** 學校代號；未填為 "demo"（合成資料） */
+  school?: string;
   code: string;
   name: string;
   credits: number;

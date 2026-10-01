@@ -3,6 +3,7 @@ import { isCourseCode } from "@/lib/courses/code";
 import { allOfferings } from "@/lib/offerings";
 import type { ConstraintDelta, ConstraintSet } from "./types";
 import { BLOCK_CUE, DAY_WORDS, PART_WORDS, parseNum, type PlanParams } from "./intent";
+import { DEFAULT_SCHOOL } from "@/lib/schools";
 
 /**
  * 約束集合的建立與套用（docs/CONVERSATION.md §1.1）。
@@ -241,6 +242,8 @@ export function applyParams(
    * 從期望堂數算會變成 2→1；說「多選一堂」會變成 2→3，剛好等於現狀，課表不會動。
    */
   shownCount?: number,
+  /** 學生的學校：用課名找課時只找這一所（各校常有同名的課） */
+  school: string = DEFAULT_SCHOOL,
 ): ApplyResult {
   if (params.reset) {
     return {
@@ -393,7 +396,7 @@ export function applyParams(
     if (params.goals.includes("early-graduation")) next.goal = "asap";
   }
 
-  const offerings = allOfferings();
+  const offerings = allOfferings(school);
   const resolve = (name: string): string | null => {
     const q = name.replace(/\s/g, "");
     const byCode = offerings.find((o) => o.code.toUpperCase() === q.toUpperCase());

@@ -5,6 +5,7 @@ import { allOfferings, remainingSeats } from "@/lib/offerings";
 import { formatSlots } from "@/lib/solver/slots";
 import type { Reply } from "./types";
 import { termLimitsFor } from "@/lib/rules/term-limits";
+import { DEFAULT_SCHOOL } from "@/lib/schools";
 
 /**
  * B 介面的能力層（docs/CONVERSATION.md §2.2）。
@@ -224,9 +225,10 @@ function searchRules(topic: string, pack: RulePack, audit: AuditResult): RuleHit
 
 // ---------------------------------------------------------- course-info
 
-export function answerCourseInfo(query: string, nextTerm: string): Reply {
+export function answerCourseInfo(query: string, nextTerm: string, school: string = DEFAULT_SCHOOL): Reply {
   const q = query.replace(/\s/g, "");
-  const all = allOfferings();
+  // 只找學生自己學校的課：各校常有同名的課，查到別校的時段與教師是錯誤資訊
+  const all = allOfferings(school);
   const hits = all.filter(
     (o) => o.code.toUpperCase() === q.toUpperCase() || o.name.includes(q) || q.includes(o.name),
   );

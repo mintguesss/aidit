@@ -25,6 +25,7 @@ import { clarify, forbidden, outOfScope, uncertain } from "./compose";
 import { buildContext, explain, runPlanTurn, type PlanTurnOutcome } from "./plan-turn";
 import type { ChatMessage, ConstraintSet, Reply } from "./types";
 import { LIMITS } from "./types";
+import { schoolOf } from "@/lib/schools";
 
 /**
  * 兩個介面的路由器。
@@ -117,7 +118,7 @@ export async function planTurn(
     // 模型想反問，但原句已經說得夠明確：規則抽得出有效變更、課名也全都查得到，
     // 就不必多問一輪。實測模型對「我不想上顧客關係管理」反問「要換成什麼課？」。
     // 課名查不到（「幫我加一堂AI相關的課程」）時保留模型的反問，那比「找不到」好。
-    const tried = applyParams(ctx.constraints, ctx.originalConstraints, rules.params, rules.reason, raw, shownCount);
+    const tried = applyParams(ctx.constraints, ctx.originalConstraints, rules.params, rules.reason, raw, shownCount, schoolOf(ctx.record.student));
     if (tried.unresolved.length === 0 && changesOf(rules.params, tried.next).length > 0) {
       intent = rules;
       tools.push("rule.fallback");
@@ -180,7 +181,7 @@ export async function planTurn(
     return { reply: outOfScope("這不在系統能力範圍內。", "請洽系辦公室。"), tools, intent: "out-of-scope", clarifying: false };
   }
 
-  let applied = applyParams(ctx.constraints, ctx.originalConstraints, intent.params, intent.reason, raw, shownCount);
+  let applied = applyParams(ctx.constraints, ctx.originalConstraints, intent.params, intent.reason, raw, shownCount, schoolOf(ctx.record.student));
   // 「改了什麼」只能由實際生效的差異產生，不採用模型自述的 reason（見 describeDelta）
   let changed = changesOf(intent.params, applied.next);
   let requested = applied.requested;
@@ -188,7 +189,7 @@ export async function planTurn(
   // 模型解析出意圖，卻沒有任何有效變更 —— 沒填、填錯被擋、或填成原本就是的值。
   // 規則能從原句抽出有效變更的話改用規則的；抽不出來就維持「條件沒有變動」照實講。
   if (changed.length === 0 && rules.kind === "intent" && rules !== intent) {
-    const byRules = applyParams(ctx.constraints, ctx.originalConstraints, rules.params, rules.reason, raw, shownCount);
+    const byRules = applyParams(ctx.constraints, ctx.originalConstraints, rules.params, rules.reason, raw, shownCount, schoolOf(ctx.record.student));
     const ruleChanged = changesOf(rules.params, byRules.next);
     requested ||= byRules.requested;
     if (ruleChanged.length > 0) {
@@ -485,7 +486,7 @@ export async function askTurn(
     case "course-info":
       tools.push("course.search");
       return {
-        reply: lookup(p.course, p.raw, (q) => answerCourseInfo(q, ctx.audit.nextTerm)),
+        reply: lookup(p.course, p.raw, (q) => answerCourseInfo(q, ctx.audit.nextTerm, schoolOf(ctx.record.student))),
         tools,
         intent: intent.intent,
         clarifying: false,

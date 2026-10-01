@@ -31,7 +31,7 @@
 | **測試夾具** | `src/lib/providers/fixtures.ts`（合成） | **留在 repo**，它是 golden set 的回歸基準 |
 | **輔大資管規則包草稿** | 草稿儲存層（`rulepack_drafts`）；副本在 `docs/review/` | 真實規則，校對鎖版前不用於判定 |
 | **輔大原文語料** | `src/lib/rules/corpus/fju-im-*.txt` | 公開文件，引用回查用 |
-| **輔大開課資料** | `docs/review/fju-offerings-115-2.json` | 系上公開課表抽出，**尚未接進排課** |
+| **輔大開課資料** | `src/lib/offerings/data/fju-115-2.json`（抽取結果與問題清單在 `docs/review/`） | 系上公開課表抽出；**沒有修課人數**（只有教務處系統有），餘額顯示為未知 |
 
 ## 三、作業紀錄
 

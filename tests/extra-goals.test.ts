@@ -1,3 +1,4 @@
+import { takenCourseCodes } from "@/lib/solver/taken";
 import { describe, expect, it } from "vitest";
 import { runAudit } from "@/lib/agent/runner";
 import { registeredGoals, summariseExtraGoals } from "@/lib/extra/goals";
@@ -161,6 +162,7 @@ describe("隱私分層：選填只影響排序，不影響任何判定", () => {
       passedCodes: new Set(
         rec.courses.filter((c) => c.status === "passed" || c.status === "waived").map((c) => c.code),
       ),
+      takenCodes: takenCourseCodes(rec.courses, pack.pack),
       reserved: reservedFrom(rec.plannedCommitments),
       preferences: preferencesOf(rec.preferences),
       constraints: constraintsFrom(preferencesOf(rec.preferences), pack.pack.termLimits),
@@ -202,6 +204,7 @@ describe("隱私分層：選填只影響排序，不影響任何判定", () => {
       offerings: offeringsFor(115, 1),
       requirements: requirementsFrom(run.audit),
       passedCodes: new Set<string>(),
+      takenCodes: new Set<string>(),
       reserved: reservedFrom(rec.plannedCommitments),
       preferences: preferencesOf(rec.preferences),
       constraints: constraintsFrom(preferencesOf(rec.preferences), pack.pack.termLimits),

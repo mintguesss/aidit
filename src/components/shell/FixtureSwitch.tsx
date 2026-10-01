@@ -21,6 +21,10 @@ export function FixtureSwitch({ current }: { current: FixtureId }) {
         onChange={(e) => {
           const next = new URLSearchParams(params.toString());
           next.set("fixture", e.target.value);
+          // 換案例時學期跟著換成那個案例的「目前學期」，不沿用上一個案例的
+          const f = FIXTURES.find((x) => x.id === e.target.value);
+          if (f?.term) next.set("term", f.term);
+          else next.delete("term");
           router.push(`?${next.toString()}`);
         }}
       >

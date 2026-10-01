@@ -2,7 +2,7 @@ import { z } from "zod/v4";
 import type { Citation, Student, TransferApproval } from "@/lib/types";
 import type { RulePack } from "@/lib/rules/schema";
 import { resolveRulePack, loadCorpus, type ResolveOutcome } from "@/lib/rules/loader";
-import { ANNOUNCEMENTS, citationOf, type Announcement } from "@/lib/rules/announcements";
+import { announcementsFor, citationOf, type Announcement } from "@/lib/rules/announcements";
 import { structured, type LlmBudget } from "@/lib/llm/client";
 import type { ConflictNote, DeptDefinedResolution } from "@/lib/audit/engine";
 
@@ -32,7 +32,7 @@ export type Conflict = {
  */
 export function ruleConflict(pack: RulePack): Conflict[] {
   const out: Conflict[] = [];
-  for (const ann of ANNOUNCEMENTS) {
+  for (const ann of announcementsFor(pack.school)) {
     for (const target of ann.targets) {
       const cat = pack.categories.find((c) => c.id === target);
       const chk = pack.graduationChecks.find((g) => g.id === target);

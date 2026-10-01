@@ -62,6 +62,9 @@ function greedyMatch(cat: RuleCategory, c: CourseRecord, pack: RulePack): boolea
   switch (cat.match.type) {
     case "courseList":
       return cat.match.codes.includes(code);
+    case "courseNames":
+      // 與引擎同一個規則：去掉空白後完全相等。基準要比的是指派策略，不是比對方式
+      return cat.match.names.some((n) => n.replace(/\s+/g, "") === c.name.replace(/\s+/g, ""));
     case "selectType":
       return c.selectType === cat.match.value;
     case "deptElective":

@@ -29,6 +29,13 @@ export const zDocument = z.object({
 const zMatch = z.discriminatedUnion("type", [
   /** 指定科目表：課號完全比對（含舊課號對照） */
   z.object({ type: z.literal("courseList"), codes: z.array(z.string()).min(1) }),
+  /**
+   * 指定科目表，但規劃表**只列課名、沒有課號** —— 例如輔大的國文、外國語文是分組上課，
+   * 各組課號不同，規劃表上只寫「國文」。比對時去掉空白後完全相等，不做模糊比對：
+   * 課名猜錯就會把學分算進錯的類別，寧可比不到（落到待確認或未修）也不要猜。
+   * 成績單上的實際課名要在人工校對時確認並列全。
+   */
+  z.object({ type: z.literal("courseNames"), names: z.array(z.string().min(1)).min(1) }),
   /** 依選別欄位歸屬，如通識 */
   z.object({ type: z.literal("selectType"), value: z.enum(["required", "elective", "general"]) }),
   /** 本系（或指定系）開設之選修 */
@@ -158,6 +165,12 @@ export const zRulePack = z
     categories: z.array(zCategory).min(1),
     overflowPolicy: z.record(z.string(), zOverflowPolicy),
     graduationChecks: z.array(zGraduationCheck).default([]),
+    /**
+     * 全學年課程：上、下學期**共用同一個課號**，各算一半學分（輔大的微積分 02390
+     * 就是上 3、下 3）。去重時以「課號＋學期」為單位，否則下學期那一筆會被當成
+     * 重修丟掉，算出假的未修。沒列在這裡的課號，同課號一律視為重補修。
+     */
+    yearLongCourses: z.array(z.string()).default([]),
     termLimits: z.object({
       maxCredits: z.number().int().positive(),
       minCredits: z.number().int().positive(),

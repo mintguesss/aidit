@@ -1,4 +1,5 @@
 import type { TimeSlot } from "@/lib/types";
+import { fjuPeriodIndex } from "@/lib/offerings/periods-fju";
 
 /**
  * 上課時段字串解析（docs/BACKEND.md §4）。
@@ -47,7 +48,10 @@ function toPeriod(tok: string): number | null {
     const n = Number(t);
     return n >= 0 && n <= 20 ? n : null;
   }
-  return LETTER_PERIOD[t] ?? null;
+  if (t.length === 1) return LETTER_PERIOD[t] ?? null;
+  // 輔仁大學的節次代號（D0–D8、DN、E0–E4），映射見 lib/offerings/periods-fju.ts。
+  // 一律兩個字元，與上面單一字母的夜間代號（A–E）不會混淆。
+  return fjuPeriodIndex(t) ?? null;
 }
 
 /**
@@ -80,7 +84,8 @@ function parsePeriods(spec: string): number[] | null {
 }
 
 const SEGMENT_RE =
-  /([一二三四五六日天]|mon|tue|wed|thu|fri|sat|sun|(?<!\d)[1-7](?=[ ]))[ ]*([0-9a-eA-E][0-9a-eA-E,\-]*)/gi;
+  // 節次字元含 n／N：輔大的特午節代號是 DN
+  /([一二三四五六日天]|mon|tue|wed|thu|fri|sat|sun|(?<!\d)[1-7](?=[ ]))[ ]*([0-9a-eA-E][0-9a-eA-EnN,\-]*)/gi;
 
 export function parseSlots(raw: string): SlotParse {
   const text = normalizeSlotText(raw ?? "");
@@ -162,5 +167,6 @@ export function formatSlots(slots: TimeSlot[], unknown = false): string {
 }
 
 export function isEarlyMorning(slots: TimeSlot[]): boolean {
-  return slots.some((s) => s.periods.includes(1));
+  // 第 0 節是輔大的特早節（07:10），比早八還早。說「不要早八」的人一定也不要它
+  return slots.some((s) => s.periods.includes(0) || s.periods.includes(1));
 }

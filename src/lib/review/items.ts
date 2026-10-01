@@ -135,7 +135,16 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
     ambiguities?: { id: string; description: string; contact: string; citation: Citation }[];
   };
 
-  type Check = { id: string; name: string; rule: string; contact: string; category?: string; citation: Citation };
+  type Check = {
+    id: string;
+    name: string;
+    rule: string;
+    contact: string;
+    category?: string;
+    courseNames?: string[];
+    minTerms?: number;
+    citation: Citation;
+  };
   const checks = (draft.graduationChecks as Check[] | undefined) ?? [];
   const cats = (draft.categories as Cat[] | undefined) ?? [];
   const catName = new Map(cats.map((c) => [c.id, c.name]));
@@ -247,8 +256,15 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
         extracted:
           g.rule === "deptDefined"
             ? `畢業前必須完成「${g.name}」（${within}文件只寫由系上另訂）。系統會請學生洽詢「${g.contact}」。`
-            : `畢業前必須完成「${g.name}」${within ? `（${within.slice(0, -1)}）` : ""}。系統目前不從成績單判斷這一項，會請學生自行確認，或洽詢「${g.contact}」。`,
-        question: "這真的是畢業條件嗎？名稱和要求和原文一樣嗎？",
+            : g.rule === "passedCourse"
+              ? `畢業前必須修過${(g.courseNames ?? []).map((n) => `「${n}」`).join("或")}` +
+                `${(g.minTerms ?? 1) > 1 ? ` ${g.minTerms} 個學期` : ""}${within ? `（${within.slice(0, -1)}）` : ""}。` +
+                `系統直接看成績單上的課名（一字不差）；找不到時列為待確認，不會直接判未修。`
+              : `畢業前必須完成「${g.name}」${within ? `（${within.slice(0, -1)}）` : ""}。系統目前不從成績單判斷這一項，會請學生自行確認，或洽詢「${g.contact}」。`,
+        question:
+          g.rule === "passedCourse"
+            ? "這真的是畢業條件嗎？你成績單上的課名是這樣寫嗎？"
+            : "這真的是畢業條件嗎？名稱和要求和原文一樣嗎？",
       },
       g.citation,
       { check: g, categoryName: g.category ? (catName.get(g.category) ?? null) : null },

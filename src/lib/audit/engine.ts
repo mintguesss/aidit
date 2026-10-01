@@ -608,8 +608,46 @@ function buildGraduationChecks(input: AuditInput, pack: RulePack, holds: HoldIte
       citations.push(...r.citations);
       return toEvidenceCheck(g.id, g.name, evidence[g.id], r.detail, citations);
     }
+    if (g.rule === "passedCourse") return toCourseCheck(g, input.record.courses, citations);
     return toEvidenceCheck(g.id, g.name, evidence[g.id], undefined, citations);
   });
+}
+
+/**
+ * 從成績單判斷：有修過指定課名的課（0 學分的國防、體育）。
+ *
+ * 只有「通過」與「待確認」兩種結果，不判「未修」：成績單上找不到，可能只是課名寫法
+ * 跟規則包不同 —— 那是系統的錯，不能變成學生的「未修」。
+ */
+function toCourseCheck(
+  g: RulePack["graduationChecks"][number],
+  courses: CourseRecord[],
+  citations: Citation[],
+): GraduationCheck {
+  const names = new Set((g.courseNames ?? []).map(normalizeName));
+  const need = g.minTerms ?? 1;
+  const termsOf = (status: CourseRecord["status"]) =>
+    new Set(courses.filter((c) => c.status === status && names.has(normalizeName(c.name))).map((c) => `${c.year}-${c.term}`))
+      .size;
+  const passed = termsOf("passed");
+  const inProgress = termsOf("in_progress");
+  const terms = need > 1 ? `（${passed}/${need} 學期）` : "";
+  if (passed >= need) {
+    return { id: g.id, name: g.name, status: "satisfied", label: "通過", detail: `成績單上已修畢${terms}。`, citations };
+  }
+  const wanted = (g.courseNames ?? []).map((n) => `「${n}」`).join("或");
+  return {
+    id: g.id,
+    name: g.name,
+    status: "hold",
+    label: passed + inProgress >= need ? "修課中" : "待確認",
+    detail:
+      passed + inProgress >= need
+        ? `已修 ${passed} 學期，本學期修課中，修畢即達成。`
+        : `成績單上找到的${wanted}${need > 1 ? `只有 ${passed} 學期，需要 ${need} 學期` : "還沒有通過的紀錄"}。` +
+          `若成績單上的課名寫法不同，請洽「${g.contact}」確認。`,
+    citations,
+  };
 }
 
 function toEvidenceCheck(

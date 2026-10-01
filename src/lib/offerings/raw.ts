@@ -24,8 +24,9 @@ export type RawOffering = {
   prereqField?: string;
   /** 課程大綱文字中提到的先修條件 */
   syllabusPrereqText?: string;
-  capacity: number;
-  enrolled: number;
+  /** 未知時不填（系上課表沒有，只有教務處系統有）；不是 0 */
+  capacity?: number;
+  enrolled?: number;
   fetchedAt: string;
 };
 

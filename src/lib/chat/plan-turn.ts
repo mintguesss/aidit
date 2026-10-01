@@ -1,6 +1,6 @@
 import type { AuditResult, Plan, SolveResult, StudentRecord } from "@/lib/types";
 import type { RulePack } from "@/lib/rules/schema";
-import { offeringsFor } from "@/lib/offerings";
+import { offeringsFor, remainingSeats } from "@/lib/offerings";
 import {
   explainCourse,
   requirementsFrom,
@@ -137,7 +137,8 @@ function computeCosts(
     void pool;
   }
 
-  const lowSeat = after.courses.filter((c) => c.remaining <= 5);
+  // 餘額未知（null）的不提醒 —— 沒有數字就不能說「只剩幾個」
+  const lowSeat = after.courses.filter((c) => c.remaining !== null && c.remaining <= 5);
   for (const c of lowSeat) costs.push(`${c.name} 餘額只剩 ${c.remaining}，選上的把握不高。`);
 
   // 只列這一輪新出現的警告。上一版就已經存在的是**常駐狀態**，不是這次調整的代價 ——
@@ -155,7 +156,8 @@ function countUsable(ctx: SolveContext, categoryId: string, domain?: string): nu
     if (!o.category.includes(categoryId)) return false;
     if (domain && o.generalDomain !== domain) return false;
     if (excluded.has(o.code)) return false;
-    if (o.capacity - o.enrolled <= 0) return false;
+    const seats = remainingSeats(o);
+    if (seats !== null && seats <= 0) return false;
     const missing = o.prerequisites
       .filter((p) => p.confidence === "explicit")
       .flatMap((p) => p.codes)

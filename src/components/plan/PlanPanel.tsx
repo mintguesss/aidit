@@ -190,7 +190,9 @@ export function PlanPanel({
                     <td className="num" data-lb="學分">{c.credits}</td>
                     <td className="nowrap" data-lb="時段">{c.slotText}</td>
                     <td className="nowrap" data-lb="教師">{c.teacher}</td>
-                    <td className="num" data-lb="餘額">{c.remaining}</td>
+                    <td className="num" data-lb="餘額" title={c.remaining === null ? "開課資料未提供" : undefined}>
+                      {c.remaining ?? "—"}
+                    </td>
                     <td className="span nowrap" data-lb="採計類別">{c.categoryLabel}</td>
                     <td className="span">
                       <span className={`tag ${c.slotText.startsWith("時段未知") ? "hold" : "ok"}`}>

@@ -13,6 +13,7 @@
 """
 
 import json
+import re
 import sys
 from datetime import datetime, timezone, timedelta
 
@@ -31,6 +32,10 @@ def main():
             for code in cat["match"]["codes"]:
                 listed[code] = cat["id"]
     elective_cats = [c["id"] for c in pack["categories"] if c["match"]["type"] in ("deptElective", "anyPassed")]
+    # 系專選排除的課（規劃表畫在系選修框外的）只能算其他選修，見 schema 的 excludeNames
+    norm = lambda s: re.sub(r"\s+", "", s)
+    excluded = {norm(n): c["id"] for c in pack["categories"]
+                if c["match"]["type"] == "deptElective" for n in c["match"].get("excludeNames", [])}
 
     fetched = datetime.now(timezone(timedelta(hours=8))).isoformat(timespec="seconds")
     raw, skipped = [], []
@@ -45,7 +50,7 @@ def main():
             skipped.append(f"{o['name']}（必修但規則包未列）")
             continue
         else:
-            category = elective_cats
+            category = [c for c in elective_cats if excluded.get(norm(o["name"])) != c]
         raw.append({
             "school": pack.get("school", "demo"),
             "code": o["code"],

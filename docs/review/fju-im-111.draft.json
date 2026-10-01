@@ -3,11 +3,16 @@
   "dept": "IM",
   "admissionYear": 111,
   "program": "day",
-  "version": "0.2",
+  "version": "0.3",
   "approvedAt": "2026-10-01",
   "provenance": "draft",
   "approvedBy": null,
   "minCredits": 128,
+  "minCreditsCitation": {
+    "docId": "fju-im-rules-111",
+    "locator": "第 1 頁 第二條（六）",
+    "quote": "選修課程五者之學分數，至少 128學分"
+  },
   "college": "MGT",
   "documents": [
     {
@@ -154,7 +159,11 @@
       "order": 5,
       "match": {
         "type": "deptElective",
-        "dept": "IM"
+        "dept": "IM",
+        "excludeNames": [
+          "組織學習與社會探究",
+          "組織領導與社會創新實務"
+        ]
       },
       "subRules": [],
       "ambiguities": [],
@@ -342,10 +351,33 @@
     ]
   },
   "_draft": {
-    "extractedAt": "2026-10-01T17:32:25",
+    "extractedAt": "2026-10-01T21:00:00",
     "extractedBy": "Claude（依兩份文字型 PDF 手動抽取，未經 scripts/extract-rulepack.ts）",
     "reviewNotes": "docs/review/fju-im-111.md",
-    "revision": "v0.2：依校對清單 A1、A3、C1、C2 的回覆修改"
+    "revision": "v0.3：A6 兩門框線外的課不算系專選；補畢業最低學分的原文出處",
+    "courseTitles": {
+      "00007": "人生哲學",
+      "00155": "大學入門",
+      "01558": "作業系統",
+      "01584": "系統分析與設計",
+      "02222": "統計學",
+      "02390": "微積分",
+      "02412": "會計學",
+      "02457": "經濟學",
+      "02490": "資料庫管理",
+      "02492": "資料結構",
+      "02631": "管理資訊系統",
+      "04038": "資訊系統專題二",
+      "04317": "資訊系統專題一",
+      "05201": "企業管理概論",
+      "08824": "專業倫理-企業倫理",
+      "10681": "資料通訊與網路",
+      "14761": "進階程式設計",
+      "16258": "Web程式設計",
+      "24495": "程式設計概論",
+      "24496": "Web前端設計",
+      "30499": "創新與設計思考"
+    }
   },
   "school": "fju"
 }

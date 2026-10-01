@@ -21,13 +21,10 @@ export default async function ReviewIndex() {
         <div className="box" style={{ borderLeftColor: "var(--ink-3)" }}>
           <h1 style={{ color: "var(--ink)" }}>規則包人工校對</h1>
           <p>
-            規則包由 LLM 從課程規劃表離線抽取後產生草稿，<b>必須逐條經人工校對</b>才會被系統接受。
-            未校對的草稿（provenance=draft）在執行期會被 loader 拒絕，不會用於任何判定。
+            畢業規定先從系上公布的文件整理成草稿，<b>必須逐條經人工校對、全部通過並鎖版</b>，系統才會拿來審查。
+            還沒鎖版的草稿不會用於任何判定。
           </p>
-          <p>
-            校對紀錄（校對人、時間、通過或修正）會留存於 <code>.data/reviews/</code>，
-            作為資料品質的可查核證據。
-          </p>
+          <p>校對紀錄（誰、什麼時候、通過或修正）會保存下來，作為資料品質的證據。</p>
         </div>
 
         <div className="panel" style={{ marginTop: 18 }}>
@@ -53,7 +50,9 @@ export default async function ReviewIndex() {
               <ul style={{ margin: 0, paddingLeft: 18, fontSize: 14 }}>
                 {views.map(({ id, v }) => {
                   const total = v?.items.length ?? 0;
-                  const done = v?.record.decisions.filter((d) => d.status !== "rejected").length ?? 0;
+                  // 只算「通過」：需要修正、退回都還不能鎖版
+                  const ids = new Set(v?.items.map((i) => i.id));
+                  const done = v?.record.decisions.filter((d) => d.status === "approved" && ids.has(d.itemId)).length ?? 0;
                   return (
                     <li key={id} style={{ marginBottom: 6 }}>
                       <a href={`/review/${id}`}>{id}</a>

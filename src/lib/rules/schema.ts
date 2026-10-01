@@ -39,7 +39,17 @@ const zMatch = z.discriminatedUnion("type", [
   /** 依選別欄位歸屬，如通識 */
   z.object({ type: z.literal("selectType"), value: z.enum(["required", "elective", "general"]) }),
   /** 本系（或指定系）開設之選修 */
-  z.object({ type: z.literal("deptElective"), dept: z.string().min(1) }),
+  z.object({
+    type: z.literal("deptElective"),
+    dept: z.string().min(1),
+    /**
+     * 本系開、但規定不算進這一類的課（課名，去空白後完全比對）。
+     * 輔大 111 規劃表把「組織學習與社會探究」等兩門畫在系選修框線外：系上開的課，
+     * 卻不算那 10 學分系專選，只能算其他選修。
+     * 用課名而不用課號：規劃表上 19664 同時印給了兩門課，用課號會連另一門一起排除。
+     */
+    excludeNames: z.array(z.string().min(1)).optional(),
+  }),
   /** 自由選修：任何及格學分皆可，作為承接類別 */
   z.object({ type: z.literal("anyPassed") }),
 ]);
@@ -167,6 +177,8 @@ export const zRulePack = z
     /** 鎖版用：規則包正規化後的 content hash */
     contentHash: z.string().optional(),
     minCredits: z.number().int().positive(),
+    /** 畢業最低學分的原文出處。合成資料沒有；真實規則包要附，校對時才有原文可對 */
+    minCreditsCitation: zCitation.optional(),
     /** 本系所屬學院，判定跨院選修用 */
     college: z.string().min(1),
     documents: z.array(zDocument).min(1),
@@ -242,6 +254,7 @@ export const zRulePack = z
     });
     pack.graduationChecks.forEach((g, i) => check(g.citation, ["graduationChecks", i]));
     pack.termLimits.citations.forEach((c, i) => check(c, ["termLimits", "citations", i]));
+    if (pack.minCreditsCitation) check(pack.minCreditsCitation, ["minCreditsCitation"]);
     Object.entries(pack.overflowPolicy).forEach(([k, v]) => check(v.citation, ["overflowPolicy", k]));
   });
 

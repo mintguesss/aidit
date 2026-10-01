@@ -8,7 +8,15 @@ import { DeclareToggle } from "./DeclareToggle";
  * 四條各自掛一個「依據」會讓這一區變成四個小連結；
  * 原文本來就集中在「原文出處」頁，所以整區只放一個連結指過去。
  */
-export function GraduationCheckDetails({ checks }: { checks: GraduationCheck[] }) {
+export function GraduationCheckDetails({
+  checks,
+  fixture,
+  term,
+}: {
+  checks: GraduationCheck[];
+  fixture: string;
+  term: string;
+}) {
   return (
     <section className="panel">
       <div className="panel-hd">
@@ -26,7 +34,7 @@ export function GraduationCheckDetails({ checks }: { checks: GraduationCheck[] }
             <span className={`vl ${g.status}`}>{g.label}</span>
             {g.detail ? <span className="d">{g.detail}</span> : null}
             {/* 學校資料看不出來的條件，學生可以自己勾；勾了顯示「自行勾選」，系統不查核 */}
-            {g.declarable ? <DeclareToggle checkId={g.id} checked={Boolean(g.selfDeclared)} /> : null}
+            {g.declarable ? <DeclareToggle checkId={g.id} checked={Boolean(g.selfDeclared)} fixture={fixture} term={term} /> : null}
           </li>
         ))}
       </ul>

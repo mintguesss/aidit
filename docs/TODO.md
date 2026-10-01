@@ -21,6 +21,15 @@
 
 ## B. 儲存層
 
+- [ ] **B10　開課資料搬進資料庫**（2026-10-02 談定方向，**等 維護者 確認後動工**）
+      現在放在 repo（`src/lib/offerings/data/fju-*.json`），跟程式一起部署。搬進 Supabase 後，
+      每學期抓完直接上傳、網站馬上生效，repo 也不會每學期多 700 班。步驟：
+      1. 寫 `supabase/migrations/0004_offerings.sql`，**維護者 貼到 Supabase 後台 SQL Editor 執行**
+         （service role 金鑰沒有建表權限）
+      2. 上傳腳本：把 113-1、115-1、115-2 寫進去；之後「抓取 → 轉換 → 上傳」
+      3. 載入比照規則包：啟動時預載成記憶體（`offeringsFor` 是同步呼叫，到處在用），
+         沒設 Supabase 的環境（CI、離線）退回 repo 裡的檔案
+
 - [ ] **B7　校對頁接上「上傳的」原檔**
       公開文件已經接上：每一項附「開啟原始文件（第 N 頁）」，連到規則包 `documents[].url`。
       還沒做的是使用者在 `/rulepack` 上傳的 PDF —— `signedUploadUrl()` 已經可以簽發短效連結，

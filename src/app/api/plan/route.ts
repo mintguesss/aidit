@@ -16,6 +16,7 @@ import { constraintSetFrom, describeSet, preferencesOf } from "@/lib/chat/apply"
 import type { CoursePreferences } from "@/lib/types";
 import type { OptionalPreferences } from "@/lib/ui/prefs";
 import { termLimitsFor } from "@/lib/rules/term-limits";
+import { schoolOf } from "@/lib/schools";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,7 +82,7 @@ export async function POST(req: Request) {
 
   const [year, t] = parseTerm(audit.nextTerm);
   const ctx: SolveContext = {
-    offerings: offeringsFor(year, t),
+    offerings: offeringsFor(year, t, schoolOf(record.student)),
     requirements,
     passedCodes: new Set(
       record.courses

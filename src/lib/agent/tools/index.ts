@@ -47,9 +47,9 @@ export function collectCitations(audit: AuditResult): Citation[] {
 }
 
 /** course.search —— 查自建開課資料庫 */
-export function courseSearch(year: number, term: Term, categories: string[]): Offering[] {
+export function courseSearch(year: number, term: Term, categories: string[], school: string): Offering[] {
   const wanted = new Set(categories);
-  return offeringsFor(year, term).filter((o) => o.category.some((c) => wanted.has(c)));
+  return offeringsFor(year, term, school).filter((o) => o.category.some((c) => wanted.has(c)));
 }
 
 /** schedule.solve —— backtracking，不經 LLM */

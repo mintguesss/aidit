@@ -130,3 +130,46 @@ describe("只有課名的科目（規劃表不列課號）", () => {
     expect(cat(a, "free").earned).toBe(0);
   });
 });
+
+describe("通識領域：以學分判定", () => {
+  const credPack = zRulePack.parse({
+    ...pack,
+    yearLongCourses: [],
+    categories: [
+      { id: "general", name: "通識", shortName: "通識", credits: 12, order: 1,
+        match: { type: "selectType", value: "general" }, citation: cite,
+        subRules: [{ type: "domainCoverage", id: "d", name: "三大領域", domains: ["人文", "自然", "社會"],
+          minPerDomain: 1, minCreditsPerDomain: 4, citation: cite }] },
+      { id: "free", name: "選修", shortName: "選修", credits: 8, order: 2,
+        match: { type: "anyPassed" }, citation: cite },
+    ],
+    overflowPolicy: {},
+  });
+  const g = (code: string, domain: string, credits: number, status: CourseRecord["status"] = "passed"): CourseRecord =>
+    ({ code, name: code, credits, year: 112, term: 1, status, selectType: "general", generalDomain: domain, score: 80 });
+
+  function sub(courses: CourseRecord[]) {
+    const record: StudentRecord = {
+      student: { id: "S-TEST", dept: "IM", admissionYear: 111, actualAdmissionYear: 111, status: "enrolled", program: "day" },
+      courses, fetchedAt: "2026-10-01T00:00:00Z", source: "mock",
+    };
+    const a = auditCredits({ record, pack: credPack, traceId: "t", currentTerm: "115-1", nextTerm: "115-2" });
+    return a.categories.find((c) => c.id === "general")!.subRules[0]!;
+  }
+
+  it("每個領域只修一門 2 學分：門數夠，學分不夠", () => {
+    const s = sub([g("G1", "人文", 2), g("G2", "自然", 2), g("G3", "社會", 2)]);
+    expect(s.status).toBe("unmet");
+    expect(s.detail).toContain("三大領域各至少 4 學分");
+  });
+
+  it("各領域都滿 4 學分才算滿足", () => {
+    const s = sub([g("G1", "人文", 2), g("G2", "人文", 2), g("G3", "自然", 4), g("G4", "社會", 2), g("G5", "社會", 2)]);
+    expect(s.status).toBe("satisfied");
+  });
+
+  it("差的學分正在修：成績登錄後始滿足", () => {
+    const s = sub([g("G1", "人文", 4), g("G2", "自然", 4), g("G3", "社會", 2), g("G4", "社會", 2, "in_progress")]);
+    expect(s.status).toBe("pending_in_progress");
+  });
+});

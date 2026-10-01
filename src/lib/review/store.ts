@@ -149,6 +149,21 @@ export async function lockPack(
     };
   }
 
+  // 「已修正」只記下修正的文字，不會改到草稿 —— 鎖版發布的是原始草稿。
+  // 以前它被當成通過，結果是：校對者寫了「應該是 9 學分」，發布出去的仍是錯的值，
+  // 還被標成「已人工校對」。修正必須回到草稿改，改完草稿的 hash 會變，
+  // 舊的校對紀錄自動失效，整份重新校對 —— 這樣發布的才是校對過的內容。
+  const corrected = view.items.filter((i) => decided.get(i.id)?.status === "corrected");
+  if (corrected.length > 0) {
+    return {
+      ok: false,
+      reason:
+        `有 ${corrected.length} 項標為「需要修正」：${corrected.slice(0, 3).map((i) => i.label).join("、")}` +
+        `${corrected.length > 3 ? " 等" : ""}。修正內容不會自動寫進規則包，請依修正內容改草稿、` +
+        `重新上傳（scripts/push-draft.ts）後再校對一次。`,
+    };
+  }
+
   const pack = { ...view.draft } as Record<string, unknown>;
   delete pack._draft;
   pack.provenance = "approved";

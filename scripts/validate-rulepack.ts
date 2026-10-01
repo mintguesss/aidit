@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { describeCourseCodeFormats } from "@/lib/courses/code";
 import { join } from "node:path";
 import { zRulePack, COURSE_CODE_RE, type RulePack, type RuleCitation } from "@/lib/rules/schema";
-import { normalize, fuzzyBestMatch } from "@/lib/util/text";
+import { normalize, fuzzyBestMatch, numeralsOf } from "@/lib/util/text";
 import { contentHash } from "@/lib/util/identity";
 
 /**
@@ -119,6 +119,14 @@ function validate(file: string, pack: RulePack): Issue[] {
     if (body.includes(q)) return;
     const best = fuzzyBestMatch(q, body);
     if (best.ratio >= FUZZY_MIN) {
+      // 與 citation.verify 同一條規則：夠像不夠，數字必須完全一樣
+      if (numeralsOf(q).join("|") !== numeralsOf(best.window).join("|")) {
+        err(
+          `${where} 的數字與原文不符（引文 ${numeralsOf(q).join("、") || "無"}；` +
+            `原文 ${numeralsOf(best.window).join("、") || "無"}；相似度 ${(best.ratio * 100).toFixed(1)}%）`,
+        );
+        return;
+      }
       warn(`${where} 僅以模糊比對通過（相似度 ${(best.ratio * 100).toFixed(1)}%），建議校對原文`);
       return;
     }
@@ -132,6 +140,7 @@ function validate(file: string, pack: RulePack): Issue[] {
   });
   pack.graduationChecks.forEach((g) => check(g.citation, `畢業條件 ${g.id}`));
   Object.entries(pack.overflowPolicy).forEach(([k, v]) => check(v.citation, `overflowPolicy ${k}`));
+  pack.termLimits.citations.forEach((c, i) => check(c, `修課學分上下限 #${i + 1}`));
 
   // 5. 鎖版狀態
   if (pack.provenance === "approved" && !pack.approvedBy) {

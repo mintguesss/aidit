@@ -1,5 +1,5 @@
 import type { Citation, CitationVerdict } from "@/lib/types";
-import { fuzzyBestMatch, normalize } from "@/lib/util/text";
+import { fuzzyBestMatch, normalize, numeralsOf } from "@/lib/util/text";
 
 /**
  * 引用查核（docs/BACKEND.md §3）。
@@ -25,6 +25,12 @@ export function verifyCitation(cite: Citation, corpus: Map<string, string>): Cit
 
   const best = fuzzyBestMatch(q, body);
   if (best.ratio >= FUZZY_THRESHOLD) {
+    // 夠像，但數字必須完全一樣。只差一個數字的引文相似度一樣很高，
+    // 而那一個數字往往就是整條規則的重點（學分數、學年、門數）。
+    // 邊界切到數字中間時也會判不符 —— 那是安全的方向：降級成待確認，而不是放過錯的數字。
+    if (numeralsOf(q).join("|") !== numeralsOf(best.window).join("|")) {
+      return { citation: cite, ok: false, reason: "number_mismatch", ratio: round(best.ratio) };
+    }
     // method: "fuzzy" 要顯示在 trace 上，不要藏起來
     return { citation: cite, ok: true, method: "fuzzy", ratio: round(best.ratio) };
   }

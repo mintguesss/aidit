@@ -86,3 +86,29 @@ describe("normalize", () => {
     expect(normalize("ＡＢＣ")).toBe("abc");
   });
 });
+
+describe("模糊比對時數字必須完全一樣", () => {
+  // 規則裡最關鍵的就是數字。只差一個數字的引文相似度一樣很高（這例子 95%），
+  // 以前會被判「已回查原文」—— 等於讓一個改錯的學分數通過驗證。
+  const corpus = new Map([["r", "第十一條：學士班學生每學期修習學分數上限為二十五學分；應屆畢業生得超修至三十二學分。"]]);
+  const v = (quote: string) =>
+    verifyCitation({ docId: "r", docTitle: "選課辦法", locator: "第十一條", quote }, corpus);
+
+  it("數字改了：不通過，原因標明是數字不符", () => {
+    const r = v("學士班學生每學期修習學分數上限為二十八學分");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toBe("number_mismatch");
+  });
+
+  it("阿拉伯數字也一樣", () => {
+    const c = new Map([["r", "畢業應修滿 128 學分，其中通識 12 學分。"]]);
+    const r = verifyCitation({ docId: "r", docTitle: "t", locator: "x", quote: "畢業應修滿 126 學分，其中通識 12 學分" }, c);
+    expect(r.ok).toBe(false);
+  });
+
+  it("數字相同、只有其他字的小差異：照舊以模糊比對通過", () => {
+    const r = v("學士班學生每學期修讀學分數上限為二十五學分");
+    expect(r.ok).toBe(true);
+    expect(r.method).toBe("fuzzy");
+  });
+});

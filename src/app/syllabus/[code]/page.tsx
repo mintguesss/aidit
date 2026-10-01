@@ -4,6 +4,7 @@ import { parsePageParams } from "@/lib/ui/params";
 import { Shell, PageHead } from "@/components/shell/Shell";
 import { allOfferings, fetchedAt, remainingSeats } from "@/lib/offerings";
 import { formatSlots } from "@/lib/solver/slots";
+import { periodScheme, periodLabel } from "@/lib/offerings/period-scheme";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +57,7 @@ export default async function SyllabusPage({
                 <F k="開課單位" v={`${o.dept}／${o.college}`} />
                 <F
                   k="時段"
-                  v={o.slotsUnknown ? `無法解析（原始字串：${o.rawSlotText ?? "—"}）` : formatSlots(o.slots)}
+                  v={o.slotsUnknown ? `無法解析（原始字串：${o.rawSlotText ?? "—"}）` : formatSlots(o.slots, false, (p) => periodLabel(periodScheme(o.school), p))}
                 />
                 <F k="修課餘額" v={seats === null ? "開課資料未提供" : `${seats}／${o.capacity}`} />
                 <F k="可採計類別" v={o.category.join("、")} />

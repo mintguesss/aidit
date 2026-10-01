@@ -13,7 +13,7 @@ import {
   type PlanIntentResult,
   type PlanParams,
 } from "./intent";
-import { applyParams, describeDelta, describeSet } from "./apply";
+import { applyParams, describeDelta, describeSet, periodNamesFor } from "./apply";
 import {
   answerCourseInfo,
   answerPersonalAudit,
@@ -102,7 +102,7 @@ export async function planTurn(
   // 方向是固定的：規則可以多擋、更正拒絕的理由、補上模型漏掉的條件，
   // 但絕不把模型的拒絕變成放行。
   const changesOf = (p: PlanParams, next: ConstraintSet) =>
-    p.reset ? ["重設為個人資料的原始設定"] : describeDelta(ctx.constraints, next);
+    p.reset ? ["重設為個人資料的原始設定"] : describeDelta(ctx.constraints, next, periodNamesFor(ctx.record.student.school));
 
   const rules = rulePlanIntent(raw);
   if (rules.kind === "forbidden") {
@@ -151,7 +151,7 @@ export async function planTurn(
   if (intent.kind === "compare") {
     // 第一個方案要是畫面上那一份，後面才是「另外幾組」
     const solveCtx = { ...buildContext(ctx.audit, ctx.record, ctx.pack, ctx.constraints), keep: ctx.shownCodes };
-    const outcome = runPlanTurn(solveCtx, ctx.constraints, shown, ["（未變更條件）"]);
+    const outcome = runPlanTurn(solveCtx, ctx.constraints, shown, ["（未變更條件）"], periodNamesFor(ctx.record.student.school));
     tools.push("schedule.solve");
     const alt = outcome.solve.ok ? outcome.solve.plans.length : 0;
     return {
@@ -205,7 +205,7 @@ export async function planTurn(
     ...buildContext(ctx.audit, ctx.record, ctx.pack, set),
     keep: shown?.courses.map((c) => c.code),
   });
-  let outcome = runPlanTurn(solveFor(applied.next), applied.next, shown, changed);
+  let outcome = runPlanTurn(solveFor(applied.next), applied.next, shown, changed, periodNamesFor(ctx.record.student.school));
   tools.push("schedule.solve");
 
   // 這一輪要的條件做不到 → 不套用，照實說做不到、最多能到哪裡。
@@ -217,7 +217,7 @@ export async function planTurn(
   if (undone.reasons.length > 0) {
     applied = { ...applied, next: undone.next };
     changed = changesOf(params, undone.next);
-    outcome = runPlanTurn(solveFor(undone.next), undone.next, shown, changed);
+    outcome = runPlanTurn(solveFor(undone.next), undone.next, shown, changed, periodNamesFor(ctx.record.student.school));
   }
   const notDone = [...undone.reasons, ...unsupportedAsks(raw)];
 
@@ -255,7 +255,7 @@ export async function planTurn(
  */
 function shownPlan(ctx: TurnContext): Plan | undefined {
   const solveCtx = { ...buildContext(ctx.audit, ctx.record, ctx.pack, ctx.constraints), keep: ctx.shownCodes };
-  const o = runPlanTurn(solveCtx, ctx.constraints, undefined, []);
+  const o = runPlanTurn(solveCtx, ctx.constraints, undefined, [], periodNamesFor(ctx.record.student.school));
   return o.solve.ok ? o.solve.plans[0] : undefined;
 }
 

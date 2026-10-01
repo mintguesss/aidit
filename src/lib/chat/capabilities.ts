@@ -6,6 +6,7 @@ import { formatSlots } from "@/lib/solver/slots";
 import type { Reply } from "./types";
 import { termLimitsFor } from "@/lib/rules/term-limits";
 import { DEFAULT_SCHOOL } from "@/lib/schools";
+import { periodScheme, periodLabel } from "@/lib/offerings/period-scheme";
 
 /**
  * B 介面的能力層（docs/CONVERSATION.md §2.2）。
@@ -245,7 +246,9 @@ export function answerCourseInfo(query: string, nextTerm: string, school: string
 
   const lines = hits.slice(0, 4).map((o) => {
     const seats = remainingSeats(o);
-    const slot = o.slotsUnknown ? `時段未知（原始：${o.rawSlotText}）` : formatSlots(o.slots);
+    // 節次名稱依學校：輔大的內部第 6 節是 D5
+    const scheme = periodScheme(o.school);
+    const slot = o.slotsUnknown ? `時段未知（原始：${o.rawSlotText}）` : formatSlots(o.slots, false, (p) => periodLabel(scheme, p));
     const prereq = o.prerequisites.find((p) => p.confidence === "explicit");
     return (
       `${o.code} ${o.name}　${o.credits} 學分　${o.teacher}　${slot}　` +

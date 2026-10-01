@@ -4,6 +4,7 @@ import { allOfferings } from "@/lib/offerings";
 import type { ConstraintDelta, ConstraintSet } from "./types";
 import { BLOCK_CUE, DAY_WORDS, PART_WORDS, parseNum, type PlanParams } from "./intent";
 import { DEFAULT_SCHOOL } from "@/lib/schools";
+import { periodScheme, periodLabel } from "@/lib/offerings/period-scheme";
 
 /**
  * 約束集合的建立與套用（docs/CONVERSATION.md §1.1）。
@@ -47,18 +48,58 @@ const sameSet = (a: readonly number[], b: readonly number[]) =>
   a.length === b.length && b.every((p) => a.includes(p));
 
 /**
+ * 節次的說法。
+ *
+ * 內部一律用整數節次，但給人看的說法依學校：合成資料說「第 1–4 節」，輔大說「D1–D4」
+ * （輔大的內部第 6 節是 D5，直接印整數會說錯）。合成資料的說法維持原樣，逐字不變。
+ */
+export type PeriodNames = {
+  /** 一段節次，如「第 1–4 節」「D1–D4」 */
+  span: (ps: readonly number[]) => string;
+  /** 列舉，如「第 1、2 節」「D1、D2」 */
+  list: (ps: readonly number[]) => string;
+  /** 「不排早八」實際擋掉的節次：合成資料是第 1 節，輔大還包含特早節 D0 */
+  early: string;
+};
+
+export const DEMO_PERIOD_NAMES: PeriodNames = {
+  span: (ps) => `第 ${ps[0]}–${ps[ps.length - 1]} 節`,
+  list: (ps) => `第 ${ps.join("、")} 節`,
+  early: "第 1 節",
+};
+
+export function periodNamesFor(school?: string): PeriodNames {
+  const scheme = periodScheme(school);
+  if (scheme.school === "demo") return DEMO_PERIOD_NAMES;
+  const exists = (p: number) => scheme.rows.some((r) => r.index === p);
+  const label = (p: number) => periodLabel(scheme, p);
+  return {
+    // 時段的範圍是全系統共用的（晚上 10–15），該校沒有的節次不能印出來（輔大只到 E4）
+    span: (ps) => {
+      const xs = ps.filter(exists);
+      return xs.length > 0 ? `${label(xs[0]!)}–${label(xs[xs.length - 1]!)}` : DEMO_PERIOD_NAMES.span(ps);
+    },
+    list: (ps) => ps.map(label).join("、"),
+    early: [0, 1].filter(exists).map(label).join("、"),
+  };
+}
+
+/**
  * 把一組 avoidPeriods 寫成人話。
  * 平日同一時段全畫掉就合併成一句（「不排下午的課」），剛好是某時段就說「星期五下午」，
  * 否則才列節次。早上整組由 isMorningBlock 另外處理，呼叫端要先濾掉。
  */
-function describePeriods(entries: { day: number; periods: number[] }[]): string[] {
+function describePeriods(
+  entries: { day: number; periods: number[] }[],
+  names: PeriodNames = DEMO_PERIOD_NAMES,
+): string[] {
   const out: string[] = [];
   let rest = [...entries];
   for (const part of ["afternoon", "evening"] as const) {
     const ps = PART_PERIODS[part];
     const hits = rest.filter((a) => WEEKDAYS.includes(a.day) && sameSet(a.periods, ps));
     if (WEEKDAYS.every((d) => hits.some((a) => a.day === d))) {
-      out.push(`不排${PART_NAME[part]}的課（第 ${ps[0]}–${ps[ps.length - 1]} 節）`);
+      out.push(`不排${PART_NAME[part]}的課（${names.span(ps)}）`);
       rest = rest.filter((a) => !hits.includes(a));
     }
   }
@@ -67,7 +108,7 @@ function describePeriods(entries: { day: number; periods: number[] }[]): string[
     const part = (Object.keys(PART_PERIODS) as (keyof typeof PART_PERIODS)[]).find((k) =>
       sameSet(a.periods, PART_PERIODS[k]),
     );
-    out.push(part ? `空出星期${day}${PART_NAME[part]}` : `空出星期${day} 第 ${a.periods.join("、")} 節`);
+    out.push(part ? `空出星期${day}${PART_NAME[part]}` : `空出星期${day} ${names.list(a.periods)}`);
   }
   return out;
 }
@@ -432,15 +473,15 @@ export function applyParams(
 }
 
 /** 把約束集合寫成人看得懂的條件清單，UI 與回覆共用同一份 */
-export function describeSet(c: ConstraintSet): string[] {
+export function describeSet(c: ConstraintSet, names: PeriodNames = DEMO_PERIOD_NAMES): string[] {
   const out: string[] = [];
   out.push(GOAL_LABEL[c.goal]);
   const morning = isMorningBlock(c.avoidPeriods);
   // 不排早上已經涵蓋第 1 節，兩條並列只是噪音
-  if (morning) out.push("不排早上的課（第 1–4 節）");
-  else if (c.avoidEarly) out.push("不排早八（第 1 節）");
+  if (morning) out.push(`不排早上的課（${names.span(MORNING_PERIODS)}）`);
+  else if (c.avoidEarly) out.push(`不排早八（${names.early}）`);
   if (c.avoidDays.length > 0) out.push(`空出星期${c.avoidDays.map((d) => "一二三四五六日"[d - 1]).join("、")}`);
-  out.push(...describePeriods(c.avoidPeriods.filter((a) => !(morning && isMorningEntry(a)))));
+  out.push(...describePeriods(c.avoidPeriods.filter((a) => !(morning && isMorningEntry(a))), names));
   if (c.targetCourseCount !== undefined) out.push(`期望 ${c.targetCourseCount} 堂課`);
   if (c.preferCompactDays) out.push("課程盡量集中在少數幾天");
   if (c.maxDays !== undefined) out.push(`課排在 ${c.maxDays} 天內`);
@@ -471,17 +512,21 @@ const GOAL_LABEL = {
  * 改成只描述真正生效的差異。沒有差異就回空陣列，由呼叫端據實說明，
  * 絕不把「宣稱有改」和「實際沒改」這兩件事混為一談。
  */
-export function describeDelta(before: ConstraintSet, after: ConstraintSet): string[] {
+export function describeDelta(
+  before: ConstraintSet,
+  after: ConstraintSet,
+  names: PeriodNames = DEMO_PERIOD_NAMES,
+): string[] {
   const out: string[] = [];
 
   if (before.goal !== after.goal) out.push(`改為${GOAL_LABEL[after.goal]}`);
 
   const wasMorning = isMorningBlock(before.avoidPeriods);
   const nowMorning = isMorningBlock(after.avoidPeriods);
-  if (wasMorning !== nowMorning) out.push(nowMorning ? "不排早上的課（第 1–4 節）" : "恢復可排早上的課");
+  if (wasMorning !== nowMorning) out.push(nowMorning ? `不排早上的課（${names.span(MORNING_PERIODS)}）` : "恢復可排早上的課");
   // 早上已涵蓋第 1 節，同一輪兩者都變時只講範圍較大的那個
   if (before.avoidEarly !== after.avoidEarly && !nowMorning) {
-    out.push(after.avoidEarly ? "不排早八（第 1 節）" : "接受早八");
+    out.push(after.avoidEarly ? `不排早八（${names.early}）` : "接受早八");
   }
 
   const dayName = (d: number) => "一二三四五六日"[d - 1];
@@ -498,7 +543,7 @@ export function describeDelta(before: ConstraintSet, after: ConstraintSet): stri
   };
   const key = (a: { day: number; periods: number[] }) => `${a.day}:${[...a.periods].sort((x, y) => x - y).join(",")}`;
   const beforeKeys = new Set(listed(before).map(key));
-  out.push(...describePeriods(listed(after).filter((a) => !beforeKeys.has(key(a)))));
+  out.push(...describePeriods(listed(after).filter((a) => !beforeKeys.has(key(a))), names));
 
   if (before.targetCourseCount !== after.targetCourseCount && after.targetCourseCount !== undefined) {
     out.push(`改為期望 ${after.targetCourseCount} 堂課`);

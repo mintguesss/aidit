@@ -56,6 +56,7 @@ export function PlanPanel({
   termLimits,
   reserved,
   search,
+  school,
 }: {
   fixture: string;
   term: string;
@@ -65,6 +66,8 @@ export function PlanPanel({
   termLimits: { maxCredits: number; minCredits: number };
   reserved: { label: string; slotText: string }[];
   search: string;
+  /** 學校：週課表與匯出的節次名稱、鐘點依各校作息 */
+  school?: string;
 }) {
   const [state, setState] = useState<State>(initial);
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -130,7 +133,7 @@ export function PlanPanel({
         <div className="panel-hd">
           <h2>建議課表</h2>
           <span className="hint">{syncing ? "依你儲存的選課傾向重新排課中…" : nextTerm}</span>
-          {plan ? <ExportButtons plan={plan} /> : null}
+          {plan ? <ExportButtons plan={plan} school={school} /> : null}
         </div>
 
         <PrefBar
@@ -156,7 +159,7 @@ export function PlanPanel({
             </div>
 
             {view === "grid" ? (
-              <Timetable courses={plan.courses} reserved={reservedSlots} search={search} />
+              <Timetable courses={plan.courses} reserved={reservedSlots} search={search} school={school} />
             ) : null}
 
             {view === "list" ? (

@@ -53,7 +53,13 @@ const zSubRule = z.discriminatedUnion("type", [
     id: z.string(),
     name: z.string(),
     domains: z.array(z.string()).min(1),
+    /** 每個領域至少修幾門 */
     minPerDomain: z.number().int().positive(),
+    /**
+     * 每個領域至少修幾學分。有設就以學分判定（取代門數）—— 輔大是各領域 4 學分，
+     * 修了一門 2 學分的課，門數算滿足、學分卻還差 2。
+     */
+    minCreditsPerDomain: z.number().int().positive().optional(),
     citation: zCitation,
   }),
   z.object({

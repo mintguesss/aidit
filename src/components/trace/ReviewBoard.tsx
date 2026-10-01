@@ -14,7 +14,10 @@ export function ReviewBoard({ view }: { view: DraftView }) {
   const [busy, setBusy] = useState(false);
 
   const byItem = useMemo(() => new Map(decisions.map((d) => [d.itemId, d])), [decisions]);
-  const approved = view.items.filter((i) => byItem.get(i.id)?.status === "approved" || byItem.get(i.id)?.status === "corrected");
+  // 只有「通過」算數。「需要修正」不會改到草稿，鎖版時發布的仍是原內容 ——
+  // 它表示這一項要回草稿改，改完重新上傳、重新校對（見 lib/review/store.ts 的 lockPack）
+  const approved = view.items.filter((i) => byItem.get(i.id)?.status === "approved");
+  const needsFix = view.items.filter((i) => byItem.get(i.id)?.status === "corrected").length;
   const locked = Boolean(view.record.lockedAt);
 
   const decide = async (itemId: string, status: ReviewDecision["status"], note?: string) => {
@@ -92,6 +95,12 @@ export function ReviewBoard({ view }: { view: DraftView }) {
               鎖版
             </button>
           </div>
+          {needsFix > 0 ? (
+            <div className="note warn" style={{ marginTop: 12 }}>
+              有 {needsFix} 項標為「需要修正」。修正內容不會自動寫進規則包：請依備註改草稿，
+              以 <code>scripts/push-draft.ts</code> 重新上傳，再整份校對一次。
+            </div>
+          ) : null}
           {message ? (
             <div className="note warn" style={{ marginTop: 12 }}>
               {message}
@@ -115,11 +124,7 @@ export function ReviewBoard({ view }: { view: DraftView }) {
               className="hold"
               style={{
                 borderLeftColor:
-                  state === "approved" || state === "corrected"
-                    ? "var(--ok)"
-                    : state === "rejected"
-                      ? "var(--unmet)"
-                      : "var(--hold)",
+                  state === "approved" ? "var(--ok)" : state === "rejected" ? "var(--unmet)" : "var(--hold)",
               }}
             >
               <h4>{item.label}</h4>
@@ -158,7 +163,7 @@ export function ReviewBoard({ view }: { view: DraftView }) {
                   <div className="meta">
                     <div>
                       <b>狀態</b>
-                      {{ approved: "通過", corrected: "已修正", rejected: "退回" }[d.status]}
+                      {{ approved: "通過", corrected: "需要修正（待改草稿）", rejected: "退回" }[d.status]}
                     </div>
                     <div>
                       <b>校對人</b>　{d.reviewer}
@@ -182,11 +187,11 @@ export function ReviewBoard({ view }: { view: DraftView }) {
                   className="btn"
                   disabled={busy || locked}
                   onClick={() => {
-                    const note = window.prompt("請說明修正內容（會記入校對紀錄）");
+                    const note = window.prompt("應該改成什麼？（會記入校對紀錄；之後要改草稿、重新上傳再校對）");
                     if (note) void decide(item.id, "corrected", note);
                   }}
                 >
-                  已於 JSON 修正
+                  需要修正
                 </button>
                 <button
                   className="btn"

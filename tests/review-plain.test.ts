@@ -14,39 +14,82 @@ import type { CourseRecord, StudentRecord } from "@/lib/types";
 const DRAFT = "docs/review/fju-im-111.draft.json";
 const draft = JSON.parse(readFileSync(DRAFT, "utf8")) as Record<string, unknown>;
 
-describe("A6：系選修框外的課不算系專選", () => {
+describe("A6：系選修框外的兩門課", () => {
   const pack = zRulePack.parse(draft);
 
-  function audit(courses: CourseRecord[]) {
+  function audit(courses: CourseRecord[], p = pack) {
     const record: StudentRecord = {
       student: { id: "S-TEST", dept: "IM", admissionYear: 111, actualAdmissionYear: 111, status: "enrolled", program: "day" },
       courses,
       fetchedAt: "2026-10-01T00:00:00Z",
       source: "mock",
     };
-    const a = auditCredits({ record, pack, traceId: "t", currentTerm: "115-1", nextTerm: "115-2" });
+    const a = auditCredits({ record, pack: p, traceId: "t", currentTerm: "115-1", nextTerm: "115-2" });
     expect(a.countable + a.inProgress + a.unmet).toBe(a.minCredits);
-    return (id: string) => a.categories.find((x) => x.id === id)!.earned;
+    return {
+      earned: (id: string) => a.categories.find((x) => x.id === id)!.earned,
+      check: (id: string) => a.graduationChecks.find((x) => x.id === id)!,
+    };
   }
 
   const elective = (code: string, name: string, credits: number): CourseRecord => ({
     code, name, credits, year: 114, term: 1, status: "passed", selectType: "elective", score: 80,
   });
 
-  it("「組織學習與社會探究」算其他選修，不算系專選", () => {
-    const earned = audit([elective("19664", "組織學習與社會探究", 2)]);
-    expect(earned("major-elective")).toBe(0);
-    expect(earned("free-elective")).toBe(2);
+  it("校對結論（v0.5）：兩門都算系專選", () => {
+    expect(audit([elective("19664", "組織學習與社會探究", 2)]).earned("major-elective")).toBe(2);
+    expect(audit([elective("19663", "組織領導與社會創新實務", 2)]).earned("major-elective")).toBe(2);
   });
 
-  it("課名比對忽略空白：「組織領導與 社會創新實務」一樣排除", () => {
-    const earned = audit([elective("19663", "組織領導與 社會創新實務", 2)]);
-    expect(earned("major-elective")).toBe(0);
+  describe("排除課名的機制（excludeNames）", () => {
+    const excluding = zRulePack.parse({
+      ...draft,
+      categories: (draft.categories as { id: string; match: object }[]).map((c) =>
+        c.id === "major-elective"
+          ? { ...c, match: { ...c.match, excludeNames: ["組織學習與社會探究", "組織領導與社會創新實務"] } }
+          : c,
+      ),
+    });
+
+    it("被排除的課只能算其他選修", () => {
+      const r = audit([elective("19664", "組織學習與社會探究", 2)], excluding);
+      expect(r.earned("major-elective")).toBe(0);
+      expect(r.earned("free-elective")).toBe(2);
+    });
+
+    it("課名比對忽略空白", () => {
+      expect(audit([elective("19663", "組織領導與 社會創新實務", 2)], excluding).earned("major-elective")).toBe(0);
+    });
+
+    it("同課號（19664）的「資訊系統專案管理」不受影響 —— 這就是用課名不用課號的原因", () => {
+      expect(audit([elective("19664", "資訊系統專案管理", 3)], excluding).earned("major-elective")).toBe(3);
+    });
   });
 
-  it("同課號（19664）的「資訊系統專案管理」不受影響，仍算系專選 —— 這就是用課名不用課號的原因", () => {
-    const earned = audit([elective("19664", "資訊系統專案管理", 3)]);
-    expect(earned("major-elective")).toBe(3);
+  describe("國防：從成績單的課名判斷（校對第 14 項）", () => {
+    const defense = (status: CourseRecord["status"], name = "全民國防教育軍事訓練"): CourseRecord => ({
+      code: "", name, credits: 0, year: 111, term: 1, status, selectType: "required", score: status === "passed" ? 80 : null,
+    });
+
+    it("成績單上有通過的紀錄 → 通過", () => {
+      expect(audit([defense("passed")]).check("defense-education").status).toBe("satisfied");
+    });
+
+    it("正在修 → 待確認、標「修課中」", () => {
+      const c = audit([defense("in_progress")]).check("defense-education");
+      expect(c.status).toBe("hold");
+      expect(c.label).toBe("修課中");
+    });
+
+    it("找不到 → 待確認，不判未修 —— 可能只是課名寫法不同", () => {
+      const c = audit([defense("passed", "全民國防教育(一)")]).check("defense-education");
+      expect(c.status).toBe("hold");
+      expect(c.detail).toContain("資訊管理學系辦公室");
+    });
+
+    it("沒通過（不及格）也不算", () => {
+      expect(audit([defense("failed")]).check("defense-education").status).toBe("hold");
+    });
   });
 });
 

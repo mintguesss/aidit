@@ -80,7 +80,10 @@ export function Timetable({
   const usesWeekend = [...grid.keys()].some((k) => k.startsWith("6-") || k.startsWith("7-"));
   // 一般從第 1 節畫起；排到輔大特早節（內部第 0 節）才往上延伸
   const periods = Array.from({ length: maxPeriod - minPeriod + 1 }, (_, i) => i + minPeriod);
-  const unknown = courses.filter((c) => c.slots.length === 0);
+  // 沒畫進格線的課分兩種：時段字串看不懂的（未參與衝堂判定），
+  // 和本來就沒有固定上課時間的（專題、實習：「時間另訂」）—— 後者學分照算，不能因為格線上看不到就忘了
+  const unknown = courses.filter((c) => c.slots.length === 0 && c.slotText.startsWith("時段未知"));
+  const noTime = courses.filter((c) => c.slots.length === 0 && !c.slotText.startsWith("時段未知"));
   const skip = new Map<number, number>();
 
   return (
@@ -137,6 +140,19 @@ export function Timetable({
       <p className="tt-legend">
         點課程格可看課綱。節次時間：{scheme.source}（{scheme.asOf}）。
       </p>
+
+      {noTime.length > 0 ? (
+        <div className="tt-notime">
+          <b>沒有固定上課時間（學分照算）</b>
+          <ul>
+            {noTime.map((c) => (
+              <li key={c.code}>
+                {c.name}（{c.code}，{c.credits} 學分，{c.teacher}）　{c.slotText}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {unknown.length > 0 ? (
         <p className="tt-note">

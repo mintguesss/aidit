@@ -199,7 +199,11 @@ export function PlanPanel({
                     <td className="span nowrap" data-lb="採計類別">{c.categoryLabel}</td>
                     <td className="span">
                       <span className={`tag ${c.slotText.startsWith("時段未知") ? "hold" : "ok"}`}>
-                        {c.slotText.startsWith("時段未知") ? "時段未知" : "無衝堂"}
+                        {c.slotText.startsWith("時段未知")
+                          ? "時段未知"
+                          : c.slots.length === 0
+                            ? "無固定時間"
+                            : "無衝堂"}
                       </span>
                     </td>
                     <td className="span nowrap" data-lb="課綱">

@@ -1,6 +1,7 @@
 import type {
   AuditResult,
   BlockedContent,
+  Declarations,
   Discussion,
   HoldItem,
   Offering,
@@ -25,6 +26,8 @@ export type AuditRequest = {
   fixture?: FixtureId;
   /** 本次判定的當前學期，如 "114-2" */
   currentTerm?: string;
+  /** 學生自行勾選已通過的畢業條件（lib/audit/session.ts 從偏好儲存讀來） */
+  declarations?: Declarations;
 };
 
 /** 步驟之間共享的可變狀態。每個步驟只寫自己負責的欄位。 */

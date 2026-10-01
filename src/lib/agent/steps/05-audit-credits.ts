@@ -28,6 +28,7 @@ export const auditCreditsStep: Step = {
             conflictNotes: state.conflictNotes,
             deptDefinedResolutions: state.deptDefinedResolutions,
             activeCourseCodes: activeCourseCodes(),
+            declarations: state.request.declarations,
           });
           return {
             data: result,

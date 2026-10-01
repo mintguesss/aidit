@@ -3,6 +3,7 @@ import type {
   CategoryResult,
   Citation,
   CourseRecord,
+  Declarations,
   GraduationCheck,
   HoldItem,
   StudentRecord,
@@ -50,6 +51,8 @@ export type AuditInput = {
   deptDefinedResolutions?: Record<string, DeptDefinedResolution>;
   /** 現行有開課的課號，用於判斷抵免課號是否已停開 */
   activeCourseCodes?: Set<string>;
+  /** 學生自行勾選已通過的畢業條件（只用在學校資料看不出來的條件上） */
+  declarations?: Declarations;
 };
 
 export class InvariantError extends Error {
@@ -607,6 +610,30 @@ function tallyOf(result: AssignmentResult, cat: RuleCategory): CategoryTally {
 }
 
 function buildGraduationChecks(input: AuditInput, pack: RulePack, holds: HoldItem[]): GraduationCheck[] {
+  return officialChecks(input, pack, holds).map((c) => withDeclaration(c, input.declarations));
+}
+
+/**
+ * 學生自行勾選。只用在學校資料看不出來（待確認）的條件上：
+ * 學校紀錄說「未通過」的，自己勾不掉；說「通過」的，也不需要勾。
+ * 勾了就算通過，但一律標成「自行勾選」—— 系統沒有查核，畢業審查時以學校紀錄為準。
+ */
+function withDeclaration(c: GraduationCheck, declarations: Declarations | undefined): GraduationCheck {
+  if (c.status !== "hold") return c;
+  const d = declarations?.[c.id];
+  if (!d?.passed) return { ...c, declarable: true };
+  return {
+    ...c,
+    status: "satisfied",
+    label: "自行勾選",
+    // 日期用台灣時間（UTC+8）：半夜勾的不能顯示成前一天
+    detail: `你在 ${new Date(Date.parse(d.at) + 8 * 3600_000).toISOString().slice(0, 10)} 自行勾選已通過。系統沒有查核，畢業審查時以學校紀錄為準。`,
+    declarable: true,
+    selfDeclared: true,
+  };
+}
+
+function officialChecks(input: AuditInput, pack: RulePack, holds: HoldItem[]): GraduationCheck[] {
   const evidence = input.record.graduationEvidence ?? {};
   return pack.graduationChecks.map((g) => {
     const citations = [toCitation(g.citation, pack)];
@@ -734,6 +761,10 @@ function buildVerdict(a: {
   const holdChecks = a.graduationChecks.filter((c) => c.status === "hold");
   if (holdChecks.length > 0) {
     parts.push(`畢業條件待確認：${holdChecks.map((c) => c.name).join("、")}`);
+  }
+  const declared = a.graduationChecks.filter((c) => c.selfDeclared);
+  if (declared.length > 0) {
+    parts.push(`其中 ${declared.map((c) => c.name).join("、")} 是你自行勾選的，系統未查核`);
   }
   const detail = parts.join("，") + "。";
 

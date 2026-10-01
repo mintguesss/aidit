@@ -7,6 +7,10 @@ import { purgeDaily } from "@/lib/store/purge";
 import type { FixtureId } from "@/lib/providers/fixtures";
 import type { CoursePreferences } from "@/lib/types";
 import { termLimitsFor } from "@/lib/rules/term-limits";
+import { fixture as fixtureOf } from "@/lib/providers/fixtures";
+import { prefsStore } from "@/lib/store/prefs-store";
+import { studentHash } from "@/lib/util/identity";
+import type { Declarations } from "@/lib/types";
 
 /**
  * 審查結果快取（docs/BACKEND.md §8）。
@@ -43,7 +47,8 @@ export async function getAuditSession(fixture: FixtureId, currentTerm: string): 
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.value;
 
-  const outcome = await runAudit({ providerKind: "mock", fixture, currentTerm });
+  const declarations = await declarationsOf(fixture);
+  const outcome = await runAudit({ providerKind: "mock", fixture, currentTerm, declarations });
   const store = traceStore();
   await store.saveTrace(outcome.trace).catch(() => undefined);
 
@@ -73,4 +78,22 @@ export async function getAuditSession(fixture: FixtureId, currentTerm: string): 
 
 export function __clearAuditCache(): void {
   cache.clear();
+}
+
+/** 自行勾選改了之後，這位學生的審查結果要重算（所有學期） */
+export function invalidateAuditSession(fixture: FixtureId): void {
+  for (const k of cache.keys()) if (k.startsWith(`${fixture}:`)) cache.delete(k);
+}
+
+/**
+ * 學生對畢業條件的自行勾選，存在偏好儲存裡（以 studentHash 為鍵）。
+ * 讀不到（沒設定、儲存層掛了）就當沒有勾 —— 不會因此擋住審查
+ */
+async function declarationsOf(fixture: FixtureId): Promise<Declarations | undefined> {
+  try {
+    const id = fixtureOf(fixture).record.student.id;
+    return (await prefsStore().load(studentHash(id)))?.declarations;
+  } catch {
+    return undefined;
+  }
 }

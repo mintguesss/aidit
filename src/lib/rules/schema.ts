@@ -209,5 +209,5 @@ export const zRulePack = z
 
 export type RulePack = z.infer<typeof zRulePack>;
 
-/** 課號格式：兩碼英文 + 四碼數字 */
-export const COURSE_CODE_RE = /^[A-Z]{2}\d{4}$/;
+/** 課號格式依學校而異，集中在 lib/courses/code.ts */
+export { COURSE_CODE_RE } from "@/lib/courses/code";

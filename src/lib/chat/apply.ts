@@ -1,4 +1,5 @@
 import { DEFAULT_PREFERENCES, type Constraints, type CoursePreferences, type Offering } from "@/lib/types";
+import { isCourseCode } from "@/lib/courses/code";
 import { allOfferings } from "@/lib/offerings";
 import type { ConstraintDelta, ConstraintSet } from "./types";
 import { BLOCK_CUE, DAY_WORDS, PART_WORDS, parseNum, type PlanParams } from "./intent";
@@ -541,7 +542,7 @@ export function sanitiseConstraintSet(c: ConstraintSet, fallback: ConstraintSet)
   const days = (x: unknown) =>
     Array.isArray(x) ? [...new Set(x.filter((d): d is number => Number.isInteger(d) && d >= 1 && d <= 7))] : [];
   const codes = (x: unknown) =>
-    Array.isArray(x) ? x.filter((s): s is string => typeof s === "string" && /^[A-Z]{2}\d{4}$/.test(s)).slice(0, 10) : [];
+    Array.isArray(x) ? x.filter(isCourseCode).slice(0, 10) : [];
   const num = (x: unknown, lo: number, hi: number) =>
     typeof x === "number" && Number.isFinite(x) ? Math.min(hi, Math.max(lo, Math.round(x))) : undefined;
 

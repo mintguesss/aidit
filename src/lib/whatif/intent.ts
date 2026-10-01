@@ -1,6 +1,7 @@
 import { z } from "zod/v4";
 import type { IntentResult, Scenario } from "@/lib/types";
 import { structured, type LlmBudget } from "@/lib/llm/client";
+import { findCourseCode } from "@/lib/courses/code";
 
 /**
  * 情境試算的意圖解析（docs/SPEC.md §12）。
@@ -189,7 +190,7 @@ function offlineIntent(raw: string, nextTerm: string): z.infer<typeof zIntent> {
     };
   }
   if (/停修|退選|撤選/.test(t)) {
-    const code = /([A-Z]{2}\d{4})/.exec(t)?.[1];
+    const code = findCourseCode(t);
     const name = /(?:停修|退選|撤選)([一-龥（）()一二三四五六]{2,15})/.exec(t)?.[1];
     const key = code ?? name ?? "";
     return {

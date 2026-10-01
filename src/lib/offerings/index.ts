@@ -1,6 +1,7 @@
 import type { Offering, Prerequisite, Term } from "@/lib/types";
 import { parseSlots } from "@/lib/solver/slots";
 import { RAW_OFFERINGS, type RawOffering } from "./raw";
+import { findCourseCodes } from "@/lib/courses/code";
 
 /**
  * 開課資料正規化（docs/BACKEND.md §4）。
@@ -10,8 +11,6 @@ import { RAW_OFFERINGS, type RawOffering } from "./raw";
  *   2. 從大綱文字抽出的先修（extracted）不得當硬限制，
  *      否則會造成無聲的錯誤建議 —— 學生看不到自己被少推薦了什麼
  */
-
-const PREREQ_CODE_RE = /\b([A-Z]{2}\d{4})\b/g;
 
 export function normalizeOffering(raw: RawOffering): Offering {
   const parsed = parseSlots(raw.slotText);
@@ -38,12 +37,12 @@ export function normalizeOffering(raw: RawOffering): Offering {
 function toPrerequisites(raw: RawOffering): Prerequisite[] {
   const out: Prerequisite[] = [];
   if (raw.prereqField) {
-    const codes = raw.prereqField.match(PREREQ_CODE_RE) ?? [];
+    const codes = findCourseCodes(raw.prereqField);
     if (codes.length > 0) out.push({ codes, confidence: "explicit" });
   }
   if (raw.syllabusPrereqText) {
     // 大綱文字通常只寫課名不寫課號；沒有課號就沒有可靠對照，標為 unknown
-    const codes = raw.syllabusPrereqText.match(PREREQ_CODE_RE) ?? [];
+    const codes = findCourseCodes(raw.syllabusPrereqText);
     out.push({
       codes,
       confidence: codes.length > 0 ? "extracted" : "unknown",

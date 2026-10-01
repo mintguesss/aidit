@@ -1,4 +1,5 @@
 import { zRulePack, COURSE_CODE_RE, type RulePack } from "./schema";
+import { describeCourseCodeFormats } from "@/lib/courses/code";
 import { contentHash } from "@/lib/util/identity";
 
 /**
@@ -54,7 +55,7 @@ export function inspectUploadedPack(raw: unknown): InspectResult {
   for (const cat of pack.categories) {
     if (cat.match.type !== "courseList") continue;
     for (const code of cat.match.codes) {
-      if (!COURSE_CODE_RE.test(code)) err(`類別 ${cat.id} 的課號 ${code} 不符合 [A-Z]{2}\d{4}`);
+      if (!COURSE_CODE_RE.test(code)) err(`類別 ${cat.id} 的課號 ${code} 不符合任何已知課號格式（${describeCourseCodeFormats()}）`);
       const prev = seen.get(code);
       if (prev) err(`課號 ${code} 同時出現在 ${prev} 與 ${cat.id}`);
       seen.set(code, cat.id);

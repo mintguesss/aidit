@@ -111,6 +111,8 @@ export type Prerequisite = {
 };
 
 export type Offering = {
+  /** 學校代號（lib/schools.ts）。排課只取同一所學校的課 */
+  school: string;
   code: string;
   name: string;
   credits: number;

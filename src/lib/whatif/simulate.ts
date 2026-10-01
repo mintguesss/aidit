@@ -19,6 +19,7 @@ import {
 import { offeringsFor, activeCourseCodes } from "@/lib/offerings";
 import { loadRulePacks } from "@/lib/rules/loader";
 import { termLimitsFor } from "@/lib/rules/term-limits";
+import { schoolOf } from "@/lib/schools";
 
 /**
  * 情境試算的確定性推算（docs/SPEC.md §12 步驟 3）。
@@ -377,7 +378,7 @@ function buildSolveContext(
   // 試算可能跨好幾個學期，每個學期用它自己的學年算上下限
   const limits = termLimitsFor(pack, record.student, `${year}-${term}`);
   return {
-    offerings: offeringsFor(year, term),
+    offerings: offeringsFor(year, term, schoolOf(record.student)),
     requirements,
     passedCodes: new Set(
       record.courses

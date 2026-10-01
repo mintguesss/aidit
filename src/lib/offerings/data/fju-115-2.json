@@ -1,0 +1,556 @@
+[
+  {
+    "school": "fju",
+    "code": "24496",
+    "name": "Web前端設計",
+    "credits": 2,
+    "year": 115,
+    "term": 2,
+    "teacher": "廖建翔",
+    "slotText": "一 D7-D8 / 一 E0",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "02412",
+    "name": "會計學",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "洪玉舜",
+    "slotText": "二 D2-D4 / 二 DN",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "14761",
+    "name": "進階程式設計",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "李博逸",
+    "slotText": "二 D5-D7 / 二 D8",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "02390",
+    "name": "微積分",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "教師未定",
+    "slotText": "四 D2-D4 / 四 D1",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "13517",
+    "name": "資訊管理導論",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "黃智榮",
+    "slotText": "四 D5-D7",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "major-elective",
+      "free-elective"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "24496",
+    "name": "Web前端設計",
+    "credits": 2,
+    "year": 115,
+    "term": 2,
+    "teacher": "廖建翔",
+    "slotText": "一 D3-D4 / 一 D2",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "02390",
+    "name": "微積分",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "教師未定",
+    "slotText": "二 D2-D4 / 二 D1",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "02412",
+    "name": "會計學",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "洪玉舜",
+    "slotText": "二 D5-D7 / 二 D8",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "14761",
+    "name": "進階程式設計",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "李博逸",
+    "slotText": "四 D2-D4 / 四 D1",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "09514",
+    "name": "電子商務",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "張銀益",
+    "slotText": "一 D5-D7",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "major-elective",
+      "free-elective"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "19663",
+    "name": "組織領導與社會創新實務",
+    "credits": 2,
+    "year": 115,
+    "term": 2,
+    "teacher": "李禮孟",
+    "slotText": "一 D8-E0",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "major-elective",
+      "free-elective"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "01584",
+    "name": "系統分析與設計",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "吳濟聰",
+    "slotText": "二 D2-D4",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "10681",
+    "name": "資料通訊與網路",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "林青峰",
+    "slotText": "二 D5-D7",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "02222",
+    "name": "統計學",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "鄭美娟",
+    "slotText": "三 D2-D4 / 三 D1",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "02492",
+    "name": "資料結構",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "王冠云",
+    "slotText": "四 D2-D4 / 四 DN",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "02457",
+    "name": "經濟學",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "李映萱",
+    "slotText": "四 D5-D7 / 四 D8",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "19411",
+    "name": "雲端應用程式設計",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "李博逸",
+    "slotText": "五 D2-D4",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "major-elective",
+      "free-elective"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "10681",
+    "name": "資料通訊與網路",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "林青峰",
+    "slotText": "二 D2-D4",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "01584",
+    "name": "系統分析與設計",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "吳濟聰",
+    "slotText": "二 D5-D7",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "02492",
+    "name": "資料結構",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "王冠云",
+    "slotText": "三 D2-D4 / 三 DN",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "02457",
+    "name": "經濟學",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "林雪瑜",
+    "slotText": "四 D2-D4 / 四 D1",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "02222",
+    "name": "統計學",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "鄭美娟",
+    "slotText": "四 D5-D7 / 四 D8",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "24500",
+    "name": "服務科學",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "董惟鳳",
+    "slotText": "一 D2-D4",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "major-elective",
+      "free-elective"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "02631",
+    "name": "管理資訊系統",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "林湘霖",
+    "slotText": "一 D5-D7",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "00007",
+    "name": "人生哲學",
+    "credits": 2,
+    "year": 115,
+    "term": 2,
+    "teacher": "吳明峰",
+    "slotText": "二 D3-D4",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "holistic-core"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "10211",
+    "name": "網路行銷",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "黃智榮",
+    "slotText": "二 D5-D7",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "major-elective",
+      "free-elective"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "34635",
+    "name": "空間資訊管理",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "林雅文",
+    "slotText": "四 D5-D7",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "major-elective",
+      "free-elective"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "34085",
+    "name": "C++程式設計",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "蔡明志",
+    "slotText": "四 DN-D6",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "major-elective",
+      "free-elective"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "34636",
+    "name": "資料視覺化分析與應用",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "石佳惠",
+    "slotText": "五 D5-D7",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "major-elective",
+      "free-elective"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "00007",
+    "name": "人生哲學",
+    "credits": 2,
+    "year": 115,
+    "term": 2,
+    "teacher": "范家榮",
+    "slotText": "一 D5-D6",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "holistic-core"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "02631",
+    "name": "管理資訊系統",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "林湘霖",
+    "slotText": "二 D2-D4",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "dept-required"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "08824",
+    "name": "專業倫理-企業倫理",
+    "credits": 2,
+    "year": 115,
+    "term": 2,
+    "teacher": "林雅文",
+    "slotText": "一 D3-D4",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "holistic-core"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "08824",
+    "name": "專業倫理-企業倫理",
+    "credits": 2,
+    "year": 115,
+    "term": 2,
+    "teacher": "林雅文",
+    "slotText": "二 D3-D4",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "holistic-core"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  },
+  {
+    "school": "fju",
+    "code": "13587",
+    "name": "網路管理",
+    "credits": 3,
+    "year": 115,
+    "term": 2,
+    "teacher": "張銀益",
+    "slotText": "二 D5-D7",
+    "dept": "IM",
+    "college": "MGT",
+    "category": [
+      "major-elective",
+      "free-elective"
+    ],
+    "fetchedAt": "2026-10-01T17:42:44+08:00"
+  }
+]

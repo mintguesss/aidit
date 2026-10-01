@@ -12,6 +12,7 @@ import {
 import { describeSet, toSolverConstraints } from "./apply";
 import type { ConstraintSet } from "./types";
 import { termLimitsFor } from "@/lib/rules/term-limits";
+import { schoolOf } from "@/lib/schools";
 
 /**
  * A 介面的一輪（docs/CONVERSATION.md §1.3、§1.4）。
@@ -44,7 +45,7 @@ export function buildContext(
   const [year, term] = parseTerm(audit.nextTerm);
   const limits = termLimitsFor(pack, record.student, audit.nextTerm);
   return {
-    offerings: offeringsFor(year, term),
+    offerings: offeringsFor(year, term, schoolOf(record.student)),
     requirements: requirementsFrom(audit),
     passedCodes: new Set(
       record.courses

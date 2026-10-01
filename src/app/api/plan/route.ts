@@ -12,7 +12,7 @@ import {
   PRESET_OF_GOAL,
   type SolveContext,
 } from "@/lib/solver/schedule";
-import { constraintSetFrom, describeSet, preferencesOf } from "@/lib/chat/apply";
+import { constraintSetFrom, describeSet, preferencesOf, periodNamesFor } from "@/lib/chat/apply";
 import type { CoursePreferences } from "@/lib/types";
 import type { OptionalPreferences } from "@/lib/ui/prefs";
 import { termLimitsFor } from "@/lib/rules/term-limits";
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
     traceId: audit.traceId,
     preferences,
     constraints: constraintSet,
-    appliedConstraints: describeSet(constraintSet),
+    appliedConstraints: describeSet(constraintSet, periodNamesFor(record.student.school)),
   };
 
   if (requirements.length === 0) {

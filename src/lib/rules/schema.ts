@@ -180,6 +180,22 @@ export const zRulePack = z
     termLimits: z.object({
       maxCredits: z.number().int().positive(),
       minCredits: z.number().int().positive(),
+      /**
+       * 依學年調整。輔大選課辦法第十一條：一至三年級下限 12、第四學年下限 9；
+       * 上限 25，應屆畢業生得超修至 32。fromYear 起（含）套用，後面的蓋過前面的。
+       * 實際套用由 lib/rules/term-limits.ts 的 termLimitsFor() 計算，不要直接讀上面兩欄。
+       */
+      byStudyYear: z
+        .array(
+          z.object({
+            fromYear: z.number().int().positive(),
+            maxCredits: z.number().int().positive().optional(),
+            minCredits: z.number().int().positive().optional(),
+          }),
+        )
+        .default([]),
+      /** 上下限是排課的硬限制，要能在校對頁對照原文 */
+      citations: z.array(zCitation).default([]),
     }),
   })
   .superRefine((pack, ctx) => {
@@ -223,6 +239,7 @@ export const zRulePack = z
       cat.ambiguities.forEach((a, j) => check(a.citation, ["categories", i, "ambiguities", j]));
     });
     pack.graduationChecks.forEach((g, i) => check(g.citation, ["graduationChecks", i]));
+    pack.termLimits.citations.forEach((c, i) => check(c, ["termLimits", "citations", i]));
     Object.entries(pack.overflowPolicy).forEach(([k, v]) => check(v.citation, ["overflowPolicy", k]));
   });
 

@@ -6,7 +6,9 @@ export type PageParams = { fixture: FixtureId; term: string };
 const TERM_RE = /^\d{3}-[12]$/;
 
 export function parsePageParams(sp: { fixture?: string; term?: string }): PageParams {
-  const fixture = (FIXTURES.find((f) => f.id === sp.fixture)?.id ?? "demo") as FixtureId;
-  const term = sp.term && TERM_RE.test(sp.term) ? sp.term : "114-2";
+  const f = FIXTURES.find((x) => x.id === sp.fixture);
+  const fixture = (f?.id ?? "demo") as FixtureId;
+  // 沒指定學期就用案例自己的「目前學期」（大二結束的案例是 112-2）
+  const term = sp.term && TERM_RE.test(sp.term) ? sp.term : (f?.term ?? "114-2");
   return { fixture, term };
 }

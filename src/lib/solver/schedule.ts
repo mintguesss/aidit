@@ -57,15 +57,20 @@ export function requirementsFrom(audit: AuditResult): Requirement[] {
     }
     for (const sub of cat.subRules) {
       if (sub.status !== "unmet" || !sub.items) continue;
-      for (const item of sub.items.filter((i) => !i.ok && !i.note)) {
+      // 「修課中」的領域這學期就會補上，不用再排。以學分判定的（輔大各領域 4 學分）
+      // 帶著「已修 0／4 學分」的備註 —— 以前用「沒有備註」篩選，這種領域整個被漏掉，排課不知道要補
+      for (const item of sub.items.filter((i) => !i.ok && i.note !== "修課中")) {
+        const byCredits = item.shortBy !== undefined && item.shortBy > 0;
         reqs.push({
           id: `${cat.id}:domain:${item.label}`,
-          label: `${cat.name}·${item.label}領域 至少 1 門`,
+          label: byCredits
+            ? `${cat.name}·${item.label}領域 ${item.shortBy} 學分`
+            : `${cat.name}·${item.label}領域 至少 1 門`,
           shortLabel: `${cat.name}·${item.label}`,
           categoryId: cat.id,
           domain: item.label,
-          minCredits: 0,
-          minCourses: 1,
+          minCredits: byCredits ? item.shortBy! : 0,
+          ...(byCredits ? {} : { minCourses: 1 }),
         });
       }
     }
@@ -81,6 +86,12 @@ type Candidate = {
   remaining: number | null;
   /** 本課程可滿足哪些需求 */
   satisfies: string[];
+  /**
+   * satisfies 在 ctx.requirements 裡的索引，分成類別學分需求與領域需求。
+   * 求解時每個節點要算好幾次缺口，預先算好索引，shortfall 只做數字運算
+   */
+  creditIdx: number[];
+  domainIdx: number[];
   early: boolean;
   prereqWarning?: string;
   slotUnknownNote?: boolean;
@@ -93,6 +104,8 @@ export type SolveContext = {
   requirements: Requirement[];
   /** 已及格／抵免之課號，供 explicit 先修判定 */
   passedCodes: Set<string>;
+  /** 已修畢或正在修的課號，不再建議（學年課要上下兩半都修過，見 solver/taken.ts） */
+  takenCodes: Set<string>;
   reserved: { label: string; slots: TimeSlot[] }[];
   constraints: Constraints;
   termLabel: string;
@@ -196,6 +209,12 @@ function filterCandidates(ctx: SolveContext): {
       continue;
     }
 
+    // 0.5 已經修過（或正在修）的課不再建議
+    if (ctx.takenCodes.has(o.code)) {
+      drop("already-taken", "已經修過");
+      continue;
+    }
+
     // 1. 類別符合。不符合的不是「排除」，而是降級為湊學分下限用的候選
     const satisfies = o.category.some((c) => relevantCats.has(c))
       ? ctx.requirements
@@ -241,10 +260,14 @@ function filterCandidates(ctx: SolveContext): {
 
     // extracted 先修：只提示，不排除（低信心抽取不得造成無聲的錯誤建議）
     const soft = o.prerequisites.find((p) => p.confidence !== "explicit" && p.sourceText);
+    const idx = (domain: boolean) =>
+      ctx.requirements.flatMap((r, k) => (satisfies.includes(r.id) && Boolean(r.domain) === domain ? [k] : []));
     const c: Candidate = {
       offering: o,
       remaining,
       satisfies,
+      creditIdx: idx(false),
+      domainIdx: idx(true),
       early: !o.slotsUnknown && isEarlyMorning(o.slots),
       prereqWarning: soft?.sourceText,
       slotUnknownNote: o.slotsUnknown,
@@ -273,7 +296,8 @@ function summarize(exclusions: Exclusion[], before: number): ExclusionSummary {
       .map(([reason, list]) => ({
         reason,
         count: list.length,
-        examples: list.slice(0, 3).map((e) => `${e.name}（${e.code}）`),
+        // 同一門課分好幾班會重複出現（輔大的國文有九十幾班），例子只列不同的課
+        examples: [...new Set(list.map((e) => `${e.name}（${e.code}）`))].slice(0, 3),
       })),
   };
 }
@@ -296,14 +320,42 @@ type Score = {
   key: string;
 };
 
+/**
+ * 排完這組課之後還缺多少。
+ *
+ * 一門課可能同時符合好幾個類別（本系選修同時符合系專選與其他選修），但審查時它只能歸一類。
+ * 以前每個類別各算一次，3 學分的本系選修被當成補了 6 學分 —— 求解器因此偏愛這種課，
+ * 把只符合一類的必修（人生哲學）、通識擠掉。
+ *
+ * 現在類別學分的需求，每門課的學分只分給一個：先處理選擇少的課，分給還缺最多的類別
+ * （與審查引擎的指派同一個精神，這裡用貪婪法近似，只用於評分）。
+ * 領域需求是類別底下的分項條件，同一門通識本來就同時補通識學分和該領域，照舊另外計算。
+ */
 function shortfall(sel: Candidate[], reqs: Requirement[]): number {
-  let s = 0;
-  for (const r of reqs) {
-    const hit = sel.filter((c) => c.satisfies.includes(r.id));
-    const credits = hit.reduce((a, c) => a + c.offering.credits, 0);
-    s += Math.max(0, r.minCredits - credits);
-    if (r.minCourses && hit.length < r.minCourses) s += DOMAIN_WEIGHT;
+  const need = reqs.map((r) => r.minCredits);
+  const hits = new Array<number>(reqs.length).fill(0);
+  // 選擇少的課先分；同樣多的依課號，結果才確定
+  const order =
+    sel.length > 1
+      ? [...sel].sort((a, b) => a.creditIdx.length - b.creditIdx.length || cmp(a.offering.code, b.offering.code))
+      : sel;
+  for (const c of order) {
+    if (c.creditIdx.length === 0) continue;
+    let pick = c.creditIdx[0]!;
+    for (const k of c.creditIdx) if (need[k]! > need[pick]!) pick = k;
+    need[pick] = Math.max(0, need[pick]! - c.offering.credits);
   }
+  for (const c of sel) {
+    for (const k of c.domainIdx) {
+      need[k] = Math.max(0, need[k]! - c.offering.credits);
+      hits[k]! += 1;
+    }
+  }
+  let s = 0;
+  reqs.forEach((r, k) => {
+    s += need[k]!;
+    if (r.minCourses && hits[k]! < r.minCourses) s += DOMAIN_WEIGHT;
+  });
   return s;
 }
 
@@ -536,6 +588,7 @@ function attemptSolve(
   const suffix = new Array<number>(sorted.length + 1).fill(0);
   for (let i = sorted.length - 1; i >= 0; i--) suffix[i] = suffix[i + 1]! + sorted[i]!.offering.credits;
 
+  const gainFactor = ctx.requirements.some((r) => r.domain && r.minCredits > 0) ? 2 : 1;
   const solutions: { sel: Candidate[]; score: Score }[] = [];
   const sel: Candidate[] = [...pinnedCandidates];
   let nodes = 0;
@@ -553,7 +606,8 @@ function attemptSolve(
     if (i >= sorted.length || sel.length >= MAX_COURSES) return;
 
     // 剪枝：剩餘候選可提供學分 < 尚缺學分
-    if (shortfall(sel, ctx.requirements) > suffix[i]! + DOMAIN_WEIGHT * ctx.requirements.length) return;
+    // 以學分計的領域需求：一門通識同時補通識學分和該領域，最多能減掉兩倍學分
+    if (shortfall(sel, ctx.requirements) > gainFactor * suffix[i]! + DOMAIN_WEIGHT * ctx.requirements.length) return;
 
     for (let j = i; j < sorted.length; j++) {
       const c = sorted[j]!;
@@ -588,7 +642,8 @@ function attemptSolve(
   // 先把候選限縮到「能達到的最小未修學分」那一群，再套 preset 的目標函數。
   // 少了這一步，fewest-courses 會挑出一門課就交差、卻留著未修學分的方案 ——
   // 那在畢業審查的場域不是一個「比較少堂數的選擇」，而是一份錯的建議。
-  const bestUnmet = Math.min(...solutions.map((s) => s.score.unmetAfter));
+  // 不用 Math.min(...)：可行解可以多到幾十萬組（輔大一學期六百多班），展開成參數會撐爆呼叫堆疊
+  const bestUnmet = solutions.reduce((m, s) => Math.min(m, s.score.unmetAfter), Number.POSITIVE_INFINITY);
   if (bestUnmet > 0 && !allowPartial) {
     return {
       ok: false,
@@ -680,11 +735,13 @@ function isIrredundant(sel: Candidate[], ctx: SolveContext, pinnedCount: number)
   // 看到的卻是原本的課被換掉 2 門。
   const target = ctx.constraints.targetCourseCount;
   if (target !== undefined && sel.length <= target) return true;
-  const base = score(sel, ctx);
+  // 只需要缺口與學分下限，不算完整評分（每個節點要算好幾次，評分物件要組字串）
+  const below = (cs: Candidate[]) => Math.max(0, ctx.termMinCredits - cs.reduce((a, c) => a + c.offering.credits, 0));
+  const baseUnmet = shortfall(sel, ctx.requirements);
+  const baseBelow = below(sel);
   for (let i = pinnedCount; i < sel.length; i++) {
     const without = sel.filter((_, j) => j !== i);
-    const s = score(without, ctx);
-    if (s.unmetAfter <= base.unmetAfter && s.belowTermMin <= base.belowTermMin) return false;
+    if (shortfall(without, ctx.requirements) <= baseUnmet && below(without) <= baseBelow) return false;
   }
   return true;
 }
@@ -798,7 +855,8 @@ function buildInfeasibility(req: Requirement, ctx: SolveContext, exclusions: Exc
       .map(([reason, list]) => ({
         reason,
         count: list.length,
-        examples: list.slice(0, 3).map((e) => `${e.name}（${e.code}）`),
+        // 同一門課分好幾班會重複出現（輔大的國文有九十幾班），例子只列不同的課
+        examples: [...new Set(list.map((e) => `${e.name}（${e.code}）`))].slice(0, 3),
       })),
     conflictWith: conflictWith
       ? `${conflictWith.label} ${formatSlots(conflictWith.slots)}`

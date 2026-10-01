@@ -11,6 +11,7 @@ import {
 } from "@/lib/solver/schedule";
 import { preferencesOf } from "@/lib/chat/apply";
 import { termLimitsFor } from "@/lib/rules/term-limits";
+import { takenCourseCodes } from "@/lib/solver/taken";
 
 /**
  * 步驟 8：選課組合求解。
@@ -39,6 +40,7 @@ export const solveScheduleStep: Step = {
       offerings: state.offerings,
       requirements,
       passedCodes,
+      takenCodes: takenCourseCodes(state.record!.courses, state.pack!),
       reserved: reservedFrom(state.record!.plannedCommitments),
       preferences,
       constraints: constraintsFrom(preferences, limits),

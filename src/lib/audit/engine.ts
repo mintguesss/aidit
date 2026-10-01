@@ -87,8 +87,19 @@ function recordKey(c: CourseRecord, i: number): string {
 /**
  * 重補修同一門不得重複採計（學則第 23 條）。
  * 決勝：先取及格／抵免者，其次學年學期較早者，最後課號。
+ *
+ * 全學年課程（`pack.yearLongCourses`）例外：上、下學期共用一個課號，各是一半學分，
+ * 不是重修。少了這個例外，下學期那一筆會被當成重修丟掉，算出假的未修 ——
+ * 輔大的微積分、會計學、統計學、經濟學都是這樣。
+ *
+ * 這類課每一半各留一筆最好的；某一半在正規學期沒有紀錄時，才拿暑修那一筆補上
+ * （暑修多半就是補修沒過的那一半）。**每門最多採計兩筆**：上、下、暑修三筆都留，
+ * 會把一門課算成一門半，那是往另一個方向的錯答 —— 學生會以為自己學分夠了。
  */
-function dedupe(courses: CourseRecord[]): { kept: CourseRecord[]; dropped: CourseRecord[] } {
+function dedupe(
+  courses: CourseRecord[],
+  yearLong: ReadonlySet<string>,
+): { kept: CourseRecord[]; dropped: CourseRecord[] } {
   const groups = new Map<string, CourseRecord[]>();
   for (const c of courses) {
     const k = effectiveCode(c);
@@ -96,33 +107,49 @@ function dedupe(courses: CourseRecord[]): { kept: CourseRecord[]; dropped: Cours
     list.push(c);
     groups.set(k, list);
   }
+  const rank = (c: CourseRecord) =>
+    c.status === "passed" || c.status === "waived" ? 0 : c.status === "in_progress" ? 1 : 2;
+  const best = (a: CourseRecord, b: CourseRecord) =>
+    rank(a) - rank(b) || a.year - b.year || termRank(a.term) - termRank(b.term) || cmp(a.code, b.code);
+
   const kept: CourseRecord[] = [];
   const dropped: CourseRecord[] = [];
-  for (const list of [...groups.values()]) {
+  for (const [code, list] of groups) {
     if (list.length === 1) {
       kept.push(list[0]!);
       continue;
     }
-    const rank = (c: CourseRecord) =>
-      c.status === "passed" || c.status === "waived" ? 0 : c.status === "in_progress" ? 1 : 2;
-    const sorted = [...list].sort(
-      (a, b) =>
-        rank(a) - rank(b) ||
-        a.year - b.year ||
-        termRank(a.term) - termRank(b.term) ||
-        cmp(a.code, b.code),
-    );
-    kept.push(sorted[0]!);
-    dropped.push(...sorted.slice(1));
+    const sorted = [...list].sort(best);
+
+    if (!yearLong.has(code)) {
+      kept.push(sorted[0]!);
+      dropped.push(...sorted.slice(1));
+      continue;
+    }
+
+    const picked: CourseRecord[] = [];
+    for (const half of [1, 2] as const) {
+      const regular = sorted.find((c) => c.term === half);
+      const summer = sorted.find((c) => c.term === "summer" && !picked.includes(c));
+      const chosen = regular ?? summer;
+      if (chosen) picked.push(chosen);
+    }
+    kept.push(...picked);
+    dropped.push(...sorted.filter((c) => !picked.includes(c)));
   }
   return { kept, dropped };
 }
+
+/** 課名比對前去掉所有空白（含全形），「Web 程式設計」與「Web程式設計」視為同一門 */
+const normalizeName = (s: string) => s.replace(/\s+/g, "");
 
 function matches(cat: RuleCategory, c: CourseRecord, pack: RulePack): boolean {
   const code = effectiveCode(c);
   switch (cat.match.type) {
     case "courseList":
       return cat.match.codes.includes(code);
+    case "courseNames":
+      return cat.match.names.some((n) => normalizeName(n) === normalizeName(c.name));
     case "selectType":
       return c.selectType === cat.match.value;
     case "deptElective":
@@ -137,9 +164,12 @@ function matches(cat: RuleCategory, c: CourseRecord, pack: RulePack): boolean {
  *
  * courseList 具排他性：列在必修科目表上的課只能歸該類別，
  * 否則每一門必修都會同時符合 anyPassed（自由選修），把搜尋空間毫無意義地撐大。
+ * courseNames 是同一種東西（科目表上的課，只是沒有課號），同樣具排他性。
  */
+const isListed = (cat: RuleCategory) => cat.match.type === "courseList" || cat.match.type === "courseNames";
+
 function eligibleCategories(c: CourseRecord, pack: RulePack): string[] {
-  const listed = pack.categories.filter((cat) => cat.match.type === "courseList" && matches(cat, c, pack));
+  const listed = pack.categories.filter((cat) => isListed(cat) && matches(cat, c, pack));
   if (listed.length > 0) return listed.map((cat) => cat.id);
   return pack.categories.filter((cat) => matches(cat, c, pack)).map((cat) => cat.id);
 }
@@ -160,9 +190,8 @@ function triggerHits(
       if (c.status !== "waived" && amb.trigger.type === "waiverWithoutMapping") return false;
       const code = effectiveCode(c);
       if (c.equivalentOf) return false;
-      const inList = pack.categories.some(
-        (cat) => cat.match.type === "courseList" && cat.match.codes.includes(code),
-      );
+      // 以課名列在科目表上的課同樣算「有對照」，否則每一筆分組上課的國文都會被當成停開課號
+      const inList = pack.categories.some((cat) => isListed(cat) && matches(cat, c, pack));
       return !inList && !activeCodes.has(code);
     }
   }
@@ -177,7 +206,7 @@ function prepare(input: AuditInput): Prepared {
   );
   const excluded = record.courses.filter((c) => c.status === "failed" || c.status === "withdrawn");
 
-  const { kept, dropped } = dedupe(counted);
+  const { kept, dropped } = dedupe(counted, new Set(pack.yearLongCourses));
 
   const assignable: AssignableCourse[] = [];
   const held: Prepared["held"] = [];

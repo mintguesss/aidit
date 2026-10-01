@@ -29,6 +29,12 @@ export type CategoryDemand = {
   required: number;
   /** 規則包中的顯示順序，作為最後一道決勝 */
   order: number;
+  /**
+   * 承接類別（任何及格的課都收，如其他選修）。總缺口打平時一律最後才塞它：
+   * 一門本系選修放進系專選或其他選修，總缺口一樣，但放進其他選修會讓系專選
+   * 顯示成還缺 —— 學生會被叫去多修本系的課，而其他選修本來就什麼都能補。
+   */
+  catchAll?: boolean;
 };
 
 export type Filled = { earned: number; inProgress: number };
@@ -59,7 +65,7 @@ const termRank = (t: 1 | 2 | "summer") => (t === 1 ? 1 : t === 2 ? 2 : 3);
  *   否則「這門課被採計為系專業選修」這條會出現在依據裡的結論就站不住。
  *
  * a. 課程依 (學年度, 學期, 課號, key) 升冪指派
- * b. 候選類別依 (required 大者優先, order 小者優先, id 升冪) 嘗試
+ * b. 候選類別依 (承接類別最後, required 大者優先, order 小者優先, id 升冪) 嘗試
  */
 function sortCourses(courses: AssignableCourse[]): AssignableCourse[] {
   return [...courses].sort(
@@ -75,7 +81,12 @@ function candidateOrder(ids: string[], demands: Map<string, CategoryDemand>): st
   return [...ids].sort((x, y) => {
     const dx = demands.get(x)!;
     const dy = demands.get(y)!;
-    return dy.required - dx.required || dx.order - dy.order || cmp(dx.id, dy.id);
+    return (
+      Number(dx.catchAll ?? false) - Number(dy.catchAll ?? false) ||
+      dy.required - dx.required ||
+      dx.order - dy.order ||
+      cmp(dx.id, dy.id)
+    );
   });
 }
 

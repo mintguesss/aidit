@@ -153,6 +153,7 @@ function matches(cat: RuleCategory, c: CourseRecord, pack: RulePack): boolean {
     case "selectType":
       return c.selectType === cat.match.value;
     case "deptElective":
+      if (cat.match.excludeNames?.some((n) => normalizeName(n) === normalizeName(c.name))) return false;
       return c.selectType === "elective" && (c.offeringDept ?? pack.dept) === cat.match.dept;
     case "anyPassed":
       return true;
@@ -333,6 +334,7 @@ export function auditCredits(input: AuditInput): AuditResult {
     id: c.id,
     required: c.credits,
     order: c.order,
+    catchAll: c.match.type === "anyPassed",
   }));
 
   const main = assign(prepared.assignable, demands);

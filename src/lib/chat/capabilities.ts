@@ -4,6 +4,7 @@ import { ANNOUNCEMENTS, citationOf } from "@/lib/rules/announcements";
 import { allOfferings, remainingSeats } from "@/lib/offerings";
 import { formatSlots } from "@/lib/solver/slots";
 import type { Reply } from "./types";
+import { termLimitsFor } from "@/lib/rules/term-limits";
 
 /**
  * B 介面的能力層（docs/CONVERSATION.md §2.2）。
@@ -85,7 +86,7 @@ type RuleHit = { text: string; citation: Citation };
  * 查不到就回「不確定」，並列出查過哪些來源。
  */
 export function answerRegulation(topic: string, pack: RulePack, audit: AuditResult): Reply {
-  const hits = searchRules(topic, pack);
+  const hits = searchRules(topic, pack, audit);
   const searched = [
     `${pack.documents.map((d) => d.title).join("、")}`,
     `公告庫（${ANNOUNCEMENTS.length} 則）`,
@@ -111,8 +112,11 @@ export function answerRegulation(topic: string, pack: RulePack, audit: AuditResu
   };
 }
 
-/** 以關鍵詞在規則包與公告庫中檢索。比對的是原文，不是模型的記憶。 */
-function searchRules(topic: string, pack: RulePack): RuleHit[] {
+/**
+ * 以關鍵詞在規則包與公告庫中檢索。比對的是原文，不是模型的記憶。
+ * audit 提供學生與排課學期，用於依學年不同的規定（例如修課學分上下限）。
+ */
+function searchRules(topic: string, pack: RulePack, audit: AuditResult): RuleHit[] {
   const t = topic.replace(/\s/g, "");
   const hits: RuleHit[] = [];
   const cite = (docId: string, locator: string, quote?: string): Citation => {
@@ -140,7 +144,10 @@ function searchRules(topic: string, pack: RulePack): RuleHit[] {
       for (const sub of cat.subRules) {
         if (sub.type !== "domainCoverage") continue;
         hits.push({
-          text: `${cat.name}的${sub.domains.join("、")}四大領域，各至少需修習 ${sub.minPerDomain} 門。`,
+          // 領域數與單位依規則包：輔大是三個領域、各 4 學分，不能說成「四大領域、各 1 門」
+          text: `${cat.name}的${sub.domains.join("、")}${"零一二三四五六七八九十"[sub.domains.length] ?? sub.domains.length}大領域，各至少需修習 ${
+            sub.minCreditsPerDomain !== undefined ? `${sub.minCreditsPerDomain} 學分` : `${sub.minPerDomain} 門`
+          }。`,
           citation: cite(sub.citation.docId, sub.citation.locator, sub.citation.quote),
         });
       }
@@ -148,9 +155,16 @@ function searchRules(topic: string, pack: RulePack): RuleHit[] {
   }
 
   if (want("學分上限", "學分下限", "最多", "最少", "一學期")) {
+    // 上下限依學年不同時，回答這位學生在排課學期適用的那一組，而不是基本值。
+    // 引文用規則包自己的；合成規則包沒有附引文，維持原本的出處
+    const lim = termLimitsFor(pack, audit.student, audit.nextTerm);
+    const tc = pack.termLimits.citations[0];
     hits.push({
-      text: `每學期修習學分數上限 ${pack.termLimits.maxCredits}、下限 ${pack.termLimits.minCredits}。`,
-      citation: cite("regulation", "第 22 條", undefined),
+      text:
+        pack.termLimits.byStudyYear.length > 0
+          ? `你在 ${audit.nextTerm} 適用的修習學分數上限 ${lim.maxCredits}、下限 ${lim.minCredits}（上下限依學年不同）。`
+          : `每學期修習學分數上限 ${lim.maxCredits}、下限 ${lim.minCredits}。`,
+      citation: tc ? cite(tc.docId, tc.locator, tc.quote) : cite("regulation", "第 22 條", undefined),
     });
   }
 

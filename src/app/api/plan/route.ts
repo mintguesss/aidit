@@ -15,6 +15,7 @@ import {
 import { constraintSetFrom, describeSet, preferencesOf } from "@/lib/chat/apply";
 import type { CoursePreferences } from "@/lib/types";
 import type { OptionalPreferences } from "@/lib/ui/prefs";
+import { termLimitsFor } from "@/lib/rules/term-limits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,7 +60,8 @@ export async function POST(req: Request) {
     : preferencesOf(record.preferences);
 
   const requirements = requirementsFrom(audit);
-  const constraints = constraintsFrom(preferences, pack.termLimits);
+  const limits = termLimitsFor(pack, record.student, audit.nextTerm);
+  const constraints = constraintsFrom(preferences, limits);
   const constraintSet = constraintSetFrom(preferences);
   const common = {
     traceId: audit.traceId,
@@ -90,8 +92,8 @@ export async function POST(req: Request) {
     preferences,
     constraints,
     termLabel: audit.nextTerm,
-    termMinCredits: pack.termLimits.minCredits,
-    termMaxCredits: pack.termLimits.maxCredits,
+    termMinCredits: limits.minCredits,
+    termMaxCredits: limits.maxCredits,
     optional: body?.optional,
   };
 

@@ -2,7 +2,11 @@ import type { Offering, Prerequisite, Term } from "@/lib/types";
 import { parseSlots } from "@/lib/solver/slots";
 import { RAW_OFFERINGS, type RawOffering } from "./raw";
 import { DEFAULT_SCHOOL } from "@/lib/schools";
-// 輔大資管系 115-2 系上課表（scripts/fju-timetable.py → fju-offerings-raw.py）
+// 輔大 115-1：學生資訊平台的公開課程查詢（scripts/fju-sis-fetch.py → fju-sis-offerings.py），
+// 資管系＋全人、基本能力、通識，含開課名額
+import FJU_115_1 from "./data/fju-115-1.json";
+// 輔大資管系 115-2 系上課表（scripts/fju-timetable.py → fju-offerings-raw.py）。
+// 課程查詢系統還沒公布 115-2，公布後改用上面那條管線重抓
 import FJU_115_2 from "./data/fju-115-2.json";
 import { findCourseCodes } from "@/lib/courses/code";
 
@@ -56,7 +60,11 @@ function toPrerequisites(raw: RawOffering): Prerequisite[] {
   return out;
 }
 
-const ALL_RAW: RawOffering[] = [...RAW_OFFERINGS, ...(FJU_115_2 as RawOffering[])];
+const ALL_RAW: RawOffering[] = [
+  ...RAW_OFFERINGS,
+  ...(FJU_115_1 as RawOffering[]),
+  ...(FJU_115_2 as RawOffering[]),
+];
 
 let cache: Offering[] | null = null;
 

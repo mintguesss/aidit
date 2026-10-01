@@ -7,6 +7,7 @@ import { publishRulePack } from "@/lib/rules/published";
 import { zRulePack } from "@/lib/rules/schema";
 import { draftStore } from "./drafts";
 import { toItems, type ReviewItem } from "./items";
+import { applyEdit, type EditLogEntry, type EditOptions } from "./edit";
 
 export { locate, type ReviewItem } from "./items";
 
@@ -132,6 +133,47 @@ export async function saveDecision(packId: string, decision: ReviewDecision): Pr
   ];
   await saveRecord(packId, record);
   return record;
+}
+
+/**
+ * 校對頁的直接修改（lib/review/edit.ts）。
+ *
+ * draftHash 是校對者看到的那一版：期間有人改過草稿就拒絕，免得蓋掉別人的修改。
+ * 修改紀錄寫在草稿的 `_draft.edits`，跟草稿存在一起（鎖版發布時 `_draft` 會拿掉，
+ * 但 rulepack_drafts 裡的草稿與紀錄都留著）。
+ */
+export async function editItem(args: {
+  packId: string;
+  itemId: string;
+  draftHash: string;
+  values: unknown;
+  reason: string;
+  reviewer: string;
+  options?: EditOptions;
+}): Promise<{ changes: string[] }> {
+  const bundle = await draftStore().load(args.packId);
+  if (!bundle) throw new Error(`查無草稿 ${args.packId}`);
+  if (contentHash(bundle.draft) !== args.draftHash) {
+    throw new Error("草稿在你打開頁面之後被改過了。請重新整理頁面，看過最新內容再改。");
+  }
+  const record = await loadRecord(args.packId, args.draftHash, toItems(bundle.draft, bundle.corpus));
+  if (record.lockedAt) throw new Error("已鎖版，不能再修改。");
+  if (!args.reason.trim()) throw new Error("請寫下為什麼要改（會記在修改紀錄裡）。");
+
+  const { draft, changes } = applyEdit(bundle.draft, bundle.corpus, args.itemId, args.values, args.options);
+  const meta = (draft._draft ??= {}) as { edits?: EditLogEntry[]; revision?: string };
+  const entry: EditLogEntry = {
+    itemId: args.itemId,
+    by: args.reviewer.trim(),
+    at: new Date().toISOString(),
+    reason: args.reason.trim(),
+    changes,
+  };
+  meta.edits = [...(meta.edits ?? []), entry];
+  meta.revision = `${meta.revision ?? ""}；${entry.at.slice(0, 10)} ${entry.by} 於校對頁修改 ${args.itemId}`.replace(/^；/, "");
+
+  await draftStore().save(args.packId, { draft, corpus: bundle.corpus });
+  return { changes };
 }
 
 /**

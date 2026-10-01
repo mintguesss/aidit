@@ -43,6 +43,26 @@ async function main() {
   }
 
   const store = draftStore();
+
+  // 線上校對頁可以直接修改草稿（_draft.edits 有紀錄）。要上傳的檔案若少了線上的修改，
+  // 上傳就會把校對者的修改蓋掉 —— 先用 scripts/pull-draft.ts 拉回來、在那份上改。
+  const current = await store.load(packId);
+  const editsOf = (d: Record<string, unknown> | undefined) =>
+    ((d?._draft as { edits?: { at: string }[] } | undefined)?.edits ?? []).map((e) => e.at);
+  const online = editsOf(current?.draft);
+  const local = new Set(editsOf(draft));
+  const missing = online.filter((at) => !local.has(at));
+  if (missing.length > 0 && !process.argv.includes("--force")) {
+    console.error(
+      [
+        `線上的草稿有 ${missing.length} 筆校對頁上的修改，這個檔案裡沒有（最近一筆 ${missing.at(-1)}）。`,
+        `先執行 npx tsx scripts/pull-draft.ts ${packId} ${path} 拉回最新版，在那份上改再上傳。`,
+        "確定要丟掉那些修改才加 --force。",
+      ].join("\n"),
+    );
+    process.exit(1);
+  }
+
   await store.save(packId, { draft, corpus });
   console.log(`草稿 ${packId} 已存入 ${store.kind === "supabase" ? "Supabase（rulepack_drafts）" : ".data/drafts/"}，` +
     `含 ${corpus.size} 份語料。校對頁：/review/${packId}`);

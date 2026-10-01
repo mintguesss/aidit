@@ -11,15 +11,18 @@ import type { DraftView, ReviewDecision, ReviewItem } from "@/lib/review/store";
  * 全數通過後才允許鎖版；鎖版會寫入 provenance=approved 與 content hash。
  */
 
-const STATUS_TEXT: Record<ReviewDecision["status"], string> = {
-  approved: "通過",
-  corrected: "需要修正（等我改草稿）",
-  rejected: "退回",
-};
-
 type Doc = { id: string; title: string; url?: string };
 
 const docHref = (url: string, page?: number) => `${encodeURI(url)}${page ? `#page=${page}` : ""}`;
+
+/** 版面模式抽出的語料有大段補齊空白，顯示時壓成兩格，比較好讀（高亮的範圍不變） */
+const squash = (s: string) => s.replace(/[ 	]{3,}/g, "  ");
+
+const STATE_STYLE: Record<ReviewDecision["status"], { bg: string; line: string; fg: string; badge: string }> = {
+  approved: { bg: "var(--ok-bg)", line: "var(--ok)", fg: "var(--ok)", badge: "✓ 已通過" },
+  corrected: { bg: "var(--hold-bg)", line: "var(--hold)", fg: "var(--hold)", badge: "需要修正" },
+  rejected: { bg: "var(--unmet-bg)", line: "var(--unmet)", fg: "var(--unmet)", badge: "已退回" },
+};
 
 export function ReviewBoard({ view }: { view: DraftView }) {
   const [reviewer, setReviewer] = useState("");
@@ -98,8 +101,18 @@ export function ReviewBoard({ view }: { view: DraftView }) {
           </h2>
         </div>
         <div className="panel-bd">
+          <div
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={total}
+            aria-valuenow={approved}
+            style={{ height: 8, background: "var(--line)", borderRadius: 4, overflow: "hidden", marginBottom: 8 }}
+          >
+            <div style={{ width: `${(approved / total) * 100}%`, height: "100%", background: "var(--ok)" }} />
+          </div>
           <p style={{ margin: "0 0 12px", fontSize: 13.5, color: "var(--text-2)" }}>
-            還沒看 {untouched} 項　需要修正 {needsFix} 項　退回 {rejected} 項
+            <span style={{ color: "var(--ok)", fontWeight: 600 }}>已通過 {approved}</span>　還沒看 {untouched} 項　需要修正{" "}
+            {needsFix} 項　退回 {rejected} 項
           </p>
 
           <div className="note" style={{ marginBottom: 12, lineHeight: 1.8 }}>
@@ -214,16 +227,36 @@ function ItemCard({
   onDecide: (itemId: string, status: ReviewDecision["status"], note?: string) => Promise<void>;
 }) {
   const state = d?.status;
+  const look = state ? STATE_STYLE[state] : null;
   return (
     <div
       className="hold"
       style={{
-        borderLeftColor: state === "approved" ? "var(--ok)" : state === "rejected" ? "var(--unmet)" : "var(--hold)",
+        borderLeftColor: look?.line ?? "var(--line)",
+        borderLeftWidth: 5,
+        background: look?.bg,
       }}
     >
-      <h4>
-        {index}.　{item.label}
-        {state ? <span style={{ fontWeight: 400, marginLeft: 10, fontSize: 13 }}>（{STATUS_TEXT[state]}）</span> : null}
+      <h4 style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <span>
+          {index}.　{item.label}
+        </span>
+        {look ? (
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 700,
+              color: "#fff",
+              background: look.fg,
+              borderRadius: 999,
+              padding: "2px 10px",
+            }}
+          >
+            {look.badge}
+          </span>
+        ) : (
+          <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-3)" }}>還沒看</span>
+        )}
       </h4>
       <div className="bd">
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }} className="rev-grid">
@@ -252,9 +285,9 @@ function ItemCard({
             <div className="srcbox" style={{ marginTop: 0 }}>
               {item.context ? (
                 <>
-                  {item.context.before}
-                  <mark style={{ background: "var(--hold-bg)", padding: "0 2px" }}>{item.context.match}</mark>
-                  {item.context.after}
+                  {squash(item.context.before)}
+                  <mark style={{ background: "#FCE9A6", padding: "0 2px" }}>{squash(item.context.match)}</mark>
+                  {squash(item.context.after)}
                 </>
               ) : item.quote ? (
                 <span style={{ color: "var(--unmet)" }}>
@@ -275,6 +308,11 @@ function ItemCard({
             ) : null}
           </div>
         </div>
+        {item.note ? (
+          <div className="note" style={{ marginTop: 12, borderLeft: "4px solid var(--ink-2)" }}>
+            <b>補充說明</b>　{item.note}
+          </div>
+        ) : null}
         {d ? (
           <div className="meta">
             <div>
@@ -292,8 +330,13 @@ function ItemCard({
         ) : null}
       </div>
       <div className="act">
-        <button className="btn btn-primary" disabled={disabled} onClick={() => void onDecide(item.id, "approved")}>
-          通過
+        <button
+          className="btn btn-primary"
+          disabled={disabled || state === "approved"}
+          onClick={() => void onDecide(item.id, "approved")}
+          style={state === "approved" ? { background: "var(--ok)", borderColor: "var(--ok)", opacity: 1 } : undefined}
+        >
+          {state === "approved" ? "✓ 已通過" : "通過"}
         </button>
         <button
           className="btn"

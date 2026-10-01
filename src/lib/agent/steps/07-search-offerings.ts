@@ -2,6 +2,7 @@ import type { Step } from "./types";
 import { courseSearch } from "../tools";
 import { fetchedAt } from "@/lib/offerings";
 import { requirementsFrom } from "@/lib/solver/schedule";
+import { schoolOf } from "@/lib/schools";
 
 /** 步驟 7：查下學期開課。查無 → 略過求解與討論檢索，僅輸出審查結果。 */
 export const searchOfferingsStep: Step = {
@@ -19,11 +20,15 @@ export const searchOfferingsStep: Step = {
       };
     }
 
+    // 學期原本寫死成 1：下學期是第 2 學期的學生永遠搜不到課。
+    // 合成示範學生的下學期剛好是 115-1，所以從沒出事
+    const nextHalf: 1 | 2 = state.nextTerm.endsWith("-2") ? 2 : 1;
+    const school = schoolOf(state.record!.student);
     const { data, call } = await trace.tool(
       "course.search",
-      { year: state.nextYear, term: 1, categories },
+      { year: state.nextYear, term: nextHalf, categories, school },
       async () => {
-        const offerings = courseSearch(state.nextYear, 1, categories);
+        const offerings = courseSearch(state.nextYear, nextHalf, categories, school);
         return {
           data: offerings,
           status: offerings.length > 0 ? ("ok" as const) : ("partial" as const),

@@ -5,6 +5,7 @@ import { resolveRulePack } from "@/lib/rules/loader";
 import { askTurn, planTurn, type TurnContext } from "@/lib/chat/route";
 import { constraintSetFrom, describeSet, preferencesOf, sanitiseConstraintSet } from "@/lib/chat/apply";
 import { render } from "@/lib/chat/compose";
+import { isCourseCode } from "@/lib/courses/code";
 
 import { LlmBudget, LlmBudgetExceeded } from "@/lib/llm/client";
 import { traceStore } from "@/lib/store";
@@ -80,7 +81,7 @@ export async function POST(req: Request) {
     originalConstraints: original,
     currentPlan: state.plans[0],
     shownCodes: Array.isArray(body?.shown)
-      ? body.shown.filter((s): s is string => typeof s === "string" && /^[A-Z]{2}\d{4}$/.test(s)).slice(0, 10)
+      ? body.shown.filter(isCourseCode).slice(0, 10)
       : undefined,
   };
 

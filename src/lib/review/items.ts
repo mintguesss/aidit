@@ -110,7 +110,7 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
   // ------------------------------------------------------------ 學分類別
   type Match =
     | { type: "courseList"; codes: string[] }
-    | { type: "courseNames"; names: string[] }
+    | { type: "courseNames"; names: string[]; prefixes?: string[] }
     | { type: "selectType"; value: string }
     | { type: "deptElective"; dept: string; excludeNames?: string[] }
     | { type: "anyPassed" };
@@ -169,8 +169,11 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
         break;
       case "courseNames":
         body = {
-          extracted: `${need}成績單上課名是下列其中之一的課，算在這一類（必須一字不差）：`,
-          details: m.names,
+          extracted: `${need}成績單上課名符合下列其中一種的課，算在這一類：`,
+          details: [
+            ...m.names.map((n) => `課名就是「${n}」（一字不差）`),
+            ...(m.prefixes ?? []).map((p) => `課名以「${p}」開頭（例如「${p}(中級英文)」）`),
+          ],
           question:
             "學分數和原文一樣嗎？你的成績單上，這一類的課真的是這樣寫嗎？若成績單上寫成別的名稱（例如「英文（一）」），請按「需要修正」把實際課名寫下來。",
         };

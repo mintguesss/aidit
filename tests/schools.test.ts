@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { allOfferings, offeringsFor, activeCourseCodes } from "@/lib/offerings";
+import { allOfferings, offeringsFor, activeCourseCodes, remainingSeats } from "@/lib/offerings";
 import { answerCourseInfo } from "@/lib/chat/capabilities";
 import { parseSlots } from "@/lib/solver/slots";
 
@@ -20,21 +20,37 @@ describe("開課資料依學校", () => {
     expect(fju.every((o) => o.school === "fju")).toBe(true);
   });
 
-  it("輔大的時段全部解析得了（輔大節次代號）", () => {
+  it("輔大的時段全部解析得了（輔大節次代號）；沒排時間的課寫「時間另訂」", () => {
     for (const o of allOfferings("fju")) {
       expect(o.slotsUnknown, `${o.name} ${o.rawSlotText}`).toBe(false);
-      expect(parseSlots(o.rawSlotText ?? "").slots.length).toBeGreaterThan(0);
+      if (o.rawSlotText !== "時間另訂") expect(parseSlots(o.rawSlotText ?? "").slots.length).toBeGreaterThan(0);
     }
   });
 
-  it("輔大的修課人數未知，不是 0", () => {
-    expect(allOfferings("fju").every((o) => o.capacity === undefined)).toBe(true);
+  it("修課人數：系上課表（115-2）完全未知；課程查詢（115-1）只有上限，已選人數仍未知", () => {
+    expect(offeringsFor(115, 2, "fju").every((o) => o.capacity === undefined)).toBe(true);
+    const t1 = offeringsFor(115, 1, "fju");
+    expect(t1.every((o) => (o.capacity ?? 0) > 0 && o.enrolled === undefined)).toBe(true);
+    // 未知不是 0：不能當額滿排除
+    expect(t1.every((o) => remainingSeats(o) === null)).toBe(true);
   });
 
   it("同一門課分兩班：同課號、不同時段", () => {
-    const calc = allOfferings("fju").filter((o) => o.code === "02390");
+    const calc = offeringsFor(115, 2, "fju").filter((o) => o.code === "02390");
     expect(calc).toHaveLength(2);
     expect(calc[0]!.rawSlotText).not.toBe(calc[1]!.rawSlotText);
+  });
+
+  it("115-1 課程查詢：通識記下領域、外國語文算基本能力、系上選修算系專選", () => {
+    const t1 = offeringsFor(115, 1, "fju");
+    const domains = new Set(t1.filter((o) => o.category.includes("general")).map((o) => o.generalDomain));
+    expect([...domains].sort()).toEqual(["人文與藝術", "永續素養", "社會科學", "自然與科技"]);
+    expect(t1.find((o) => o.name === "外國語文(中級英文)")?.category).toEqual(["basic-skills"]);
+    expect(t1.find((o) => o.code === "19664")?.category).toContain("major-elective");
+  });
+
+  it("官方資料裡 19664 是「組織學習與社會探究」—— 規劃表把同一個課號也印給了資訊系統專案管理（校對清單 B1）", () => {
+    expect(offeringsFor(115, 1, "fju").find((o) => o.code === "19664")?.name).toBe("組織學習與社會探究");
   });
 
   it("用課號查詢可以跨校：各校課號格式不重疊", () => {

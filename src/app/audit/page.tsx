@@ -37,7 +37,7 @@ export default async function AuditDetail({
             term={term}
             rulepackHref={`/rulepack?fixture=${fixture}&term=${term}`}
           />
-          <GraduationCheckDetails checks={outcome.audit.graduationChecks} />
+          <GraduationCheckDetails checks={outcome.audit.graduationChecks} fixture={fixture} term={term} />
         </>
       )}
     </Shell>

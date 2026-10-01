@@ -126,3 +126,51 @@ describe("草稿改版：只重看改到的項目", () => {
     expect(r.ok).toBe(false);
   });
 });
+
+describe("體育屬於全人核心（校對第 2 項的修正）", () => {
+  it("全人核心那一項寫出體育，原文引的是列出體育的那一行", async () => {
+    const view = (await store.loadDraft("fju-im-111"))!;
+    const core = view.items.find((i) => i.id === "category:holistic-core")!;
+    expect(core.extracted).toContain("這一類要修滿 8 學分（另含「體育（四學期）」，0 學分");
+    expect(core.context?.match).toContain("體育0學分");
+  });
+
+  it("畢業條件的 category 寫錯會被 schema 擋下", () => {
+    const bad = structuredClone(draft) as { graduationChecks: { id: string; category?: string }[] };
+    bad.graduationChecks.find((g) => g.id === "pe")!.category = "no-such-category";
+    expect(zRulePack.safeParse(bad).success).toBe(false);
+  });
+});
+
+describe("雜湊算規則資料，不算畫面文字", () => {
+  it("只加補充說明：已通過的項目全部保留", async () => {
+    const path = join(tmp, "drafts", "fju-im-111.json");
+    copyFileSync(DRAFT, path);
+    const before = (await store.loadDraft("fju-im-111"))!;
+    for (const item of before.items) {
+      await store.saveDecision("fju-im-111", {
+        itemId: item.id, status: "approved", reviewer: "測試者", decidedAt: new Date().toISOString(),
+      });
+    }
+    const edited = JSON.parse(readFileSync(path, "utf8")) as { _draft: { itemNotes: Record<string, string> } };
+    edited._draft.itemNotes["meta"] = "新加的說明";
+    writeFileSync(path, JSON.stringify(edited), "utf8");
+
+    const after = (await store.loadDraft("fju-im-111"))!;
+    expect(after.draftHash).not.toBe(before.draftHash);
+    expect(after.record.decisions).toHaveLength(after.items.length);
+    expect(after.items.find((i) => i.id === "meta")!.note).toBe("新加的說明");
+  });
+
+  it("改了課名對照：只有列那門課的類別要重看", async () => {
+    const path = join(tmp, "drafts", "fju-im-111.json");
+    const edited = JSON.parse(readFileSync(path, "utf8")) as { _draft: { courseTitles: Record<string, string> } };
+    edited._draft.courseTitles["02390"] = "微積分（改）";
+    writeFileSync(path, JSON.stringify(edited), "utf8");
+
+    const after = (await store.loadDraft("fju-im-111"))!;
+    const kept = new Set(after.record.decisions.map((d) => d.itemId));
+    expect(kept.has("category:dept-required")).toBe(false);
+    expect(kept.size).toBe(after.items.length - 1);
+  });
+});

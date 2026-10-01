@@ -94,6 +94,38 @@ export function numeralsOf(s: string): string[] {
   return s.match(/[0-9零〇一二兩三四五六七八九十百千萬]+/g) ?? [];
 }
 
+const CN_DIGIT: Record<string, number> = { 零: 0, 〇: 0, 一: 1, 二: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+
+/** 「十二」→ 12、「二十五」→ 25、「三十二」→ 32；只處理 0–999，看不懂回傳 null */
+function chineseNumber(s: string): number | null {
+  let total = 0;
+  let digit: number | null = null;
+  for (const ch of s) {
+    if (ch in CN_DIGIT) digit = CN_DIGIT[ch]!;
+    else if (ch === "十" || ch === "百") {
+      total += (digit ?? 1) * (ch === "十" ? 10 : 100);
+      digit = null;
+    } else return null;
+  }
+  return total + (digit ?? 0);
+}
+
+/**
+ * 原文裡出現的數值（阿拉伯數字與中文數字都換成整數）。
+ * 校對頁直接修改時用來檢查「改成 10 學分，依據的原文裡有沒有 10」。
+ */
+export function numberValuesOf(s: string): number[] {
+  const out: number[] = [];
+  for (const tok of numeralsOf(s)) {
+    if (/^\d+$/.test(tok)) out.push(Number(tok));
+    else {
+      const n = chineseNumber(tok);
+      if (n !== null) out.push(n);
+    }
+  }
+  return out;
+}
+
 /** 穩定字串比較，供指派決勝使用（不依賴 locale） */
 export function cmp(a: string, b: string): number {
   return a < b ? -1 : a > b ? 1 : 0;

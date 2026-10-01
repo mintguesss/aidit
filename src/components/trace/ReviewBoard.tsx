@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { DraftView, ReviewDecision, ReviewItem } from "@/lib/review/store";
+import { ReviewEditForm } from "./ReviewEditForm";
 
 /**
  * 逐條校對：系統的理解 vs. 原文。
@@ -12,6 +13,18 @@ import type { DraftView, ReviewDecision, ReviewItem } from "@/lib/review/store";
  */
 
 type Doc = { id: string; title: string; url?: string };
+
+/** 紀錄存的是 UTC，顯示一律用台灣時間（伺服器與瀏覽器算出來一樣，不會有 hydration 差異） */
+const fmtTime = (iso: string) =>
+  new Intl.DateTimeFormat("zh-TW", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(new Date(iso));
 
 const docHref = (url: string, page?: number) => `${encodeURI(url)}${page ? `#page=${page}` : ""}`;
 
@@ -41,7 +54,22 @@ export function ReviewBoard({ view }: { view: DraftView }) {
   const untouched = count(undefined);
   const total = view.items.length;
   const locked = Boolean(view.record.lockedAt);
-  const docs = ((view.draft.documents as Doc[] | undefined) ?? []).filter((d) => d.url);
+  const allDocs = (view.draft.documents as Doc[] | undefined) ?? [];
+  const docs = allDocs.filter((d) => d.url);
+  // 改某一類學分時，可一併調整承接類別（其他選修）維持加總
+  type Cat = { id: string; name: string; credits: number; match: { type: string } };
+  const cats = (view.draft.categories as Cat[] | undefined) ?? [];
+  const free = cats.find((c) => c.match.type === "anyPassed");
+  const freeFor = (item: ReviewItem) => {
+    if (!free || !item.id.startsWith("category:")) return null;
+    const id = item.id.slice("category:".length);
+    return {
+      name: free.name,
+      credits: free.credits,
+      minCredits: Number(view.draft.minCredits),
+      othersExcludingThis: cats.filter((c) => c.id !== id && c !== free).reduce((a, c) => a + c.credits, 0),
+    };
+  };
   const shown = onlyOpen ? view.items.filter((i) => byItem.get(i.id)?.status !== "approved") : view.items;
 
   const decide = async (itemId: string, status: ReviewDecision["status"], note?: string) => {
@@ -97,7 +125,7 @@ export function ReviewBoard({ view }: { view: DraftView }) {
         <div className="panel-hd">
           <h2>
             校對進度　已通過 {approved} / {total} 項
-            {locked ? `　已於 ${view.record.lockedAt!.slice(0, 10)} 由 ${view.record.lockedBy} 鎖版` : ""}
+            {locked ? `　已於 ${fmtTime(view.record.lockedAt!)} 由 ${view.record.lockedBy} 鎖版` : ""}
           </h2>
         </div>
         <div className="panel-bd">
@@ -122,13 +150,14 @@ export function ReviewBoard({ view }: { view: DraftView }) {
                 每一項左邊是<b>系統的理解</b>，右邊是<b>原文</b>（黃色底的是依據的那句話）。
               </li>
               <li>
-                兩邊意思一樣 → 按「<b>通過</b>」。數字或內容不對 → 按「<b>需要修正</b>」，寫下正確的內容。
-                這一項根本不該存在 → 按「<b>退回</b>」。
+                兩邊意思一樣 → 按「<b>通過</b>」。數字或內容不對 → 按「<b>需要修正</b>」，
+                直接在表單上改成正確的內容、貼上依據的原文句子，存檔。這一項根本不該存在 → 按「<b>退回</b>」。
               </li>
               <li>原文看不懂前後脈絡時，點「開啟原始文件」看整份 PDF，會直接跳到那一頁。</li>
               <li>
                 <b>全部 {total} 項都按「通過」才能鎖版</b>，鎖版後系統才會用這份規則審查。
-                有「需要修正」的話，我改好草稿後你只要重看改到的那幾項，其他已通過的會保留。
+                改過的項目會回到「還沒看」，再看一次按通過即可；其他已通過的會保留。
+                表單改不了的（例如需要新的判斷方式），按「留言給維護者」，等維護的人處理。
               </li>
             </ol>
           </div>
@@ -175,8 +204,8 @@ export function ReviewBoard({ view }: { view: DraftView }) {
 
           {needsFix > 0 ? (
             <div className="note warn" style={{ marginTop: 12 }}>
-              有 {needsFix} 項標為「需要修正」。修正內容不會自動寫進規則，要由我依你的備註改草稿、重新上傳；
-              之後只有改到的項目需要再看一次。
+              有 {needsFix} 項留言給維護者、還沒改。留言不會改到規則，要等維護的人改好草稿，
+              改到的項目回到「還沒看」之後才能通過、鎖版。
             </div>
           ) : null}
           {message ? (
@@ -206,6 +235,7 @@ export function ReviewBoard({ view }: { view: DraftView }) {
             decision={byItem.get(item.id)}
             disabled={busy || locked}
             onDecide={decide}
+            edit={{ docs: allDocs, packId: view.packId, draftHash: view.draftHash, reviewer, free: freeFor(item) }}
           />
         ))}
       </div>
@@ -219,14 +249,31 @@ function ItemCard({
   decision: d,
   disabled,
   onDecide,
+  edit,
 }: {
   item: ReviewItem;
   index: number;
   decision?: ReviewDecision;
   disabled: boolean;
   onDecide: (itemId: string, status: ReviewDecision["status"], note?: string) => Promise<void>;
+  edit: {
+    docs: Doc[];
+    packId: string;
+    draftHash: string;
+    reviewer: string;
+    free: { name: string; credits: number; othersExcludingThis: number; minCredits: number } | null;
+  };
 }) {
+  const [editing, setEditing] = useState(false);
   const state = d?.status;
+  const noteOnly = () => {
+    const note = window.prompt("哪裡不對？正確的應該是什麼？（會留言給維護的人）");
+    if (note) {
+      setEditing(false);
+      void onDecide(item.id, "corrected", note);
+    }
+  };
+  const lastEdit = item.edits.at(-1);
   const look = state ? STATE_STYLE[state] : null;
   return (
     <div
@@ -313,13 +360,41 @@ function ItemCard({
             <b>補充說明</b>　{item.note}
           </div>
         ) : null}
+        {item.edits.length ? (
+          <div className="note" style={{ marginTop: 12 }}>
+            <b>修改紀錄</b>
+            <ul style={{ margin: "4px 0 0", paddingLeft: 20 }}>
+              {item.edits.map((e) => (
+                <li key={e.at}>
+                  {fmtTime(e.at)}　{e.by}：{e.changes.join("；")}
+                  <span style={{ color: "var(--text-3)" }}>（原因：{e.reason}）</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {editing && item.editable ? (
+          <ReviewEditForm
+            item={item}
+            docs={edit.docs}
+            packId={edit.packId}
+            draftHash={edit.draftHash}
+            reviewer={edit.reviewer}
+            freeCategory={edit.free}
+            onCancel={() => setEditing(false)}
+            onNoteOnly={noteOnly}
+          />
+        ) : null}
         {d ? (
           <div className="meta">
             <div>
               <b>校對人</b>　{d.reviewer}
+              {state === "approved" && lastEdit && lastEdit.by === d.reviewer ? (
+                <span style={{ color: "var(--text-3)", marginLeft: 8 }}>（改的人和按通過的人是同一位）</span>
+              ) : null}
             </div>
             <div>
-              <b>時間</b>　{d.decidedAt.replace("T", " ").slice(0, 16)}
+              <b>時間</b>　{fmtTime(d.decidedAt)}
             </div>
             {d.note ? (
               <div>
@@ -340,11 +415,8 @@ function ItemCard({
         </button>
         <button
           className="btn"
-          disabled={disabled}
-          onClick={() => {
-            const note = window.prompt("哪裡不對？正確的應該是什麼？");
-            if (note) void onDecide(item.id, "corrected", note);
-          }}
+          disabled={disabled || editing}
+          onClick={() => (item.editable ? setEditing(true) : noteOnly())}
         >
           需要修正
         </button>

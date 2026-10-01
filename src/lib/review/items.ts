@@ -1,5 +1,6 @@
 import { contentHash } from "@/lib/util/identity";
 import { normalize } from "@/lib/util/text";
+import { editableOf, type Editable, type EditLogEntry } from "./edit";
 
 /**
  * 草稿 → 校對項目。
@@ -24,6 +25,10 @@ export type ReviewItem = {
    * 不算規則內容，不進 hash：加說明不會讓已通過的項目被迫重看。
    */
   note?: string;
+  /** 可以在校對頁直接修改的欄位與目前的值；null 表示只能留言給維護者 */
+  editable: Editable | null;
+  /** 這一項在校對頁被改過的紀錄 */
+  edits: EditLogEntry[];
   docId: string;
   /** 原始文件的標題與網址，校對時點開對照整份文件 */
   docTitle?: string;
@@ -54,6 +59,7 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
     string
   >;
   const yearLong = new Set((draft.yearLongCourses as string[] | undefined) ?? []);
+  const editLog = ((draft._draft as { edits?: EditLogEntry[] } | undefined)?.edits ?? []) as EditLogEntry[];
   const notes = ((draft._draft as { itemNotes?: Record<string, string> } | undefined)?.itemNotes ?? {}) as Record<
     string,
     string
@@ -85,6 +91,8 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
       page: pageMatch ? Number(pageMatch[1]) : undefined,
       context: c?.quote ? locate(corpus.get(c.docId) ?? "", c.quote) : null,
       note: notes[id],
+      editable: editableOf(draft, id),
+      edits: editLog.filter((e) => e.itemId === id),
       // 用規則資料算，不用畫面文字：改措辭不該讓已通過的項目被迫重看，改規則才該
       hash: contentHash({ data, citation: c ?? null }),
     });
@@ -172,7 +180,7 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
           extracted: `${need}成績單上課名符合下列其中一種的課，算在這一類：`,
           details: [
             ...m.names.map((n) => `課名就是「${n}」（一字不差）`),
-            ...(m.prefixes ?? []).map((p) => `課名以「${p}」開頭（例如「${p}(中級英文)」）`),
+            ...(m.prefixes ?? []).map((p) => `課名以「${p}」開頭（例如「${p}(…)」，括號裡寫什麼都算）`),
           ],
           question:
             "學分數和原文一樣嗎？你的成績單上，這一類的課真的是這樣寫嗎？若成績單上寫成別的名稱（例如「英文（一）」），請按「需要修正」把實際課名寫下來。",

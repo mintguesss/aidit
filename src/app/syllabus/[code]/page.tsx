@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getAuditSession } from "@/lib/audit/session";
 import { parsePageParams } from "@/lib/ui/params";
 import { Shell, PageHead } from "@/components/shell/Shell";
-import { allOfferings, fetchedAt } from "@/lib/offerings";
+import { allOfferings, fetchedAt, remainingSeats } from "@/lib/offerings";
 import { formatSlots } from "@/lib/solver/slots";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +26,8 @@ export default async function SyllabusPage({
   const search = `?fixture=${fixture}&term=${term}`;
 
   const o = allOfferings().find((x) => x.code.toUpperCase() === code.toUpperCase());
+  // 人數未知時為 null（系上課表沒有人數），畫面上要明講，不能印出 undefined
+  const seats = o ? remainingSeats(o) : null;
 
   return (
     <Shell session={session} fixture={fixture} term={term}>
@@ -56,11 +58,11 @@ export default async function SyllabusPage({
                   k="時段"
                   v={o.slotsUnknown ? `無法解析（原始字串：${o.rawSlotText ?? "—"}）` : formatSlots(o.slots)}
                 />
-                <F k="修課餘額" v={`${Math.max(0, o.capacity - o.enrolled)}／${o.capacity}`} />
+                <F k="修課餘額" v={seats === null ? "開課資料未提供" : `${seats}／${o.capacity}`} />
                 <F k="可採計類別" v={o.category.join("、")} />
                 {o.generalDomain ? <F k="通識領域" v={o.generalDomain} /> : null}
                 <F k="原始時段字串" v={o.rawSlotText ?? "—"} mono />
-                <F k="修課人數" v={`${o.enrolled}／${o.capacity}`} />
+                <F k="修課人數" v={seats === null ? "開課資料未提供" : `${o.enrolled}／${o.capacity}`} />
               </div>
               <p className="panel-foot">
                 以上欄位由原始開課資料正規化而來。

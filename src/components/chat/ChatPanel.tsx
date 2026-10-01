@@ -488,7 +488,7 @@ function PlanCard({ p, onPick, busy }: { p: PlanUpdate; onPick: (s: string) => v
               <span className="code">{c.code}</span>
               {c.name}
               <span className="meta">
-                {c.credits} 學分・{c.slotText}・{c.categoryLabel}・餘額 {c.remaining}
+                {c.credits} 學分・{c.slotText}・{c.categoryLabel}・餘額 {c.remaining ?? "未知"}
               </span>
             </li>
           ))}

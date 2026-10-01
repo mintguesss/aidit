@@ -247,7 +247,7 @@ export function answerCourseInfo(query: string, nextTerm: string): Reply {
     const prereq = o.prerequisites.find((p) => p.confidence === "explicit");
     return (
       `${o.code} ${o.name}　${o.credits} 學分　${o.teacher}　${slot}　` +
-      `餘額 ${seats}／${o.capacity}` +
+      (seats === null ? "餘額未知" : `餘額 ${seats}／${o.capacity}`) +
       (prereq ? `　先修 ${prereq.codes.join("、")}` : "")
     );
   });

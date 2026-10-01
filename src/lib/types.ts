@@ -47,6 +47,12 @@ export type CourseRecord = {
   offeringCollege?: string;
   /** 舊課號對照：本筆實際等同於哪一個現行課號 */
   equivalentOf?: string;
+  /**
+   * 學校的課程資料把這門課標為「學年課」：上下學期共用課號，兩筆是同一門課的上下兩半，
+   * 不是重修。輔大的國文、外國語文就是這樣（各級別課號不同，規則包列不完）。
+   * 引擎去重時與規則包的 yearLongCourses 一起看。
+   */
+  yearLong?: boolean;
 };
 
 /**
@@ -168,7 +174,7 @@ export type SubRuleResult = {
   status: "satisfied" | "unmet" | "pending_in_progress";
   detail: string;
   /** 通識領域分布這類逐項結果 */
-  items?: { label: string; ok: boolean; note?: string }[];
+  items?: { label: string; ok: boolean; note?: string; /** 以學分判定時還差幾學分（排課要補的量） */ shortBy?: number }[];
   citations: Citation[];
 };
 
@@ -336,6 +342,8 @@ export type ExclusionReason = {
     | "avoid-day"
     | "avoid-period"
     | "excluded-by-user"
+    /** 已經修過（或正在修） */
+    | "already-taken"
     | "not-chosen"
     /** 問了一門其實已經排進去的課 */
     | "chosen";

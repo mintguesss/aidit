@@ -5,6 +5,8 @@ import { DEFAULT_SCHOOL } from "@/lib/schools";
 // 輔大 115-1：學生資訊平台的公開課程查詢（scripts/fju-sis-fetch.py → fju-sis-offerings.py），
 // 資管系＋全人、基本能力、通識，含開課名額
 import FJU_115_1 from "./data/fju-115-1.json";
+// 輔大 113-1：同一條管線抓的歷年資料，給「大二結束、準備升大三」的示範學生排課用
+import FJU_113_1 from "./data/fju-113-1.json";
 // 輔大資管系 115-2 系上課表（scripts/fju-timetable.py → fju-offerings-raw.py）。
 // 課程查詢系統還沒公布 115-2，公布後改用上面那條管線重抓
 import FJU_115_2 from "./data/fju-115-2.json";
@@ -62,6 +64,7 @@ function toPrerequisites(raw: RawOffering): Prerequisite[] {
 
 const ALL_RAW: RawOffering[] = [
   ...RAW_OFFERINGS,
+  ...(FJU_113_1 as RawOffering[]),
   ...(FJU_115_1 as RawOffering[]),
   ...(FJU_115_2 as RawOffering[]),
 ];

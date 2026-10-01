@@ -28,10 +28,10 @@ Aidit：畢業學分審查與修業規劃系統。核心主張是**在畢業審�
 | | `demo`（合成） | `fju`（輔仁大學資訊管理學系） |
 |---|---|---|
 | 用途 | golden set 與 CI 的回歸基準，**不要改** | 第一所真實學校 |
-| 規則包 | `src/lib/rules/packs/im-111.json` | 草稿 v0.3，**人工校對中**（見下） |
+| 規則包 | `src/lib/rules/packs/im-111.json` | v0.6 **已鎖版**，只在 Supabase `rule_packs`（含校對人姓名，不進 repo）；草稿副本在 `docs/review/` |
 | 原文語料 | `src/lib/rules/corpus/` | 同一資料夾的 `fju-*.txt` |
 | 開課資料 | `src/lib/offerings/raw.ts` | `src/lib/offerings/data/fju-115-2.json`（34 班） |
-| 學生修課紀錄 | 合成夾具 | **還沒有**（H3 等鎖版） |
+| 學生修課紀錄 | 合成夾具 | 兩個示範學生，取自一份真實成績單（只有課名、學分、學期，本人同意）：`src/lib/providers/fixtures-fju.ts` |
 
 課號格式、節次表依學校而異，集中在 [lib/courses/code.ts](../src/lib/courses/code.ts) 與
 [lib/offerings/period-scheme.ts](../src/lib/offerings/period-scheme.ts)。新學校進來時改這兩處，
@@ -41,14 +41,14 @@ Aidit：畢業學分審查與修業規劃系統。核心主張是**在畢業審�
 那一側學到的事在 [SELFHOST.md](SELFHOST.md) §六：真實模型的錯法是
 **形狀合法、內容是編的**，schema 驗證擋不住，要靠程式比對原句。
 
+**輔大的兩個示範學生需要 Supabase 才看得到**（規則包只在那裡）。沒設 Supabase 的環境會顯示「尚未支援」，
+不會拿草稿來判定；測試用 repo 裡的草稿副本（`tests/fixtures-fju.test.ts`）。
+
 ## 正在進行，先不要動
 
-- **輔大規則包草稿 `fju-im-111`**：mintguesss 本人（111 學年入學）正在
-  [/review/fju-im-111](https://aidit-weld.vercel.app/review/fju-im-111) 逐項校對。
-  草稿檔在 [review/fju-im-111.draft.json](review/fju-im-111.draft.json)，校對清單與回覆紀錄在
-  [review/fju-im-111.md](review/fju-im-111.md)。改草稿會讓改到的項目必須重新校對 —— **要改先講**。
-- **H3 輔大示範學生**：等上面鎖版後做，會以 mintguesss 本人的修課紀錄（只取課名，
-  不含成績與個資）為參考。原始成績單只留在 mintguesss 自己的電腦，不進 repo。
+- **輔大規則包 `fju-im-111`** 已鎖版。改規則要在校對頁改（會產生新版草稿、重新校對），
+  或用 `scripts/pull-draft.ts` 拉回最新版再改 —— 不要拿 repo 裡的舊檔覆蓋線上。
+- **TODO H9（系專選是「包含」不是「切分」）** 要改規則包結構，mintguesss 決定前先不要動。
 
 ## 可以接的工作
 

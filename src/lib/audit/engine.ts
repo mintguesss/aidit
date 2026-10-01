@@ -172,8 +172,18 @@ function matches(cat: RuleCategory, c: CourseRecord, pack: RulePack): boolean {
  */
 const isListed = (cat: RuleCategory) => cat.match.type === "courseList" || cat.match.type === "courseNames";
 
+/**
+ * 超修不計入畢業學分的類別（overflowPolicy.countsToTotal = false）同樣具排他性。
+ *
+ * 輔大：「超修的全人教育課程…之學分數皆不可列入畢業學分」。通識是用選別比對的，
+ * 一門通識同時也符合「其他選修」（任何及格的課）—— 不排他的話，多修的通識會被塞進其他選修，
+ * 剛好差幾學分的學生就會被誤判可以畢業。排他之後，多的就是那一類裡不計的超修。
+ */
+const isExclusive = (cat: RuleCategory, pack: RulePack) =>
+  isListed(cat) || pack.overflowPolicy[cat.id]?.countsToTotal === false;
+
 function eligibleCategories(c: CourseRecord, pack: RulePack): string[] {
-  const listed = pack.categories.filter((cat) => isListed(cat) && matches(cat, c, pack));
+  const listed = pack.categories.filter((cat) => isExclusive(cat, pack) && matches(cat, c, pack));
   if (listed.length > 0) return listed.map((cat) => cat.id);
   return pack.categories.filter((cat) => matches(cat, c, pack)).map((cat) => cat.id);
 }
@@ -210,7 +220,10 @@ function prepare(input: AuditInput): Prepared {
   );
   const excluded = record.courses.filter((c) => c.status === "failed" || c.status === "withdrawn");
 
-  const { kept, dropped } = dedupe(counted, new Set(pack.yearLongCourses));
+  // 學年課：規則包列的，加上修課紀錄自己帶的標記（學校課程資料標「學年」的，見 CourseRecord.yearLong）。
+  // 國文、外國語文分組上課、各級別課號不同，規則包列不完 —— 但學校的課程資料知道
+  const yearLong = new Set([...pack.yearLongCourses, ...counted.filter((c) => c.yearLong).map(effectiveCode)]);
+  const { kept, dropped } = dedupe(counted, yearLong);
 
   const assignable: AssignableCourse[] = [];
   const held: Prepared["held"] = [];
@@ -310,6 +323,7 @@ function domainCoverage(
       label: d,
       ok,
       note: !ok && done + doing >= need ? "修課中" : !ok ? progress : undefined,
+      ...(byCredits && !ok ? { shortBy: need - done - doing } : {}),
     };
   });
   const missing = items.filter((i) => !i.ok && i.note !== "修課中").map((i) => i.label);
@@ -696,7 +710,9 @@ function buildVerdict(a: {
   const parts: string[] = [];
   parts.push(`已修得 <b>${a.totalEarned} 學分</b>`);
   if (a.overflow > 0) {
-    parts.push(`其中自由選修超修的 <b>${a.overflow} 學分</b>依學則不得流用，可採計者為 ${a.countable} 學分`);
+    // 寫出是哪幾類超修：輔大的超修有其他選修、也有通識（全人教育課程超修不列入畢業學分）
+    const from = a.categories.filter((c) => c.overflow > 0).map((c) => `${c.name} ${c.overflow}`).join("、");
+    parts.push(`其中超修的 <b>${a.overflow} 學分</b>（${from}）依學則不得流用，可採計者為 ${a.countable} 學分`);
   }
   if (a.inProgress > 0) {
     parts.push(`加計本學期修課中的 ${a.inProgress} 學分後`);
@@ -713,6 +729,11 @@ function buildVerdict(a: {
   }
   if (unmetChecks.length > 0) {
     parts.push(`畢業條件尚未通過：${unmetChecks.map((c) => c.name).join("、")}`);
+  }
+  // 修課紀錄看不出來的畢業條件（沒有佐證）：不是未通過，也不能當成通過
+  const holdChecks = a.graduationChecks.filter((c) => c.status === "hold");
+  if (holdChecks.length > 0) {
+    parts.push(`畢業條件待確認：${holdChecks.map((c) => c.name).join("、")}`);
   }
   const detail = parts.join("，") + "。";
 
@@ -734,7 +755,7 @@ function buildVerdict(a: {
     };
   }
   return {
-    headline: a.holds.length > 0 ? "學分條件已符合，另有待確認事項" : "已符合畢業學分條件",
+    headline: a.holds.length > 0 || holdChecks.length > 0 ? "學分條件已符合，另有待確認事項" : "已符合畢業學分條件",
     detail,
     level: "ok",
   };

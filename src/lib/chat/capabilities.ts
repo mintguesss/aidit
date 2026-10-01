@@ -1,6 +1,6 @@
 import type { AuditResult, Citation, StudentRecord } from "@/lib/types";
 import type { RulePack } from "@/lib/rules/schema";
-import { ANNOUNCEMENTS, citationOf } from "@/lib/rules/announcements";
+import { announcementsFor, citationOf } from "@/lib/rules/announcements";
 import { allOfferings, remainingSeats } from "@/lib/offerings";
 import { formatSlots } from "@/lib/solver/slots";
 import type { Reply } from "./types";
@@ -91,7 +91,7 @@ export function answerRegulation(topic: string, pack: RulePack, audit: AuditResu
   const hits = searchRules(topic, pack, audit);
   const searched = [
     `${pack.documents.map((d) => d.title).join("、")}`,
-    `公告庫（${ANNOUNCEMENTS.length} 則）`,
+    `公告庫（${announcementsFor(pack.school).length} 則）`,
   ];
 
   if (hits.length === 0) {
@@ -202,7 +202,7 @@ function searchRules(topic: string, pack: RulePack, audit: AuditResult): RuleHit
     });
   }
 
-  for (const ann of ANNOUNCEMENTS) {
+  for (const ann of announcementsFor(pack.school)) {
     const target = [...pack.categories, ...pack.graduationChecks].find((x) => ann.targets.includes(x.id));
     if (!target || !t.includes(target.name)) continue;
     hits.push({

@@ -14,8 +14,11 @@ import { generatedCases } from "@/eval/golden/generated";
  * 超修不得填補任何類別的 unmet —— 這是 UI 上「123 學分卻還不能畢業」的來源。
  */
 
+// 輔大的案例要用 Supabase 上鎖版的規則包，離線找不到；另在 tests/fixtures-fju.test.ts 測
 const auditableFixtures = FIXTURES.filter(
-  (f) => f.record.student.admissionYear === f.record.student.actualAdmissionYear,
+  (f) =>
+    f.record.student.admissionYear === f.record.student.actualAdmissionYear &&
+    (f.record.student.school ?? "demo") === "demo",
 );
 
 describe("不變式", () => {

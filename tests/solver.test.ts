@@ -1,3 +1,4 @@
+import { takenCourseCodes } from "@/lib/solver/taken";
 import { describe, expect, it } from "vitest";
 import { runAudit } from "@/lib/agent/runner";
 import {
@@ -28,6 +29,7 @@ async function demoContext(
     passedCodes: new Set(
       record.courses.filter((c) => c.status === "passed" || c.status === "waived").map((c) => c.code),
     ),
+    takenCodes: takenCourseCodes(record.courses, { yearLongCourses: [] }),
     reserved: reservedFrom(record.plannedCommitments),
     preferences,
     constraints: constraintsFrom(preferences, { maxCredits: 25, minCredits: 9 }),

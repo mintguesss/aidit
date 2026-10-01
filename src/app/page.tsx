@@ -126,6 +126,19 @@ function NextSteps({ audit, search }: { audit: AuditResult; search: string }) {
     });
   }
 
+  // 畢業條件「待確認」（成績單看不出來、也沒有佐證）不在 holds 裡，但一樣不能說「全部達成」
+  const holdChecks = audit.graduationChecks.filter((g) => g.status === "hold");
+  if (holdChecks.length > 0) {
+    cards.push({
+      k: "畢業條件待確認",
+      t: holdChecks.map((g) => g.name).join("、"),
+      tone: "hold",
+      d: "修課紀錄看不出是否通過，請自行確認或洽承辦單位。",
+      href: `/audit${search}`,
+      go: "查看條件依據",
+    });
+  }
+
   if (audit.holds.length > 0) {
     cards.push({
       k: "待人工確認",

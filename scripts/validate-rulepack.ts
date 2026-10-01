@@ -1,4 +1,5 @@
 import { readdirSync, readFileSync, existsSync } from "node:fs";
+import { describeCourseCodeFormats } from "@/lib/courses/code";
 import { join } from "node:path";
 import { zRulePack, COURSE_CODE_RE, type RulePack, type RuleCitation } from "@/lib/rules/schema";
 import { normalize, fuzzyBestMatch } from "@/lib/util/text";
@@ -66,7 +67,7 @@ function validate(file: string, pack: RulePack): Issue[] {
   for (const cat of pack.categories) {
     if (cat.match.type !== "courseList") continue;
     for (const code of cat.match.codes) {
-      if (!COURSE_CODE_RE.test(code)) err(`類別 ${cat.id} 的課號 ${code} 不符合 [A-Z]{2}\\d{4}`);
+      if (!COURSE_CODE_RE.test(code)) err(`類別 ${cat.id} 的課號 ${code} 不符合任何已知課號格式（${describeCourseCodeFormats()}）`);
     }
   }
 

@@ -1,5 +1,6 @@
 import { z } from "zod/v4";
 import { structured, type LlmBudget } from "@/lib/llm/client";
+import { findCourseCode } from "@/lib/courses/code";
 import type { AskIntent, ChatMessage, ForbiddenTopic, PlanIntent } from "./types";
 
 /**
@@ -433,7 +434,7 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
 
   // explain：為什麼選／為什麼沒有
   if (/為什麼|為何|怎麼沒有|沒有排|沒選/.test(t)) {
-    const code = /([A-Z]{2}\d{4})/.exec(raw)?.[1];
+    const code = findCourseCode(raw);
     const name = /(?:為什麼|為何|怎麼)(?:沒有|沒|不)?(?:選|排|上|排入)?(?:有)?([一-龥（）()]{3,15}?)[？?。]?$/.exec(t)?.[1];
     return { ...base, intent: "explain", explainCourse: code ?? name ?? null };
   }
@@ -630,7 +631,7 @@ function offlineAskIntent(raw: string): z.infer<typeof zAskIntent> {
   // 排在「流程」後面的話，「企業流程管理什麼時候開」會因為課名裡有「流程」兩個字
   // 被當成辦理手續，回「系統未收錄這項事務的辦理流程」。
   if (/什麼時候開|誰教|哪個老師開|有沒有名額|還有名額|餘額|幾學分.*課|時段/.test(t)) {
-    const code = /([A-Z]{2}\d{4})/.exec(raw)?.[1];
+    const code = findCourseCode(raw);
     const name = /([一-龥]{3,12})(?:什麼時候|誰教|有沒有|還有|是哪個)/.exec(t)?.[1];
     return { ...base, intent: "course-info", course: code ?? name ?? t };
   }
@@ -657,7 +658,7 @@ function offlineAskIntent(raw: string): z.infer<typeof zAskIntent> {
     };
   }
   if (/停修|退選|撤選/.test(t)) {
-    const code = /([A-Z]{2}\d{4})/.exec(raw)?.[1];
+    const code = findCourseCode(raw);
     const quoted = /[「『]([^」』]{2,20})[」』]/.exec(raw)?.[1];
     // 「停修資料探勘會怎樣」的課名到語尾詞為止；「停修一門三學分的課」則根本沒有指名課程
     const tail = /(?:停修|退選|撤選)(?:掉)?([一-龥]{2,20})/.exec(t)?.[1] ?? "";

@@ -190,3 +190,29 @@ describe("修課人數未知（系上課表沒有人數）", () => {
     expect(result.excluded.excludedBy.some((e) => e.reason.includes("餘額"))).toBe(false);
   });
 });
+
+describe("同一門課分好幾班", () => {
+  it("一份課表只能選其中一班 —— 不能拿同一門課的兩班湊學分", async () => {
+    const base = await demoContext();
+    // 只有一門 3 學分的課可以修，分甲、乙兩班（同課號、不同時段），而這個類別還缺 6 學分。
+    // 不擋的話，求解器會選兩班湊滿 6 學分 —— 同一門課修兩次，學分只算一次。
+    const course = base.offerings.find((o) => o.credits === 3 && !o.slotsUnknown)!;
+    const sectionA = { ...course, category: ["test-cat"], slots: [{ day: 1 as const, periods: [2, 3, 4] }] };
+    const sectionB = { ...course, category: ["test-cat"], slots: [{ day: 3 as const, periods: [2, 3, 4] }] };
+    const r = solveWithRelaxation(
+      {
+        ...base,
+        offerings: [sectionA, sectionB],
+        requirements: [{ id: "test", label: "測試類別 6 學分", shortLabel: "測試", categoryId: "test-cat", minCredits: 6 }],
+        termMinCredits: 0,
+      },
+      PRESET_OF_GOAL[base.preferences.goal],
+      [],
+    );
+    const plans = r.ok ? r.plans : [];
+    for (const plan of plans) {
+      const codes = plan.courses.map((c) => c.code);
+      expect(new Set(codes).size).toBe(codes.length);
+    }
+  });
+});

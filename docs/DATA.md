@@ -8,7 +8,7 @@
 | 資料 | 現在放哪 | 落地 | 保留 | 識別性 |
 |---|---|---|---|---|
 | **修課紀錄** | Provider 每次重讀，不存 | **否** | 單次 request | 含學號，但從不寫出 |
-| **偏好**（選課傾向） | `.data/prefs/{hash}.json`<br>Vercel 上是 `/tmp`，會蒸發 | 是 | 12 個月未用即刪 | `studentHash`＝HMAC，不可逆 |
+| **偏好**（選課傾向） | Supabase `preferences`；沒設定時 `.data/prefs/{hash}.json` | 是 | 12 個月未用即刪 | `studentHash`＝HMAC，不可逆 |
 | **額外修業目標** | 瀏覽器 localStorage；已註冊的由學籍推導 | 否 | 使用者自管 | — |
 | **執行紀錄 trace** | `.data/traces/` 或 Supabase | 是 | 90 天 | `studentHash` |
 | **課表** | 不存，每次由審查結果＋偏好重算；可匯出 ICS／CSV | **否** | — | — |
@@ -25,7 +25,7 @@
 
 | 資料 | 現在放哪 | 該搬去哪 |
 |---|---|---|
-| **規則包**（已鎖版） | `src/lib/rules/packs/*.json` | 儲存層 —— 鎖版現在會寫進原始碼目錄，serverless 上必然失敗 |
+| **規則包**（已鎖版） | 合成的在 `src/lib/rules/packs/*.json`；校對鎖版的發布到 Supabase `rule_packs` | 已搬（沒設 Supabase 時仍寫進 `packs/`） |
 | **課綱原文語料** | `src/lib/rules/corpus/*.txt`（6 檔，約 10KB） | 儲存層，但**冷啟動預載成記憶體 Map**，不要改成 async |
 | **開課資料** | `src/lib/offerings/raw.ts`（合成） | 儲存層＋抓取正規化，BACKEND.md §4 |
 | **測試夾具** | `src/lib/providers/fixtures.ts`（合成） | **留在 repo**，它是 golden set 的回歸基準 |

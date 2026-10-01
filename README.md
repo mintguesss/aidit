@@ -17,6 +17,8 @@
 | 自架跑本機模型 | [docs/SELFHOST.md](docs/SELFHOST.md) —— Ollama、Tailscale |
 | 知道有哪些資料、放在哪 | [docs/DATA.md](docs/DATA.md) |
 | 看還有什麼沒做 | [docs/TODO.md](docs/TODO.md) |
+| 輔大真實規則的校對進度 | [docs/review/](docs/review/) |
+| 最初的設計稿與功能說明 | [docs/design/](docs/design/) |
 
 規格文件（改動前先讀）：
 
@@ -180,6 +182,10 @@ src/
     trace/                      執行紀錄、規則包校對
   lib/
     types.ts                    型別的唯一定義來源
+    schools.ts                  學校清單（demo、fju）
+    courses/code.ts             各校課號格式
+    offerings/                  開課資料、各校節次表（period-scheme.ts）
+    review/                     規則包草稿、校對項目、鎖版
     providers/                  mock / upload / session
     rules/                      規則包 schema、loader、公告庫、原文語料
       inspect.ts                上傳規則包的結構檢查
@@ -305,8 +311,9 @@ npm run rulepack:validate
 open http://localhost:3000/review/im-111
 ```
 
-校對紀錄（誰、何時、通過或修正）留存於 `.data/reviews/`，作為資料品質的證據。
-草稿重新抽取後 hash 會變，既有校對紀錄自動失效。
+校對紀錄（誰、何時、通過或修正）存在 Supabase `review_records`（沒設定時 `.data/reviews/`），
+作為資料品質的證據。草稿改版後，內容沒變的項目沿用原本的校對結果，改到的項目要重新校對；
+鎖版紀錄一律不沿用。
 
 > 目前 `src/lib/rules/packs/im-111.json` 是 **合成規則包**（`provenance: "synthetic"`），
 > 搭配合成的規劃表與學則原文語料，讓系統在沒有真實 PDF 的情況下能完整執行。
@@ -357,8 +364,9 @@ npm run eval
 
 ## 已知限制
 
-- 第一版只支援 1 個學系 × 1 個入學學年（資管系 111 學年度）。
-  新增系所只需新增規則包，不需改動程式邏輯。
+- 目前有兩所「學校」：合成的 `demo`（資管系 111，golden set 基準）與輔仁大學資管系
+  （真實規則，111 學年度規則包校對中；開課資料只有 115-2 系上課表）。
+  同一所學校新增系所或入學年度只需新增規則包；新學校另外要補課號格式與節次表。
 - `session` provider 未啟用；`api` provider 不實作。
 - 輔系／學分學程的情境試算會明確回報「尚未收錄該修習規定」，不作任何推算。
 - 基準 A（人工計算）與基準 C（單次 LLM）尚未實測，評測報告標示為未執行，

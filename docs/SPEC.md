@@ -1,6 +1,6 @@
 # Aidit — 實作規格書
 
-修業規劃與畢業審查輔助系統（AI + audit，degree audit 的諧音）。本文件為交付給實作端的唯一規格來源，UI 參考同目錄的 `aidit-demo-v5.html`。
+修業規劃與畢業審查輔助系統（AI + audit，degree audit 的諧音）。本文件為交付給實作端的唯一規格來源，UI 參考 [design/aidit-demo-v5.html](design/aidit-demo-v5.html)。
 
 ---
 

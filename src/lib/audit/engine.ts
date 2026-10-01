@@ -291,25 +291,35 @@ function domainCoverage(
   courses: CourseRecord[],
   pack: RulePack,
 ): SubRuleResult {
+  // 以學分判定（有設 minCreditsPerDomain）或以門數判定。兩者都把修課中的另外算，
+  // 修課中的加上去夠了就是「成績登錄後始滿足」，不夠就是真的缺
+  const byCredits = sub.minCreditsPerDomain !== undefined;
+  const need = sub.minCreditsPerDomain ?? sub.minPerDomain;
   const items = sub.domains.map((d) => {
-    const passed = courses.some((c) => c.generalDomain === d && (c.status === "passed" || c.status === "waived"));
-    const doing = courses.some((c) => c.generalDomain === d && c.status === "in_progress");
+    const inDomain = courses.filter((c) => c.generalDomain === d);
+    const measure = (cs: CourseRecord[]) => (byCredits ? cs.reduce((a, c) => a + c.credits, 0) : cs.length);
+    const done = measure(inDomain.filter((c) => c.status === "passed" || c.status === "waived"));
+    const doing = measure(inDomain.filter((c) => c.status === "in_progress"));
+    const ok = done >= need;
+    const progress = byCredits ? `已修 ${done}／${need} 學分` : undefined;
     return {
       label: d,
-      ok: passed,
-      note: !passed && doing ? "修課中" : undefined,
+      ok,
+      note: !ok && done + doing >= need ? "修課中" : !ok ? progress : undefined,
     };
   });
-  const missing = items.filter((i) => !i.ok && !i.note).map((i) => i.label);
-  const pending = items.filter((i) => !i.ok && i.note).map((i) => i.label);
+  const missing = items.filter((i) => !i.ok && i.note !== "修課中").map((i) => i.label);
+  const pending = items.filter((i) => !i.ok && i.note === "修課中").map((i) => i.label);
   const status: SubRuleResult["status"] =
     missing.length > 0 ? "unmet" : pending.length > 0 ? "pending_in_progress" : "satisfied";
+  const NUM = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九", "十"];
+  const rule = `${NUM[sub.domains.length] ?? sub.domains.length}大領域各至少 ${need} ${byCredits ? "學分" : "門"}`;
   const detail =
     missing.length > 0
-      ? `四大領域各至少 1 門；尚缺 ${missing.join("、")} 領域。`
+      ? `${rule}；尚缺 ${missing.join("、")} 領域。`
       : pending.length > 0
-        ? `四大領域各至少 1 門；${pending.join("、")} 領域修課中，成績登錄後始滿足。`
-        : "四大領域各至少 1 門，全數滿足。";
+        ? `${rule}；${pending.join("、")} 領域修課中，成績登錄後始滿足。`
+        : `${rule}，全數滿足。`;
   return { id: sub.id, name: sub.name, status, detail, items, citations: [toCitation(sub.citation, pack)] };
 }
 

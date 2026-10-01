@@ -10,6 +10,7 @@ import type {
   Verdict,
 } from "@/lib/types";
 import type { RuleAmbiguity, RuleCategory, RuleCitation, RulePack } from "@/lib/rules/schema";
+import { courseNameMatches, normalizeName } from "@/lib/courses/names";
 import { assign, type AssignableCourse, type CategoryDemand, type AssignmentResult } from "./assign";
 import { cmp } from "@/lib/util/text";
 
@@ -102,7 +103,11 @@ function dedupe(
 ): { kept: CourseRecord[]; dropped: CourseRecord[] } {
   const groups = new Map<string, CourseRecord[]>();
   for (const c of courses) {
-    const k = effectiveCode(c);
+    // 沒有課號的紀錄（輔大成績單只有課名；國文、外國語文分組上課，規劃表也不列課號）：
+    // 只把同課名、同學期的當成重複。跨學期分不出是重修還是上下學期接著修，
+    // 合併會把學分吃掉 —— 學生會被判少修，所以寧可不合併
+    const code = effectiveCode(c);
+    const k = code !== "" ? code : `\u0000${normalizeName(c.name)}\u0000${c.year}-${c.term}`;
     const list = groups.get(k) ?? [];
     list.push(c);
     groups.set(k, list);
@@ -140,8 +145,6 @@ function dedupe(
   return { kept, dropped };
 }
 
-/** 課名比對前去掉所有空白（含全形），「Web 程式設計」與「Web程式設計」視為同一門 */
-const normalizeName = (s: string) => s.replace(/\s+/g, "");
 
 function matches(cat: RuleCategory, c: CourseRecord, pack: RulePack): boolean {
   const code = effectiveCode(c);
@@ -149,7 +152,7 @@ function matches(cat: RuleCategory, c: CourseRecord, pack: RulePack): boolean {
     case "courseList":
       return cat.match.codes.includes(code);
     case "courseNames":
-      return cat.match.names.some((n) => normalizeName(n) === normalizeName(c.name));
+      return courseNameMatches(cat.match, c.name);
     case "selectType":
       return c.selectType === cat.match.value;
     case "deptElective":

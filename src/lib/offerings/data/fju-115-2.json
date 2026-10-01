@@ -173,7 +173,6 @@
     "dept": "IM",
     "college": "MGT",
     "category": [
-      "major-elective",
       "free-elective"
     ],
     "fetchedAt": "2026-10-01T17:42:44+08:00"

@@ -2,11 +2,13 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { dataDir } from "@/lib/store/paths";
 import { contentHash } from "@/lib/util/identity";
-import { normalize } from "@/lib/util/text";
 import { supabaseClient, supabaseConfigured } from "@/lib/store/supabase";
 import { publishRulePack } from "@/lib/rules/published";
 import { zRulePack } from "@/lib/rules/schema";
 import { draftStore } from "./drafts";
+import { toItems, type ReviewItem } from "./items";
+
+export { locate, type ReviewItem } from "./items";
 
 /**
  * 人工校對紀錄（docs/BACKEND.md §2）。
@@ -26,28 +28,17 @@ export type ReviewDecision = {
   note?: string;
   reviewer: string;
   decidedAt: string;
+  /** 校對當時這一項內容的雜湊；草稿改版後內容沒變的項目據此沿用校對結果 */
+  itemHash?: string;
 };
 
 export type ReviewRecord = {
   packId: string;
-  /** 草稿的 content hash，草稿變動後舊的校對紀錄即失效 */
+  /** 草稿的 content hash。草稿變動後只沿用內容沒變的項目（見 loadRecord），鎖版紀錄一律失效 */
   draftHash: string;
   decisions: ReviewDecision[];
   lockedAt?: string;
   lockedBy?: string;
-};
-
-export type ReviewItem = {
-  id: string;
-  kind: "category" | "subRule" | "ambiguity" | "graduationCheck" | "overflowPolicy" | "meta";
-  label: string;
-  /** 抽取結果的呈現內容 */
-  extracted: string;
-  docId: string;
-  locator: string;
-  quote?: string;
-  /** 原文中 quote 前後的上下文，供校對時對照 */
-  context?: { before: string; match: string; after: string } | null;
 };
 
 export type DraftView = {
@@ -69,13 +60,14 @@ export async function loadDraft(packId: string): Promise<DraftView | null> {
   if (!bundle) return null;
 
   const draftHash = contentHash(bundle.draft);
+  const items = toItems(bundle.draft, bundle.corpus);
   return {
     packId,
     draft: bundle.draft,
     corpus: bundle.corpus,
     draftHash,
-    items: toItems(bundle.draft, bundle.corpus),
-    record: await loadRecord(packId, draftHash),
+    items,
+    record: await loadRecord(packId, draftHash, items),
   };
 }
 
@@ -87,7 +79,7 @@ export async function loadDraft(packId: string): Promise<DraftView | null> {
  * 後者等於不存在（/tmp 換實例就沒了），而「誰在什麼時候通過了哪一條」
  * 正是資料品質的證據，不能留不住。
  */
-async function loadRecord(packId: string, draftHash: string): Promise<ReviewRecord> {
+async function loadRecord(packId: string, draftHash: string, items: ReviewItem[]): Promise<ReviewRecord> {
   const fresh: ReviewRecord = { packId, draftHash, decisions: [] };
 
   let stored: ReviewRecord | null = null;
@@ -100,8 +92,18 @@ async function loadRecord(packId: string, draftHash: string): Promise<ReviewReco
     if (existsSync(p)) stored = JSON.parse(readFileSync(p, "utf8")) as ReviewRecord;
   }
 
-  // 草稿換過就代表被重新抽取過，舊紀錄不得沿用
-  return stored && stored.draftHash === draftHash ? stored : fresh;
+  if (!stored) return fresh;
+  if (stored.draftHash === draftHash) return stored;
+
+  // 草稿改過：內容一字未變的項目沿用原本的校對結果，改到的項目（雜湊不同）與新增的項目要重新校對。
+  // 以前是整份作廢 —— 改一個數字就要把三十項從頭再看一遍，校對的人會開始不看就按通過，
+  // 那比少校對一項更糟。鎖版紀錄一律不沿用：改過的草稿一定要重新鎖版。
+  const current = new Map(items.map((i) => [i.id, i.hash]));
+  return {
+    packId,
+    draftHash,
+    decisions: stored.decisions.filter((d) => d.itemHash !== undefined && current.get(d.itemId) === d.itemHash),
+  };
 }
 
 async function saveRecord(packId: string, record: ReviewRecord): Promise<void> {
@@ -120,8 +122,14 @@ async function saveRecord(packId: string, record: ReviewRecord): Promise<void> {
 export async function saveDecision(packId: string, decision: ReviewDecision): Promise<ReviewRecord> {
   const view = await loadDraft(packId);
   if (!view) throw new Error(`查無草稿 ${packId}`);
+  const item = view.items.find((i) => i.id === decision.itemId);
+  if (!item) throw new Error(`草稿 ${packId} 沒有項目 ${decision.itemId}`);
+  if (view.record.lockedAt) throw new Error(`草稿 ${packId} 已鎖版，不能再改校對結果`);
   const record = view.record;
-  record.decisions = [...record.decisions.filter((d) => d.itemId !== decision.itemId), decision];
+  record.decisions = [
+    ...record.decisions.filter((d) => d.itemId !== decision.itemId),
+    { ...decision, itemHash: item.hash },
+  ];
   await saveRecord(packId, record);
   return record;
 }
@@ -194,128 +202,3 @@ export async function lockPack(
   return { ok: true, path };
 }
 
-// ------------------------------------------------------- 草稿 → 校對項目
-
-function toItems(draft: Record<string, unknown>, corpus: Map<string, string>): ReviewItem[] {
-  const items: ReviewItem[] = [];
-
-  const push = (
-    id: string,
-    kind: ReviewItem["kind"],
-    label: string,
-    extracted: string,
-    c: { docId?: string; locator?: string; quote?: string } | undefined,
-  ) => {
-    items.push({
-      id,
-      kind,
-      label,
-      extracted,
-      docId: c?.docId ?? "",
-      locator: c?.locator ?? "",
-      quote: c?.quote,
-      context: c?.quote ? locate(corpus.get(c.docId ?? "") ?? "", c.quote) : null,
-    });
-  };
-
-  push(
-    "meta",
-    "meta",
-    "規則包基本資訊",
-    `畢業最低學分 ${draft.minCredits}；系所 ${draft.dept}；入學學年 ${draft.admissionYear}；學制 ${draft.program}`,
-    undefined,
-  );
-
-  type Cat = {
-    id: string;
-    name: string;
-    credits: number;
-    match: { type: string };
-    citation: { docId: string; locator: string; quote?: string };
-    subRules?: { id: string; name: string; citation: { docId: string; locator: string; quote?: string } }[];
-    ambiguities?: {
-      id: string;
-      description: string;
-      citation: { docId: string; locator: string; quote?: string };
-    }[];
-  };
-
-  for (const cat of (draft.categories as Cat[] | undefined) ?? []) {
-    push(`category:${cat.id}`, "category", `類別　${cat.name}`, `${cat.credits} 學分；比對方式 ${cat.match.type}`, cat.citation);
-    for (const s of cat.subRules ?? []) {
-      push(`subRule:${s.id}`, "subRule", `子規則　${s.name}`, JSON.stringify(s), s.citation);
-    }
-    for (const a of cat.ambiguities ?? []) {
-      push(`ambiguity:${a.id}`, "ambiguity", `待確認規則　${a.description}`, JSON.stringify(a), a.citation);
-    }
-  }
-
-  type Check = { id: string; name: string; rule: string; citation: { docId: string; locator: string; quote?: string } };
-  for (const g of (draft.graduationChecks as Check[] | undefined) ?? []) {
-    push(`check:${g.id}`, "graduationCheck", `畢業條件　${g.name}`, `判定方式 ${g.rule}`, g.citation);
-  }
-
-  const policies = (draft.overflowPolicy as Record<string, { citation: { docId: string; locator: string; quote?: string } }> | undefined) ?? {};
-  for (const [k, v] of Object.entries(policies)) {
-    push(`overflow:${k}`, "overflowPolicy", `超修規定　${k}`, JSON.stringify(v), v.citation);
-  }
-
-  // 修課學分上下限是排課的硬限制，與類別一樣要對照原文
-  type Limits = {
-    maxCredits: number;
-    minCredits: number;
-    byStudyYear?: { fromYear: number; maxCredits?: number; minCredits?: number }[];
-    citations?: { docId: string; locator: string; quote?: string }[];
-  };
-  const limits = draft.termLimits as Limits | undefined;
-  if (limits) {
-    const adjust = (limits.byStudyYear ?? [])
-      .map((o) => `第 ${o.fromYear} 學年起${o.minCredits ? `下限 ${o.minCredits}` : ""}${o.maxCredits ? `、上限 ${o.maxCredits}` : ""}`)
-      .join("；");
-    const summary = `上限 ${limits.maxCredits}、下限 ${limits.minCredits}${adjust ? `；${adjust}` : ""}`;
-    const cites = limits.citations ?? [];
-    if (cites.length === 0) push("termLimits:0", "meta", "修課學分上下限", summary, undefined);
-    cites.forEach((c, i) => push(`termLimits:${i}`, "meta", "修課學分上下限", summary, c));
-  }
-
-  return items;
-}
-
-/** 在原文中定位 quote，回傳前後文供高亮 */
-export function locate(source: string, quote: string): ReviewItem["context"] {
-  const idx = source.indexOf(quote);
-  if (idx >= 0) {
-    return {
-      before: source.slice(Math.max(0, idx - 80), idx),
-      match: quote,
-      after: source.slice(idx + quote.length, idx + quote.length + 80),
-    };
-  }
-
-  // 找不到完全相同的字串時，改用與 citation.verify 同一套正規化規則再找一次。
-  // 版面模式抽出的語料有大量補齊空白與換行（「核心課程         8學分」），
-  // 只用 indexOf 的話，驗證通過的引文在校對頁上會找不到原文位置 ——
-  // 而校對的人最需要的正是那段上下文。
-  //
-  // normalize 是逐字元的轉換（全半形、去空白標點、轉小寫），所以可以逐字元正規化，
-  // 同時記下每個字元在原文的位置，比對到之後再映射回原文。
-  const at: number[] = [];
-  let compact = "";
-  for (let i = 0; i < source.length; i++) {
-    const n = normalize(source[i]!);
-    for (let k = 0; k < n.length; k++) at.push(i);
-    compact += n;
-  }
-  const q = normalize(quote);
-  const j = q ? compact.indexOf(q) : -1;
-  if (j < 0) return null;
-
-  const start = at[j]!;
-  const end = at[j + q.length - 1]! + 1;
-  return {
-    before: source.slice(Math.max(0, start - 80), start),
-    // 回傳原文實際的那一段（含排版空白），畫面高亮的才是原文，而不是引文
-    match: source.slice(start, end),
-    after: source.slice(end, end + 80),
-  };
-}

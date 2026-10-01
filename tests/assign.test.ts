@@ -91,3 +91,34 @@ function serialize(r: ReturnType<typeof assign>): string {
     method: r.method,
   });
 }
+
+describe("承接類別最後才塞", () => {
+  // 輔大資管：系專選 10、其他選修 22。舊的決勝規則「需求大者優先」會把本系選修
+  // 先塞進其他選修 —— 總缺口一樣，但系專選顯示 0/10，學生會以為還要多修 10 學分本系的課。
+  const fju: CategoryDemand[] = [
+    { id: "major-elective", required: 10, order: 5 },
+    { id: "free-elective", required: 22, order: 6, catchAll: true },
+  ];
+
+  it("總缺口打平時，本系選修先算系專選", () => {
+    const r = assign([course("24501", 3, ["major-elective", "free-elective"])], fju);
+    expect(r.filled.get("major-elective")!.earned).toBe(3);
+    expect(r.filled.get("free-elective")!.earned).toBe(0);
+  });
+
+  it("承接類別排最後不能犧牲總缺口：系專選不超收，學分不浪費", () => {
+    // 15 學分全塞系專選會超收 5 學分（缺口 22）；塞到 12 也浪費 2（缺口 19）。
+    // 最佳是系專選 9、其他選修 6：缺口 1 + 16 = 17
+    const courses = Array.from({ length: 5 }, (_, i) => course(`2450${i}`, 3, ["major-elective", "free-elective"]));
+    const r = assign(courses, fju);
+    expect(r.objective).toBe(17);
+    expect(r.filled.get("major-elective")!.earned).toBe(9);
+    expect(r.filled.get("free-elective")!.earned).toBe(6);
+  });
+
+  it("沒標 catchAll 時維持原本的決勝（需求大者優先），合成資料的結果不變", () => {
+    const plain = fju.map(({ catchAll: _, ...d }) => d);
+    const r = assign([course("24501", 3, ["major-elective", "free-elective"])], plain);
+    expect(r.filled.get("free-elective")!.earned).toBe(3);
+  });
+});

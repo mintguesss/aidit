@@ -2,6 +2,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { dataDir } from "@/lib/store/paths";
 import { contentHash } from "@/lib/util/identity";
+import { normalize } from "@/lib/util/text";
 import { supabaseClient, supabaseConfigured } from "@/lib/store/supabase";
 import { publishRulePack } from "@/lib/rules/published";
 import { zRulePack } from "@/lib/rules/schema";
@@ -248,7 +249,7 @@ function toItems(draft: Record<string, unknown>, corpus: Map<string, string>): R
 }
 
 /** 在原文中定位 quote，回傳前後文供高亮 */
-function locate(source: string, quote: string): ReviewItem["context"] {
+export function locate(source: string, quote: string): ReviewItem["context"] {
   const idx = source.indexOf(quote);
   if (idx >= 0) {
     return {
@@ -257,5 +258,31 @@ function locate(source: string, quote: string): ReviewItem["context"] {
       after: source.slice(idx + quote.length, idx + quote.length + 80),
     };
   }
-  return null;
+
+  // 找不到完全相同的字串時，改用與 citation.verify 同一套正規化規則再找一次。
+  // 版面模式抽出的語料有大量補齊空白與換行（「核心課程         8學分」），
+  // 只用 indexOf 的話，驗證通過的引文在校對頁上會找不到原文位置 ——
+  // 而校對的人最需要的正是那段上下文。
+  //
+  // normalize 是逐字元的轉換（全半形、去空白標點、轉小寫），所以可以逐字元正規化，
+  // 同時記下每個字元在原文的位置，比對到之後再映射回原文。
+  const at: number[] = [];
+  let compact = "";
+  for (let i = 0; i < source.length; i++) {
+    const n = normalize(source[i]!);
+    for (let k = 0; k < n.length; k++) at.push(i);
+    compact += n;
+  }
+  const q = normalize(quote);
+  const j = q ? compact.indexOf(q) : -1;
+  if (j < 0) return null;
+
+  const start = at[j]!;
+  const end = at[j + q.length - 1]! + 1;
+  return {
+    before: source.slice(Math.max(0, start - 80), start),
+    // 回傳原文實際的那一段（含排版空白），畫面高亮的才是原文，而不是引文
+    match: source.slice(start, end),
+    after: source.slice(end, end + 80),
+  };
 }

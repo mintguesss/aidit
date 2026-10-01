@@ -1,0 +1,391 @@
+【第 1 頁】
+                                                                                  
+                                                                                  
+                          Curriculum - BA Program, 111 Academic Year              
+                          輔仁大學   111 學年度  學士班   課程規劃表                             
+                                                                                  
+                 College：Management Department：Information Management Section:    
+                         院別：管理學院      系別：資訊管理系      組別：                           
+                                         一年級  二年級  三年級  四年級  類別最 模組最              
+                                                                                  
+   類別   模組    科  目 名 稱   科目代碼    選別  規定   Freshmen Sophomore Junior Senior 低應修 低應修 備註
+                                     學分  上  下 上  下 上 下  上 下  學分數 學分數              
+   Category Modules Course Title Course code R / E Credits Fall Sprin Fall Sprin Fall Sprin Fall Sprin c M re in d i i m ts u fo m r c M re in d i i m ts u fo m r Remarks
+                                            g    g    g    g category modules     
+            導師時間                 必                                                
+                                      0   0 0  0 0 0  0 0  0  0   0               
+      校訂    Time for Class Advisor Required                                       
+            全民國防教育軍事訓練                                                            
+    University Required          必                                                
+            All-out Defense Education 0   0 0                 0   0               
+            Military Training    Required                                         
+            大學入門                 必                                                
+                           00155      2   2                                       
+            Intro.to University Studies Required                                  
+            人生哲學                 必                                                
+                           00007      4            2  2                           
+        核心                                                                        
+            Philosophy of Life   Required                                         
+        課程  專業倫理-企業倫理                                             8               
+                                 必                                                
+       core courses Professional Ethics- 08824 2           2                      
+                                 Required                                         
+            Business Ethics                                                       
+            體育                   必                                                
+                                      0   0 0  0 0                                
+            Physical Education   Required                                         
+            國文                   必                                                
+                                      4   2 2                                     
+            Chinese              Required                                         
+                                                                    At least 4 credits of
+                                                                    English. If the English
+                                                                    language ability is reach
+   全人                                                               CEFR B2 level, student can
+   教育       外國語文                 必                                  apply to take 2nd Foreign
+                                      8   2 2  2 2                  languages instead of
+   課程  基本能  Foreign Language     Required                     32    English.      
+                                                                    英文至少4學分，但通過全民英
+   E H du o c li a s t t i i o c n 力課程                            12 檢 ， 中 逕 高 選 級 修 複 讀 試 第 者 二 ， 外 得 語 免 課 修 程 英 。 文
+   Program of Fundamental                                                         
+    Study Skills Courses                                                          
+                                                                    There will be no school-
+                                                                    wide compulsory courses.
+                                                                    Students need to take
+                                                                    related courses or pass the
+            資訊素養                 必                                                
+                                      0                             school's basic information
+            Information Literacy Required                           ability test as a
+                                                                    graduation condition.
+                                                                    不開設全校性必修課程，改以 
+                                                                    學生需通過本校資訊基本能力 
+                                                                    檢定為畢業條件，檢定方式採 
+            人文與藝術通識領域            通                                                
+                                      4                                           
+       通識涵  Humanities & Arts courses General                                     
+            自然與科技通識領域                                                             
+       養課程                       通                                                
+            Natural Science and Technology 4                      12              
+        General                  General                                          
+            courses                                                               
+        education                                                                 
+        courses 社會科學通識領域         通    4                                           
+            Social Sciences courses General                                       
+            微積分                  必                                                
+                           02390      6   3 3                                     
+            Calculus             Required                                         
+            會計學                  必                                                
+                           02412      6   3 3                                     
+            Accounting           Required                                         
+            企業管理概論               必                                                
+                           05201      3   3                                       
+            Introduction to Business Required                                     
+            程式設計概論                                                                
+                                 必                                                
+            Introduction to 24495     3   3                                       
+                                 Required                                         
+            Programming                                                           
+            進階程式設計                                                                
+                                 必                                                
+            Advanced Programming 14761 3    3                                     
+                                 Required                                         
+            Techniques                                                            
+            Web前端設計              必                                                
+                           24496      2     2                                     
+            Front-end Web Design Required                                         
+            Web程式設計              必                                                
+                           16258      3        3                                  
+            WEB Programming      Required                                         
+            統計學                  必                                                
+                           02222      6        3 3                                
+            Statistics           Required                                         
+            經濟學                  必                                                
+                           02457      6        3 3                                
+            Economics            Required                                         
+    院系必修    資料庫管理                必                                                
+                           02490      3        3                                  
+      課程    Database Administration Required                  64  64              
+
+【第 2 頁】
+                                                                                  
+                                                                                  
+                          Curriculum - BA Program, 111 Academic Year              
+                          輔仁大學   111 學年度  學士班   課程規劃表                             
+                                                                                  
+                 College：Management Department：Information Management Section:    
+                         院別：管理學院      系別：資訊管理系      組別：                           
+                                         一年級  二年級  三年級  四年級  類別最 模組最              
+                                                                                  
+   類別   模組    科  目 名 稱   科目代碼    選別  規定   Freshmen Sophomore Junior Senior 低應修 低應修 備註
+                                     學分  上  下 上  下 上 下  上 下  學分數 學分數              
+   Category Modules Course Title Course code R / E Credits Fall Sprin Fall Sprin Fall Sprin Fall Sprin c M re in d i i m ts u fo m r c M re in d i i m ts u fo m r Remarks
+      課程                                    g    g    g    g category modules     
+            創新與設計思考                                                               
+    Required courses for         必                                                
+     departments Innovation and Design 30499 2 2                                  
+                                 Required                                         
+            Thinking                                                              
+            資料結構                 必                                                
+                           02492      3          3                                
+            Data Structures      Required                                         
+            系統分析與設計                                                               
+                                 必                                                
+            System Analysis and 01584 3          3                                
+                                 Required                                         
+            Design                                                                
+            資料通訊與網路                                                               
+                                 必                                                
+            Data Communication and 10681 3       3                                
+                                 Required                                         
+            Network                                                               
+            作業系統                 必                                                
+                           01558      3            3                              
+            Operating System     Required                                         
+            資訊系統專題一                                                               
+                                 必                                                
+            Information System Project 04317 3     3                              
+                                 Required                                         
+            (I)                                                                   
+            資訊系統專題二                                                               
+                                 必                                                
+            Information System Project 04038 3        3                           
+                                 Required                                         
+            (II)                                                                  
+            管理資訊系統                                                                
+                                 必                                                
+            Management Information 02631 3            3                           
+                                 Required                                         
+            Systems                                                               
+            行銷管理                  選                                               
+                           01483      2    2                                      
+            Marketing Management  E                                               
+            資訊管理導論-英                                                              
+            Introduction to       選                                               
+                           13517      3    3                                      
+            Information System-   E                                               
+            Course in English                                                     
+            程式設計概論-英                                                              
+            Introduction to       選                                               
+                           32554      3    3                                      
+            Programming-Course in E                                               
+            English                                                               
+            C程式語言                 選                                               
+                           03094      3         3                                 
+            C Language            E                                               
+            商業自動化                 選                                               
+                           10608      3         3                                 
+            Business Automation   E                                               
+            財務管理                  選                                               
+                           01983      3         3                                 
+            Financial Management  E                                               
+            生產與作業管理-英                                                             
+            Production and        選                                               
+                           16533      3         3                                 
+            Operations Management- E                                              
+            Course in English                                                     
+            雲端應用平台概論                                                              
+                                  選                                               
+            Introduction to Cloud 19322 3       3                                 
+                                  E                                               
+            Application Platform                                                  
+            雲端應用程式設計                                                              
+                                  選                                               
+            Cloud Application 19411   3         3                                 
+                                  E                                               
+            Programming                                                           
+            電子商務                  選                                               
+                           09514      3         3                                 
+            Electronic Commerce   E                                               
+            管理數學                  選                                               
+                           02632      3         3                                 
+            Managerial Mathematics E                                              
+            離散數學                  選                                               
+                           02933      3         3                                 
+            Discrete Mathematics  E                                               
+            知識探索與資料採擷-英                                                           
+            Knowledge Discovery   選                                               
+                           32894      3              3                            
+            and Data Mining-Course E                                              
+            in English                                                            
+            全球運籌與供應鏈-英                                                            
+            Global Logistics and  選                                               
+                           34634      2              2                            
+            Supply Chain-Course in E                                              
+            English                                                               
+            數位金融                  選                                               
+                           24106      2              2                            
+            Digital Finance       E                                               
+
+【第 3 頁】
+                                                                                  
+                                                                                  
+                          Curriculum - BA Program, 111 Academic Year              
+                          輔仁大學   111 學年度  學士班   課程規劃表                             
+                                                                                  
+                 College：Management Department：Information Management Section:    
+                         院別：管理學院      系別：資訊管理系      組別：                           
+                                         一年級  二年級  三年級  四年級  類別最 模組最              
+                                                                                  
+   類別   模組    科  目 名 稱   科目代碼    選別  規定   Freshmen Sophomore Junior Senior 低應修 低應修 備註
+                                     學分  上  下 上  下 上 下  上 下  學分數 學分數              
+   Category Modules Course Title Course code R / E Credits Fall Sprin Fall Sprin Fall Sprin Fall Sprin c M re in d i i m ts u fo m r c M re in d i i m ts u fo m r Remarks
+                                            g    g    g    g category modules     
+            網路行銷                  選                                               
+                           10211      3              3               需修10學分系上開設   
+            Internet Marketing    E                                               
+            企業資源規劃                                                     的專業選修課     
+                                  選                                               
+            Enterprise Resources 09289 3             3               Students are required to
+            Planning              E                           10  10 complete 10 credits of
+            服務科學                  選                                   department-offered
+                           24500      3              3                            
+            Service Science       E                                  professional elective
+   系選修課程    C++程式設計               選                                     courses.  
+                           34085      3              3                            
+    Elective Courses C++ Programming E                                            
+            巨量資料概論                選                                               
+                           24498      3              3                            
+            Introduction to Big   E                                               
+            量化交易系統                                                                
+                                  選                                               
+            Quantitative trading 33766 3             3                            
+                                  E                                               
+            Systems                                                               
+            資料視覺化分析與應用                                                            
+                                  選                                               
+            Data Visualization and 34636 3           3                            
+                                  E                                               
+            Applications                                                          
+            空間資訊管理-英                                                              
+            Geo-Spatial           選                                               
+                           34635      3              3                            
+            Information           E                                               
+            Management-Course in                                                  
+            資訊系統專案管理                                                              
+                                  選                                               
+            Information System 19664  3                   3                       
+                                  E                                               
+            Project Management                                                    
+            進階web程式設計             選                                               
+                           34084      3                   3                       
+            Advanced Web          E                                               
+            行動裝置程式設計                                                              
+                                  選                                               
+            Mobile Device  23192      3                   3                       
+                                  E                                               
+            Programming                                                           
+            網路管理                  選                                               
+                           13587      3                   3                       
+            Network Management    E                                               
+            電腦繪圖與應用                                                               
+                                  選                                               
+            Computer Graphics with 20067 3                3                       
+                                  E                                               
+            Applications                                                          
+            產業實習                  選                                               
+                           13859      4                   4                       
+            Internship            E                                               
+            新媒體科技互動應用-英                                                           
+            Interactive Technology                                                
+                                  選                                               
+            for New Media  34633      3                   3                       
+                                  E                                               
+            Application - Course                                                  
+            in English                                                            
+            供應鏈管理-英                                                               
+                                  選                                               
+            Supply Chain   16985      3                   3                       
+            Management-Course in  E                                               
+            E li h                                                                
+            機器學習                  選                                               
+                           13027      3                   3                       
+            Machine Learning      E                                               
+            深度學習                  選                                               
+                           31358      3                   3                       
+            Deep Learning         E                                               
+            資訊安全                  選                                               
+                           04623      3                   3                       
+            Data Security         E                                               
+            組織學習與社會探究                                                             
+                                  選                                               
+            Organizational 19664      2                   2                       
+                                  E                                               
+            Learning and Social                                                   
+            組織領導與社會創新實務                                                           
+            Organizational        選                                               
+                           19663      2                   2                       
+            Leadership and Social E                                               
+            Innovation Practices                                                  
+                                 必修   64                                          
+   全人教育課程學分              院系必修必選  Required                                         
+                                              選修學分數C          畢業學分數               
+      數A          32      學分數B            64            32               128      
+                                               ElectionElection Credits for Graduation
+   Holistic education course Department Required （C）           A＋B＋C              
+     credits (A)           courses (B) 必選 0                                       
+                                 Required                                         
+
+【第 4 頁】
+                                                                                  
+                                                                                  
+                          Curriculum - BA Program, 111 Academic Year              
+                          輔仁大學   111 學年度  學士班   課程規劃表                             
+                                                                                  
+                 College：Management Department：Information Management Section:    
+                         院別：管理學院      系別：資訊管理系      組別：                           
+                                         一年級  二年級  三年級  四年級  類別最 模組最              
+                                                                                  
+   類別   模組    科  目 名 稱   科目代碼    選別  規定   Freshmen Sophomore Junior Senior 低應修 低應修 備註
+                                     學分  上  下 上  下 上 下  上 下  學分數 學分數              
+   Category Modules Course Title Course code R / E Credits Fall Sprin Fall Sprin Fall Sprin Fall Sprin c M re in d i i m ts u fo m r c M re in d i i m ts u fo m r Remarks
+                                            g    g    g    g category modules     
+       畢業學分：128學分  專業必修：34學分   管理院核心課程                                            
+       全人核心課程：8學分（大學入門2、人生哲學4、專業倫理2、及體育0學分/8小時4學期）                                
+       基本能力課程：12學分（國文4、外國語文8(大一英文必修4學分；大二4學分可修主題英文或第二外語)、資訊函養0）                   
+       通識：12學分（人文與藝術(PT)4學分、自然與科技(NT)4學分、社會科學(ST)4學分，畢業前修滿12學分通識課程即可）             
+       需修10學分系上開的專業選修課，超修的全人教育課程(含體育)、全民國防教育軍事訓練之學分數皆不可列入畢業學分                     
+       ＊ 管理學院大學部學生於畢業前需至少修畢1門（3學分）本院開設之「以英語授課的專業課程」，始有畢業資格。                       
+       ＊ 強制擋修：1、「系統分析與設計」擋修「資訊系統專題一」、                                             
+                2、「資訊系統專題二」成績不及格，需重修「資訊系統專題一」及「資訊系統專題二」。                          
+       Graduation Requirements:                                                   
+       ．Total Credits: 128 credits                                                
+       ．Professional Core Credits: 34 credits                                     
+       ．College Core Curriculum: 30 credits                                       
+       ．Holistic Core Curriculum: 8 credits                                       
+       ．Basic Skills Courses: 12 credits                                          
+       ．General Education: 12 credits (Arts and Humanities, Natural Science and Technology, Social Sciences)
+       ．Students are required to complete 10 credits of department-offered professional elective courses.
+       ．EMI Courses: Minimum of 1 courses (3 credits) for graduation.             
+       ．Specific prerequisites:                                                   
+            1.System Analysis and Design is a prerequisite for Information Systems (I)
+            2.If a student fails Information Systems (II), they must retake both Information Systems (I) and Information Systems (II).
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  
+                                                                                  

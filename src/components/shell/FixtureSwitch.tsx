@@ -28,7 +28,8 @@ export function FixtureSwitch({ current }: { current: FixtureId }) {
           router.push(`?${next.toString()}`);
         }}
       >
-        {FIXTURES.map((f) => (
+        {/* 以真實資料為主：合成的評測案例不列出（仍可用網址 ?fixture= 打開，正在看的那個照樣顯示） */}
+        {FIXTURES.filter((f) => (f.record.student.school ?? "demo") !== "demo" || f.id === current).map((f) => (
           <option key={f.id} value={f.id} title={f.tests}>
             {f.title}
           </option>

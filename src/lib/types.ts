@@ -205,7 +205,17 @@ export type GraduationCheck = {
   label: string;
   detail: string;
   citations: Citation[];
+  /**
+   * 學校資料看不出來（待確認）的條件，學生可以自己勾「已通過」。
+   * true 表示這一項開放自行勾選（不論目前有沒有勾）
+   */
+  declarable?: boolean;
+  /** 目前的「通過」來自學生自行勾選，系統未查核 */
+  selfDeclared?: boolean;
 };
+
+/** 學生對畢業條件的自行勾選。只用在學校資料看不出來的條件上 */
+export type Declarations = Record<string, { passed: true; at: string }>;
 
 export type HoldItem = {
   id: string;

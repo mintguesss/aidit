@@ -195,3 +195,39 @@ describe("大二結束：113-1 選課建議", async () => {
   // 2 學分的人生哲學（必修）會被只補其他選修的 3 學分課擠掉。課表合法，但不像真人會排的
   it.todo("人生哲學（必修、2 學分）應優先於只補其他選修的 3 學分課");
 });
+
+describe("畢業條件自行勾選", () => {
+  const at = "2026-10-02T10:00:00.000Z";
+  const run = (id: "fju-im-111-full" | "fju-im-111-year2", declarations: Record<string, { passed: true; at: string }>) =>
+    auditCredits({ record: fixture(id).record, pack, traceId: "t", currentTerm: "114-2", nextTerm: "115-1", declarations });
+
+  it("學校資料看不出來的條件可以勾：算通過，但標「自行勾選」", () => {
+    const a = run("fju-im-111-full", { english: { passed: true, at } });
+    const g = a.graduationChecks.find((x) => x.id === "english")!;
+    expect(g.status).toBe("satisfied");
+    expect(g.label).toBe("自行勾選");
+    expect(g.selfDeclared).toBe(true);
+    expect(a.verdict.detail).toContain("英文能力（CEF B2） 是你自行勾選的，系統未查核");
+  });
+
+  it("沒勾的待確認條件標成可勾選", () => {
+    const a = run("fju-im-111-full", {});
+    expect(a.graduationChecks.find((x) => x.id === "info-test")!.declarable).toBe(true);
+    // 成績單判斷得出來的（國防、體育）不開放勾選
+    expect(a.graduationChecks.find((x) => x.id === "defense-education")!.declarable).toBeUndefined();
+  });
+
+  it("學校紀錄說沒通過的，自己勾不掉（大二還沒修英語授課）", () => {
+    const a = run("fju-im-111-year2", { emi: { passed: true, at } });
+    const g = a.graduationChecks.find((x) => x.id === "emi")!;
+    expect(g.status).toBe("unmet");
+    expect(g.selfDeclared).toBeUndefined();
+  });
+
+  it("四項都勾了：結論變成「已符合畢業學分條件」，並寫出哪幾項是自行勾選", () => {
+    const all = Object.fromEntries(["info-test", "english", "programming-test", "advisor-time"].map((k) => [k, { passed: true as const, at }]));
+    const a = run("fju-im-111-full", all);
+    expect(a.verdict.headline).toBe("已符合畢業學分條件");
+    expect(a.verdict.detail).toContain("自行勾選");
+  });
+});

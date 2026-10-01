@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuditSession } from "@/lib/audit/session";
+import { getAuditSession, invalidateAuditSession } from "@/lib/audit/session";
 import { parsePageParams } from "@/lib/ui/params";
 import { studentHash } from "@/lib/util/identity";
 import { prefsStore, PREF_TTL_MONTHS, type StoredServerPrefs } from "@/lib/store/prefs-store";
@@ -49,12 +49,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ stored: v, ttlMonths: PREF_TTL_MONTHS });
   }
 
-  // 寫入
+  // 寫入。畢業條件的自行勾選不在瀏覽器那一份裡，沿用伺服器上的，不能被偏好的同步蓋掉
+  const current = await prefsStore().load(who.hash);
   const next: StoredServerPrefs = {
     required: body.required,
     optional: body.optional ?? { interestAreas: [], avoidCourseTypes: [] },
     lastUsedAt: new Date().toISOString(),
     status: who.status,
+    ...(current?.declarations ? { declarations: current.declarations } : {}),
   };
   const ok = await prefsStore().save(who.hash, next);
   return NextResponse.json({ ok, stored: ok ? next : null });
@@ -71,6 +73,8 @@ export async function DELETE(req: Request) {
   }
 
   const ok = await prefsStore().delete(who.hash);
+  // 畢業條件的自行勾選跟著偏好一起刪了，審查結果要重算
+  invalidateAuditSession(parsePageParams({ fixture: body?.fixture, term: body?.term }).fixture);
   let traces = 0;
   if (scope === "all") {
     traces = await traceStore()

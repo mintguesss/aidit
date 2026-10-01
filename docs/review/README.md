@@ -10,7 +10,10 @@
 
 **誰在校對**：mintguesss（111 學年入學，草稿以本人的修業情況為準）。校對進行中，改草稿前先講。
 
-**流程**：改 `.draft.json` → `npx tsx scripts/validate-rulepack.ts <檔案>` → `npx tsx scripts/push-draft.ts <檔案>`
+**校對頁上直接改**：按「需要修正」會打開表單，改完存檔就是新版草稿（自動驗證、留修改紀錄）。
+線上改過之後，repo 裡的 `.draft.json` 會比資料庫舊 —— 要同步時從資料庫匯出，別用舊檔覆蓋線上版本。
+
+**維護者改檔的流程**（表單改不了的情況）：改 `.draft.json` → `npx tsx scripts/validate-rulepack.ts <檔案>` → `npx tsx scripts/push-draft.ts <檔案>`
 → 在 `/review/<id>` 校對（只有改到的項目要重看）→ 全部通過後鎖版，發布到 Supabase `rule_packs`。
 
 原始 PDF 不進 repo（`.data/sources/`，已 gitignore），文件網址記在草稿的 `documents[].url`。

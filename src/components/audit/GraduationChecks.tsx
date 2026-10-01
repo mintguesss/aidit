@@ -1,5 +1,6 @@
 import type { GraduationCheck } from "@/lib/types";
 import { SourceLinks } from "../sources/SourceLinks";
+import { DeclareToggle } from "./DeclareToggle";
 
 /**
  * 畢業條件檢核。
@@ -24,6 +25,8 @@ export function GraduationCheckDetails({ checks }: { checks: GraduationCheck[] }
             <b>{g.name}</b>
             <span className={`vl ${g.status}`}>{g.label}</span>
             {g.detail ? <span className="d">{g.detail}</span> : null}
+            {/* 學校資料看不出來的條件，學生可以自己勾；勾了顯示「自行勾選」，系統不查核 */}
+            {g.declarable ? <DeclareToggle checkId={g.id} checked={Boolean(g.selfDeclared)} /> : null}
           </li>
         ))}
       </ul>

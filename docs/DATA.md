@@ -9,6 +9,7 @@
 |---|---|---|---|---|
 | **修課紀錄** | Provider 每次重讀，不存 | **否** | 單次 request | 含學號，但從不寫出 |
 | **偏好**（選課傾向） | Supabase `preferences`；沒設定時 `.data/prefs/{hash}.json` | 是 | 12 個月未用即刪 | `studentHash`＝HMAC，不可逆 |
+| **畢業條件自行勾選** | 跟偏好同一列（Supabase `preferences.required` 裡的 `declarations` 鍵；檔案模式同一個 JSON） | 是 | 跟偏好一起刪 | `studentHash` |
 | **額外修業目標** | 瀏覽器 localStorage；已註冊的由學籍推導 | 否 | 使用者自管 | — |
 | **執行紀錄 trace** | `.data/traces/` 或 Supabase | 是 | 90 天 | `studentHash` |
 | **課表** | 不存，每次由審查結果＋偏好重算；可匯出 ICS／CSV | **否** | — | — |

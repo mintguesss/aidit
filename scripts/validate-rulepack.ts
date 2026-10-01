@@ -141,6 +141,7 @@ function validate(file: string, pack: RulePack): Issue[] {
   pack.graduationChecks.forEach((g) => check(g.citation, `畢業條件 ${g.id}`));
   Object.entries(pack.overflowPolicy).forEach(([k, v]) => check(v.citation, `overflowPolicy ${k}`));
   pack.termLimits.citations.forEach((c, i) => check(c, `修課學分上下限 #${i + 1}`));
+  if (pack.minCreditsCitation) check(pack.minCreditsCitation, "畢業最低學分");
 
   // 5. 鎖版狀態
   if (pack.provenance === "approved" && !pack.approvedBy) {

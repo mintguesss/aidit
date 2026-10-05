@@ -334,6 +334,8 @@ function summarize(exclusions: Exclusion[], before: number): ExclusionSummary {
 
 type Score = {
   unmetAfter: number;
+  /** 扣掉承接類別之後還缺多少（見 shortfallParts） */
+  unmetSpecific: number;
   courseCount: number;
   earlyMorningCount: number;
   belowTermMin: number;
@@ -360,6 +362,17 @@ type Score = {
  * 領域需求是類別底下的分項條件，同一門通識本來就同時補通識學分和該領域，照舊另外計算。
  */
 function shortfall(sel: Candidate[], reqs: Requirement[]): number {
+  return shortfallParts(sel, reqs).total;
+}
+
+/**
+ * total    —— 全部還缺多少
+ * specific —— 扣掉承接類別（任何及格的課都收，如選修課程）之後還缺多少
+ *
+ * 排課先把 specific 降到最低，再看 total（TODO G4）：一學期最多排 6 門，只看 total 的話，
+ * 3 學分的選修永遠贏過 2 學分的人生哲學 —— 但選修什麼課都能補、哪個學期都能補，必修不行。
+ */
+function shortfallParts(sel: Candidate[], reqs: Requirement[]): { total: number; specific: number } {
   const need = reqs.map((r) => r.minCredits);
   const hits = new Array<number>(reqs.length).fill(0);
   // 選擇少的課先分；同樣多的依課號，結果才確定
@@ -369,8 +382,12 @@ function shortfall(sel: Candidate[], reqs: Requirement[]): number {
       : sel;
   for (const c of order) {
     if (c.creditIdx.length === 0) continue;
+    // 與審查引擎的指派一致：承接類別最後才分（還有缺口的特定類別優先），其餘分給缺最多的
+    const rank = (k: number) => (need[k]! > 0 && !reqs[k]!.catchAll ? 1 : 0);
     let pick = c.creditIdx[0]!;
-    for (const k of c.creditIdx) if (need[k]! > need[pick]!) pick = k;
+    for (const k of c.creditIdx) {
+      if (rank(k) > rank(pick) || (rank(k) === rank(pick) && need[k]! > need[pick]!)) pick = k;
+    }
     need[pick] = Math.max(0, need[pick]! - c.offering.credits);
   }
   for (const c of sel) {
@@ -379,12 +396,14 @@ function shortfall(sel: Candidate[], reqs: Requirement[]): number {
       hits[k]! += 1;
     }
   }
-  let s = 0;
+  let total = 0;
+  let specific = 0;
   reqs.forEach((r, k) => {
-    s += need[k]!;
-    if (r.minCourses && hits[k]! < r.minCourses) s += DOMAIN_WEIGHT;
+    const gap = need[k]! + (r.minCourses && hits[k]! < r.minCourses ? DOMAIN_WEIGHT : 0);
+    total += gap;
+    if (!(r.catchAll && !isSub(r))) specific += gap;
   });
-  return s;
+  return { total, specific };
 }
 
 function score(sel: Candidate[], ctx: SolveContext): Score {
@@ -393,7 +412,10 @@ function score(sel: Candidate[], ctx: SolveContext): Score {
   for (const c of sel) for (const s of c.offering.slots) days.add(s.day);
   const target = ctx.constraints.targetCourseCount;
   return {
-    unmetAfter: shortfall(sel, ctx.requirements),
+    ...(() => {
+      const p = shortfallParts(sel, ctx.requirements);
+      return { unmetAfter: p.total, unmetSpecific: p.specific };
+    })(),
     courseCount: sel.length,
     earlyMorningCount: sel.filter((c) => c.early).length,
     belowTermMin: Math.max(0, ctx.termMinCredits - totalCredits),
@@ -606,13 +628,19 @@ function attemptSolve(
     };
   }
 
-  // 3. backtracking：課程依學分降冪嘗試（pinned 不進搜尋空間，永遠在解裡）
+  // 3. backtracking（pinned 不進搜尋空間，永遠在解裡）。
+  //
+  // 嘗試順序：能補「特定缺口」（必修、核心、通識領域、本系選修）的課先試，其次才是只能補承接類別的，
+  // 同一組裡學分大的先。以前只照學分排：輔大一學期四百多個候選，3 學分的選修排在前面，
+  // 搜尋到 NODE_LIMIT 就停，2 學分的人生哲學根本沒被試到（TODO G4）
+  const specificRank = (c: Candidate) =>
+    [...c.creditIdx, ...c.domainIdx].some((k) => !ctx.requirements[k]!.catchAll || isSub(ctx.requirements[k]!)) ? 0 : 1;
+  const byPriority = (a: Candidate, b: Candidate) =>
+    specificRank(a) - specificRank(b) || b.offering.credits - a.offering.credits || cmp(a.offering.code, b.offering.code);
   const usableFillers = [...fillers]
     .sort((a, b) => b.offering.credits - a.offering.credits || cmp(a.offering.code, b.offering.code))
     .slice(0, FILLER_LIMIT);
-  const sorted = [...candidates.filter((c) => !c.pinned), ...usableFillers].sort(
-    (a, b) => b.offering.credits - a.offering.credits || cmp(a.offering.code, b.offering.code),
-  );
+  const sorted = [...candidates.filter((c) => !c.pinned).sort(byPriority), ...usableFillers];
   const suffix = new Array<number>(sorted.length + 1).fill(0);
   for (let i = sorted.length - 1; i >= 0; i--) suffix[i] = suffix[i + 1]! + sorted[i]!.offering.credits;
 
@@ -680,7 +708,11 @@ function attemptSolve(
       relaxations,
     };
   }
-  let complete = solutions.filter((s) => s.score.unmetAfter === bestUnmet);
+  // 先補只有特定課能補的缺口（必修、核心、通識領域、本系選修），再看總缺口（TODO G4）
+  const bestSpecific = solutions.reduce((m, s) => Math.min(m, s.score.unmetSpecific), Number.POSITIVE_INFINITY);
+  const focused = solutions.filter((s) => s.score.unmetSpecific === bestSpecific);
+  const bestTotal = focused.reduce((m, s) => Math.min(m, s.score.unmetAfter), Number.POSITIVE_INFINITY);
+  let complete = focused.filter((s) => s.score.unmetAfter === bestTotal);
 
   // 學期學分下限是學則的硬規定。只要湊得到，就一律交出達標的課表；
   // 真的湊不到（開課不夠）才退而求其次，並在 warnings 說明。

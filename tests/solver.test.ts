@@ -218,3 +218,30 @@ describe("同一門課分好幾班", () => {
     }
   });
 });
+
+describe("一學期能排幾門由學分上限決定，不是寫死的門數", () => {
+  it("期望 11 堂就排 11 堂（以前最多 8 堂）", async () => {
+    const { result } = await solveWith({ goal: "balanced", targetCourseCount: 11 });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.plans[0]!.courses.length).toBe(11);
+  });
+});
+
+describe("正常進度依剩下的學期平均分攤，不是一路排到學分上限", () => {
+  // 把排課學期設成大一上：剩 8 個學期，這學期的份是缺口的八分之一（但不低於學期下限）
+  const freshman = async (goal: CoursePreferences["goal"]) => {
+    const base = await demoContext({ goal, targetCourseCount: undefined });
+    const year = Number(base.termLabel.slice(0, 3));
+    return solveWithRelaxation({ ...base, admissionYear: year }, PRESET_OF_GOAL[goal], []);
+  };
+
+  it("大一的正常進度修得比最快畢業少，且達到學期下限", async () => {
+    const balanced = await freshman("balanced");
+    const asap = await freshman("asap");
+    expect(balanced.ok && asap.ok).toBe(true);
+    if (!balanced.ok || !asap.ok) return;
+    const ctx = await demoContext({});
+    expect(balanced.plans[0]!.totalCredits).toBeGreaterThanOrEqual(ctx.termMinCredits);
+    expect(balanced.plans[0]!.totalCredits).toBeLessThanOrEqual(asap.plans[0]!.totalCredits);
+  });
+});

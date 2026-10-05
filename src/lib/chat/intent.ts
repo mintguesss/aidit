@@ -78,7 +78,7 @@ const zPlanIntent = z.object({
       maxDays: z.number().int().min(1).max(7).nullable(),
       maxCredits: z.number().int().min(0).max(30).nullable(),
       courseCountDelta: z.number().int().min(-6).max(6).nullable(),
-      courseCountTarget: z.number().int().min(0).max(10).nullable(),
+      courseCountTarget: z.number().int().min(0).max(30).nullable(),
       goal: z.enum(["asap", "balanced", "light"]).nullable(),
       goals: z.array(z.enum(["early-graduation", "minor", "cert-program"])).max(3),
       /** 課號或課名；程式會自行查開課資料轉成課號 */

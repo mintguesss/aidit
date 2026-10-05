@@ -23,7 +23,7 @@ export function preferencesOf(p: CoursePreferences | undefined): CoursePreferenc
       ? [...new Set(base.avoidDays.filter((d) => Number.isInteger(d) && d >= 1 && d <= 7))].sort((a, b) => a - b)
       : [],
     maxCredits: clamp(base.maxCredits, 0, 30),
-    targetCourseCount: clamp(base.targetCourseCount, 0, 10),
+    targetCourseCount: clamp(base.targetCourseCount, 0, 30),
     preferCompactDays: Boolean(base.preferCompactDays),
     note: typeof base.note === "string" ? base.note.slice(0, 200) : undefined,
     extraGoals: Array.isArray(base.extraGoals) ? base.extraGoals.slice(0, 4) : [],
@@ -630,7 +630,8 @@ export function sanitiseConstraintSet(c: ConstraintSet, fallback: ConstraintSet)
   const days = (x: unknown) =>
     Array.isArray(x) ? [...new Set(x.filter((d): d is number => Number.isInteger(d) && d >= 1 && d <= 7))] : [];
   const codes = (x: unknown) =>
-    Array.isArray(x) ? x.filter(isCourseCode).slice(0, 10) : [];
+    // 排除與保留的課會一輪一輪累積，舊值 10 會在第 11 門時把最早排除的課無聲丟掉
+    Array.isArray(x) ? [...new Set(x.filter(isCourseCode))].slice(0, 50) : [];
   const num = (x: unknown, lo: number, hi: number) =>
     typeof x === "number" && Number.isFinite(x) ? Math.min(hi, Math.max(lo, Math.round(x))) : undefined;
 
@@ -642,11 +643,13 @@ export function sanitiseConstraintSet(c: ConstraintSet, fallback: ConstraintSet)
       ? c.avoidPeriods
           .filter((a) => Number.isInteger(a?.day) && a.day >= 1 && a.day <= 7 && Array.isArray(a?.periods))
           .slice(0, 21)
-          .map((a) => ({ day: a.day, periods: a.periods.filter((p) => Number.isInteger(p)).slice(0, 15) }))
+          // 輔大一天有 16 節（D0 到 E4），舊值 15 會把整天不排的最後一節 E4 丟掉
+          .map((a) => ({ day: a.day, periods: [...new Set(a.periods.filter((p) => Number.isInteger(p) && p >= 0 && p <= 20))] }))
       : [],
     maxCredits: num(c?.maxCredits, 0, 30),
     minCredits: num(c?.minCredits, 0, 30),
-    targetCourseCount: num(c?.targetCourseCount, 0, 10),
+    // 堂數真正的上限是學分上限；這裡只擋明顯不合理的輸入（舊值 10，學分上限 25 時排得進 12 門 2 學分的課）
+    targetCourseCount: num(c?.targetCourseCount, 0, 30),
     preferCompactDays: Boolean(c?.preferCompactDays),
     maxDays: num(c?.maxDays, 1, 6),
     excludeCourses: codes(c?.excludeCourses),

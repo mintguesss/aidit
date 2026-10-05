@@ -81,7 +81,7 @@ export async function POST(req: Request) {
     originalConstraints: original,
     currentPlan: state.plans[0],
     shownCodes: Array.isArray(body?.shown)
-      ? body.shown.filter(isCourseCode).slice(0, 10)
+      ? body.shown.filter(isCourseCode).slice(0, 30)
       : undefined,
   };
 

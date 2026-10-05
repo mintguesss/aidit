@@ -75,7 +75,7 @@ npm ci
 npm run build
 npm i -g pm2 pm2-windows-startup
 pm2-startup install
-pm2 start node_modules/next/dist/bin/next --name aidit -- start -H 100.x.y.z
+pm2 start node_modules/next/dist/bin/next --name aidit --exp-backoff-restart-delay=1000 -- start -H 100.x.y.z
 pm2 save
 ```
 
@@ -85,8 +85,10 @@ pm2 save
 `SyntaxError` 後反覆重啟到 `errored`；就算改用 `npm-cli.js`，npm 另開的 `cmd.exe`
 會掛出一個關不掉的主控台視窗。直接跑 next 就沒有這些問題。
 
-**開機順序**：pm2 若比 Tailscale 先起來，綁 Tailscale 位址會失敗。
-重開機後看一下 `pm2 list`，是 `errored` 就 `pm2 restart aidit`。
+**開機順序**：pm2 若比 Tailscale 先起來，綁 Tailscale 位址會失敗（EADDRNOTAVAIL）。
+`--exp-backoff-restart-delay` 讓 pm2 失敗後隔一段時間再試、間隔逐次拉長到 15 秒，
+不會像預設那樣連續快速重啟十幾次就放棄變成 `errored`；Tailscale 一起來就綁得上。
+仍是 `errored` 的話 `pm2 restart aidit`。已經用舊指令起的服務要 `pm2 delete aidit` 後用上面的指令重起、再 `pm2 save`。
 
 ## 三、其他裝置怎麼連
 

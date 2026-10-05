@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import type { DraftView, ReviewDecision, ReviewItem } from "@/lib/review/store";
 import { ReviewEditForm } from "./ReviewEditForm";
+import { Spinner } from "@/components/shell/Spinner";
 
 /**
  * 逐條校對：系統的理解 vs. 原文。
@@ -121,6 +122,11 @@ export function ReviewBoard({ view }: { view: DraftView }) {
 
   return (
     <div className="abort" style={{ maxWidth: 1180 }}>
+      {busy ? (
+        <div className="busy-toast">
+          <Spinner label="儲存中…" />
+        </div>
+      ) : null}
       <div className="panel">
         <div className="panel-hd">
           <h2>

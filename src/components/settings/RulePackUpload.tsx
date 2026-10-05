@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Spinner } from "@/components/shell/Spinner";
 
 type Issue = { level: "error" | "warn"; message: string };
 type Summary = {
@@ -65,7 +66,7 @@ export function RulePackUpload() {
           disabled={busy}
           onClick={() => ref.current?.click()}
         >
-          {busy ? "檢查中…" : "選擇檔案"}
+          {busy ? <Spinner label="檢查中…" /> : "選擇檔案"}
         </button>
         <span className="upload-hint">接受 .pdf（原始規劃表）或 .json（規則包格式），上限 8 MB</span>
       </div>

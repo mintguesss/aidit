@@ -27,6 +27,14 @@ export type RawOffering = {
    * categoriesFor），category 欄位只是轉換當時的參考。合成資料沒填，照用 category
    */
   selectType?: "required" | "elective" | "general";
+  /** 學校大綱系統的編號（輔大：jonCouSn＋教師編號）。課綱頁打開時才去抓大綱（lib/offerings/outline.ts） */
+  outline?: { id: number; tchNo: string };
+  /** 上課教室 */
+  rooms?: string[];
+  /** 授課語言，如「中文」「全英文」 */
+  language?: string;
+  /** 課程標籤，如「全英-專業學科類」 */
+  tags?: string[];
   /** 本系必修規劃給哪個年級（輔大開課班級「資管二甲」→ 2）。選修、通識不填 */
   forGrade?: number;
   /** 結構化先修欄位（多數學校沒有，因此多半為空） */

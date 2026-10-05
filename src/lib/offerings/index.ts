@@ -1,4 +1,6 @@
 import type { Offering, Prerequisite, Term } from "@/lib/types";
+import type { RulePack } from "@/lib/rules/schema";
+import { eligibleCategories } from "@/lib/audit/engine";
 import { parseSlots } from "@/lib/solver/slots";
 import { RAW_OFFERINGS, type RawOffering } from "./raw";
 import { DEFAULT_SCHOOL } from "@/lib/schools";
@@ -43,6 +45,7 @@ export function normalizeOffering(raw: RawOffering): Offering {
     category: raw.category,
     generalDomain: raw.generalDomain,
     ...(raw.forGrade ? { forGrade: raw.forGrade } : {}),
+    ...(raw.selectType ? { selectType: raw.selectType } : {}),
     prerequisites: toPrerequisites(raw),
     capacity: raw.capacity,
     enrolled: raw.enrolled,
@@ -110,9 +113,45 @@ export function allOfferings(school?: string): Offering[] {
   return school === undefined ? cache : cache.filter((o) => o.school === school);
 }
 
-/** 某一所學校某一學期的開課。排課只能用這個 —— 不能把別校的課排進課表 */
-export function offeringsFor(year: number, term: Term, school: string = DEFAULT_SCHOOL): Offering[] {
-  return allOfferings(school).filter((o) => o.year === year && o.term === term);
+/**
+ * 某一所學校某一學期的開課。排課只能用這個 —— 不能把別校的課排進課表。
+ *
+ * 給了規則包，就用它重新判斷每一班可採計的類別（categoriesFor）：開課資料只存事實，
+ * 「算哪一類」依學生自己的規則。規則改版、別的系所的學生，都不用重產開課資料（TODO H10）。
+ */
+export function offeringsFor(year: number, term: Term, school: string = DEFAULT_SCHOOL, pack?: RulePack): Offering[] {
+  const list = allOfferings(school).filter((o) => o.year === year && o.term === term);
+  return pack ? list.map((o) => withCategories(o, pack)) : list;
+}
+
+/**
+ * 這一班依某份規則包可以算進哪些類別。與審查引擎同一套判斷（eligibleCategories）：
+ * 把這一班當成「修過這門課」的紀錄去比對。
+ * 開課資料沒有選別（合成資料）就照用原本的 category。
+ */
+export function categoriesFor(o: Offering, pack: RulePack): string[] {
+  if (!o.selectType) return o.category;
+  return eligibleCategories(
+    {
+      code: o.code,
+      name: o.name,
+      credits: o.credits,
+      year: o.year,
+      term: o.term,
+      status: "passed",
+      score: null,
+      selectType: o.selectType,
+      offeringDept: o.dept,
+      offeringCollege: o.college,
+      ...(o.generalDomain ? { generalDomain: o.generalDomain } : {}),
+    },
+    pack,
+  );
+}
+
+function withCategories(o: Offering, pack: RulePack): Offering {
+  if (!o.selectType) return o;
+  return { ...o, category: categoriesFor(o, pack) };
 }
 
 /** 現行有開課的課號集合：判斷抵免課號是否已停開。各校課號格式不重疊，全域即可 */

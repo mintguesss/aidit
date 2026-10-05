@@ -108,6 +108,8 @@ def main():
                 "code": code,
                 "name": name,
                 "credits": int(r["credit"]),
+                # 選別：網站排課時依學生的規則包判斷可採計類別（TODO H10），category 只是轉換當時的參考
+                "selectType": {"R": "required", "S": "elective", "G": "general"}.get(r["reqSel"], "elective"),
                 "year": hy,
                 "term": ht,
                 "teacher": r["tchCNa"] or "未定",

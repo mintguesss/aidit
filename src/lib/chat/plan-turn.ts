@@ -46,7 +46,7 @@ export function buildContext(
   const [year, term] = parseTerm(audit.nextTerm);
   const limits = termLimitsFor(pack, record.student, audit.nextTerm);
   return {
-    offerings: offeringsFor(year, term, schoolOf(record.student)),
+    offerings: offeringsFor(year, term, schoolOf(record.student), pack),
     requirements: requirementsFrom(audit),
     passedCodes: new Set(
       record.courses

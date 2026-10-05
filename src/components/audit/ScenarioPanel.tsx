@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import type { WhatIfResult } from "@/lib/types";
 import { CitationToggle } from "../sources/CitationToggle";
+import { Spinner } from "@/components/shell/Spinner";
 
 /**
  * 情境試算。
@@ -162,7 +163,7 @@ export function ScenarioPanel({
           disabled={busy}
         />
         <button className="btn btn-primary" type="submit" disabled={busy}>
-          {busy ? "推算中…" : "試算"}
+          {busy ? <Spinner label="推算中…" /> : "試算"}
         </button>
       </form>
 

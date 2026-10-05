@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Editable } from "@/lib/review/edit";
 import type { ReviewItem } from "@/lib/review/store";
+import { Spinner } from "@/components/shell/Spinner";
 
 /**
  * 「需要修正」的修改表單。
@@ -142,7 +143,11 @@ export function ReviewEditForm({
         }),
       });
       const data = (await res.json()) as { ok?: boolean; error?: string; problems?: string[] };
-      if (res.ok) window.location.reload();
+      if (res.ok) {
+        // 重新載入新版草稿；載入完成前維持「存檔中」
+        window.location.reload();
+        return;
+      }
       else setProblems(data.problems ?? [data.error ?? "存檔失敗。"]);
     } finally {
       setBusy(false);
@@ -333,7 +338,7 @@ export function ReviewEditForm({
 
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <button className="btn btn-primary" disabled={busy} onClick={() => void save()}>
-          存檔
+          {busy ? <Spinner label="檢查與存檔中…" /> : "存檔"}
         </button>
         <button className="btn" disabled={busy} onClick={onCancel}>
           取消

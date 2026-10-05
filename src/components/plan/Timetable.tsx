@@ -21,8 +21,11 @@ type Block = {
   key: string;
   name: string;
   code?: string;
+  section?: number;
   credits?: number;
   category?: string;
+  /** 配色編號 1–6，與修業進度條的類別顏色一致 */
+  color?: number;
   teacher?: string;
   kind: "plan" | "reserved";
 };
@@ -34,13 +37,20 @@ export function Timetable({
   reserved,
   search = "",
   school,
+  categoryOrder = [],
 }: {
   courses: PlanCourse[];
   reserved: { label: string; slots: TimeSlot[] }[];
   search?: string;
   /** 學校：節次名稱與鐘點依各校作息（輔大的內部第 6 節是 D5） */
   school?: string;
+  /** 規則包的類別順序。配色依這個順序，跟修業進度條一樣（第 i 類用第 i 色） */
+  categoryOrder?: string[];
 }) {
+  const colorOf = (cat: string) => {
+    const i = categoryOrder.indexOf(cat);
+    return i < 0 ? undefined : (i % 6) + 1;
+  };
   const scheme = periodScheme(school);
   const grid = new Map<string, Block>();
   const at = (d: number, p: number) => `${d}-${p}`;
@@ -56,8 +66,10 @@ export function Timetable({
           key: c.code,
           name: c.name,
           code: c.code,
+          section: c.section,
           credits: c.credits,
           category: c.categoryLabel,
+          color: colorOf(c.category),
           teacher: c.teacher,
           kind: "plan",
         });
@@ -126,7 +138,12 @@ export function Timetable({
                   while (grid.get(at(d, p + span))?.key === b.key) span += 1;
                   if (span > 1) skip.set(d, span - 1);
                   return (
-                    <td key={d} rowSpan={span} className={`tt-cell ${b.kind}${d >= 6 ? " wk" : ""}`}>
+                    <td
+                      key={d}
+                      rowSpan={span}
+                      className={`tt-cell ${b.kind}${d >= 6 ? " wk" : ""}`}
+                      data-c={b.color}
+                    >
                       <Cell b={b} search={search} />
                     </td>
                   );
@@ -181,7 +198,7 @@ function Cell({ b, search }: { b: Block; search: string }) {
   );
   if (b.kind === "reserved" || !b.code) return <div className="tt-in">{body}</div>;
   return (
-    <Link className="tt-in tt-link" href={`/syllabus/${b.code}${search}`}>
+    <Link className="tt-in tt-link" href={`/syllabus/${b.code}${search}${b.section ? `${search ? "&" : "?"}sec=${b.section}` : ""}`}>
       {body}
     </Link>
   );

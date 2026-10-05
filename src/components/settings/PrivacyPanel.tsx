@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { CoursePreferences } from "@/lib/types";
 import { exportJson, loadStored, PREF_TTL_MONTHS, type StoredPreferences } from "@/lib/ui/prefs";
 import { erase, fetchPreferences } from "@/lib/ui/sync";
+import { Spinner } from "@/components/shell/Spinner";
 
 /**
  * 資料與隱私。
@@ -55,6 +56,7 @@ export function PrivacyPanel({
     Boolean(o.careerDirection) || o.interestAreas.length > 0 || o.avoidCourseTypes.length > 0;
 
   const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
   const run = (
     scope: "optional" | "preferences" | "all",
     ok: string,
@@ -67,7 +69,7 @@ export function PrivacyPanel({
         setMsg(withTraces ? withTraces(r.traces) : ok);
         reload();
         // 畢業條件的自行勾選由伺服器端頁面帶進來，刪掉之後要重新整理才會從畫面上消失
-        router.refresh();
+        startRefresh(() => router.refresh());
       })
       .finally(() => setBusy(false));
   };
@@ -198,7 +200,13 @@ export function PrivacyPanel({
               刪除全部偏好
             </button>
           </div>
-          {msg ? <div className="note inset">{msg}</div> : null}
+          {busy || refreshing ? (
+            <div className="note inset">
+              <Spinner label="處理中…" />
+            </div>
+          ) : msg ? (
+            <div className="note inset">{msg}</div>
+          ) : null}
 
           <div className="pv-danger">
             <b>連同執行紀錄一起刪除</b>

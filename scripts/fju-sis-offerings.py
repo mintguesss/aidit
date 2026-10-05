@@ -122,6 +122,16 @@ def main():
             }
             if domain:
                 row["generalDomain"] = domain
+            # 課綱頁要用的：學校大綱系統的編號（打開課綱頁時才去抓大綱）、教室、授課語言、課程標籤
+            row["outline"] = {"id": r["jonCouSn"], "tchNo": r["tchNo"]}
+            rooms = sorted({s["romNO"].strip() for s in r["seqList"] if (s.get("romNO") or "").strip()})
+            if rooms:
+                row["rooms"] = rooms
+            if r.get("teaLangCNa"):
+                row["language"] = r["teaLangCNa"]
+            tags = [c["couClassifyCna"] for c in (r.get("couClassifyList") or []) if c.get("couClassifyCna")]
+            if tags:
+                row["tags"] = tags
             # 本系必修規劃給哪個年級（開課班級「資管二甲」→ 2）。排課不會把大二的必修排給大一，
             # 學年課也不會只排到下半（大一上排到「統計學」下學期那一半）
             grade = re.match(r"資管([一二三四])", r.get("avaDptCNa") or "")

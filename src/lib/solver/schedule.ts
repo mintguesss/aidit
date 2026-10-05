@@ -1044,6 +1044,7 @@ function toPlanCourse(c: Candidate, ctx: SolveContext): PlanCourse {
   const req = ctx.requirements.find((r) => c.satisfies.includes(r.id));
   return {
     code: c.offering.code,
+    ...(c.offering.outline ? { section: c.offering.outline.id } : {}),
     name: c.offering.name,
     credits: c.offering.credits,
     slotText: c.offering.slotsUnknown

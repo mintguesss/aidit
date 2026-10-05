@@ -66,7 +66,8 @@ def main():
             excluded |= {norm(n) for n in m.get("excludeNames", [])}
         elif m["type"] == "selectType" and m["value"] == "general":
             general_cat = cat["id"]
-    major = next(c["id"] for c in pack["categories"] if c["match"]["type"] == "deptElective")
+    # 規則包可能沒有「系專選」類別（輔大 111 v0.7 起改成選修課程底下的分項條件）
+    major = next((c["id"] for c in pack["categories"] if c["match"]["type"] == "deptElective"), None)
 
     def by_name(name: str):
         n = norm(name)

@@ -132,7 +132,8 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
         minCreditsPerDomain?: number;
         citation: Citation;
       }
-    | { type: "minCoursesFromList"; id: string; name: string; codes: string[]; minCourses: number; citation: Citation };
+    | { type: "minCoursesFromList"; id: string; name: string; codes: string[]; minCourses: number; citation: Citation }
+    | { type: "minDeptCredits"; id: string; name: string; dept: string; minCredits: number; citation: Citation };
   type Cat = {
     id: string;
     name: string;
@@ -227,7 +228,10 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
           ? s.minCreditsPerDomain
             ? `${s.domains.join("、")}，每個領域各至少修 ${s.minCreditsPerDomain} 學分。`
             : `${s.domains.join("、")}，每個領域各至少修 ${s.minPerDomain} 門。`
-          : `下列課程至少要修 ${s.minCourses} 門：`;
+          : s.type === "minDeptCredits"
+            ? `「${cat.name}」採計的課裡，至少要有 ${s.minCredits} 學分是本系開的選修。` +
+              `本系選修修超過的也還是算在「${cat.name}」裡，不會因為湊不出剛好的數字被當成不足。`
+            : `下列課程至少要修 ${s.minCourses} 門：`;
       push(
         `subRule:${s.id}`,
         "subRule",
@@ -235,7 +239,10 @@ export function toItems(draft: Record<string, unknown>, corpus: Map<string, stri
         {
           extracted,
           details: s.type === "minCoursesFromList" ? s.codes.map(course) : undefined,
-          question: "領域名稱和每個領域的要求和原文一樣嗎？",
+          question:
+            s.type === "minDeptCredits"
+              ? "原文是不是「選修課程中包含本系專業選修至少這麼多學分」？"
+              : "領域名稱和每個領域的要求和原文一樣嗎？",
         },
         s.citation,
         { sub: s, titles: s.type === "minCoursesFromList" ? s.codes.map((code) => titles[code] ?? null) : null },

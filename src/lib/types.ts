@@ -174,7 +174,15 @@ export type SubRuleResult = {
   status: "satisfied" | "unmet" | "pending_in_progress";
   detail: string;
   /** 通識領域分布這類逐項結果 */
-  items?: { label: string; ok: boolean; note?: string; /** 以學分判定時還差幾學分（排課要補的量） */ shortBy?: number }[];
+  items?: {
+    label: string;
+    ok: boolean;
+    note?: string;
+    /** 以學分判定時還差幾學分（排課要補的量） */
+    shortBy?: number;
+    /** 要由哪個系所開的課來補（minDeptCredits）；沒有就是通識領域 */
+    dept?: string;
+  }[];
   citations: Citation[];
 };
 
@@ -195,6 +203,8 @@ export type CategoryResult = {
   notes: string[];
   /** 被指派到此類別的課號，供依據展開與稽核 */
   assignedCodes: string[];
+  /** 承接類別（任何及格的課都收，如其他選修）。排課時最後才補 */
+  catchAll?: boolean;
 };
 
 export type GraduationCheck = {

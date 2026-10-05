@@ -228,6 +228,10 @@ export function ReviewEditForm({
         </>
       ) : null}
 
+      {v.kind === "deptCredits"
+        ? field("至少幾學分要是本系開的選修", num(v.minCredits, (n) => patch({ minCredits: n ?? 1 })))
+        : null}
+
       {v.kind === "check" ? (
         <>
           {field("名稱", <input style={inputStyle} value={v.name} onChange={(e) => patch({ name: e.target.value })} />)}

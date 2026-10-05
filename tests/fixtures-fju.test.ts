@@ -56,9 +56,11 @@ describe("四年修完（成績單 138 學分）", () => {
     expect(s.status).toBe("satisfied");
   });
 
-  it("系專選 10 由資管系開的選修補滿；外系、學程的課（-網）只能算其他選修", () => {
-    expect(cat("major-elective").earned).toBe(10);
-    expect(cat("free-elective").earned).toBe(22);
+  it("選修課程 32 補滿，本系選修 10 學分的分項條件也滿足", () => {
+    // 選修：資管系選修 26 ＋ 外系、學程 14 ＝ 40，採計 32、超修 8（v0.7 起系專選是分項條件）
+    expect(cat("free-elective").earned).toBe(32);
+    expect(cat("free-elective").overflow).toBe(8);
+    expect(cat("free-elective").subRules.find((s) => s.id === "dept-elective-10")!.status).toBe("satisfied");
   });
 
   it("國防看成績單：上下學期各一次 → 通過；體育 4 學期、英語授課 6 學分 → 通過", () => {
@@ -98,13 +100,16 @@ describe("大二結束、準備升大三（只到 112-2）", () => {
   });
 
   it("資管系選修 14 學分全部採計（系專選＋其他選修）", () => {
-    expect(cat("major-elective").earned + cat("free-elective").earned).toBe(14);
+    expect(cat("free-elective").earned).toBe(14);
   });
 
-  // 已知問題（TODO H9）：原文是「選修課程中**包含**本系專業選修至少 10 學分」，規則包卻建成
-  // 「系專選 10」＋「其他選修 22」兩個切開的類別。課不能拆，2＋3＋3＋3＋3 湊不出剛好 10，
-  // 引擎只能給 8 或 9，畫面就說「系專選還差」—— 其實 14 ≥ 10 已經滿足。要改規則包的結構
-  it.todo("修了 14 學分本系選修，系專選（選修中至少 10 學分本系）應判定滿足");
+  // TODO H9：以前切成「系專選 10」＋「其他選修 22」，課不能拆，2＋3＋3＋3＋3 湊不出剛好 10，
+  // 畫面說「系專選還差 2」。v0.7 起改成「選修課程 32，其中至少 10 學分本系」
+  it("修了 14 學分本系選修：本系專業選修（選修中至少 10 學分）判定滿足", () => {
+    const s = cat("free-elective").subRules.find((x) => x.id === "dept-elective-10")!;
+    expect(s.status).toBe("satisfied");
+    expect(s.detail).toContain("已修 14 學分");
+  });
 
   it("總共還缺 128 − 88 ＝ 40", () => {
     expect(a.countable).toBe(88);

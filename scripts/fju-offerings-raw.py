@@ -13,6 +13,7 @@
 """
 
 import json
+import os
 import re
 import sys
 from datetime import datetime, timezone, timedelta
@@ -37,7 +38,13 @@ def main():
     excluded = {norm(n): c["id"] for c in pack["categories"]
                 if c["match"]["type"] == "deptElective" for n in c["match"].get("excludeNames", [])}
 
-    fetched = datetime.now(timezone(timedelta(hours=8))).isoformat(timespec="seconds")
+    # 抓取時間是來源課表下載的時間，不是轉換的時間 —— 重跑轉換不能讓資料看起來比較新
+    src_pdf = data.get("source")
+    stamp = os.path.getmtime(src_pdf) if src_pdf and os.path.exists(src_pdf) else None
+    if stamp is None:
+        print("找不到來源課表檔，抓取時間無法確定。", file=sys.stderr)
+        return 1
+    fetched = datetime.fromtimestamp(stamp, timezone(timedelta(hours=8))).isoformat(timespec="seconds")
     raw, skipped = [], []
     for o in data["offerings"]:
         if not o["code"]:

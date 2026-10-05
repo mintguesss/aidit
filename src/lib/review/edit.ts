@@ -46,6 +46,7 @@ export const zEditable = z.discriminatedUnion("kind", [
     minCreditsPerDomain: z.number().int().positive().nullable(),
     citation: zCit,
   }),
+  z.object({ kind: z.literal("deptCredits"), minCredits: z.number().int().positive(), citation: zCit }),
   z.object({
     kind: z.literal("check"),
     name: z.string().trim().min(1),
@@ -135,6 +136,9 @@ export function editableOf(draft: Draft, itemId: string): Editable | null {
   if (kind === "subRule") {
     for (const cat of cats) {
       const s = cat.subRules?.find((x) => x.id === ref);
+      if (s?.type === "minDeptCredits") {
+        return { kind: "deptCredits", minCredits: s.minCredits as number, citation: cit(s.citation) };
+      }
       if (s?.type === "domainCoverage") {
         return {
           kind: "domainCoverage",
@@ -304,6 +308,15 @@ export function applyEdit(
       if (next.minCreditsPerDomain !== null && next.minCreditsPerDomain !== b.minCreditsPerDomain) {
         mustQuote("每領域至少學分", next.minCreditsPerDomain, next.citation.quote);
       }
+      break;
+    }
+    case "deptCredits": {
+      const b = before as Extract<Editable, { kind: "deptCredits" }>;
+      const s = cats.flatMap((c) => c.subRules ?? []).find((x) => x.id === ref)!;
+      note("本系選修至少學分", b.minCredits, next.minCredits);
+      s.minCredits = next.minCredits;
+      setCitation(s, next.citation, b.citation);
+      if (next.minCredits !== b.minCredits) mustQuote("本系選修至少學分", next.minCredits, next.citation.quote);
       break;
     }
     case "check": {

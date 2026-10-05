@@ -38,7 +38,23 @@ export type Requirement = {
   domain?: string;
   /** 領域至少一門 */
   minCourses?: number;
+  /** 系所限制：這一類裡要由哪個系所開的課來補（輔大「選修中包含本系專業選修至少 10 學分」） */
+  dept?: string;
+  /** 承接類別（任何及格的課都收，如其他選修）的學分需求。排課時最後才補，見 G4 */
+  catchAll?: boolean;
 };
+
+/** 分項需求（領域、系所）：一門課同時補類別學分和分項，分開計算 */
+const isSub = (r: Requirement) => Boolean(r.domain || r.dept);
+
+/** 這一班能不能補這項需求 */
+function meets(o: Offering, r: Requirement): boolean {
+  return (
+    o.category.includes(r.categoryId) &&
+    (!r.domain || o.generalDomain === r.domain) &&
+    (!r.dept || o.dept === r.dept)
+  );
+}
 
 /** 領域未達時的權重：以 2 學分等值計入目標函數，與一門通識課的學分數同量級 */
 const DOMAIN_WEIGHT = 2;
@@ -53,6 +69,7 @@ export function requirementsFrom(audit: AuditResult): Requirement[] {
         shortLabel: cat.name,
         categoryId: cat.id,
         minCredits: cat.unmet,
+        ...(cat.catchAll ? { catchAll: true } : {}),
       });
     }
     for (const sub of cat.subRules) {
@@ -60,6 +77,17 @@ export function requirementsFrom(audit: AuditResult): Requirement[] {
       // 「修課中」的領域這學期就會補上，不用再排。以學分判定的（輔大各領域 4 學分）
       // 帶著「已修 0／4 學分」的備註 —— 以前用「沒有備註」篩選，這種領域整個被漏掉，排課不知道要補
       for (const item of sub.items.filter((i) => !i.ok && i.note !== "修課中")) {
+        if (item.dept) {
+          reqs.push({
+            id: `${cat.id}:dept:${item.dept}`,
+            label: `${cat.name}·${item.label} ${item.shortBy ?? 0} 學分`,
+            shortLabel: `${cat.name}·${item.label}`,
+            categoryId: cat.id,
+            dept: item.dept,
+            minCredits: item.shortBy ?? 0,
+          });
+          continue;
+        }
         const byCredits = item.shortBy !== undefined && item.shortBy > 0;
         reqs.push({
           id: `${cat.id}:domain:${item.label}`,
@@ -218,7 +246,7 @@ function filterCandidates(ctx: SolveContext): {
     // 1. 類別符合。不符合的不是「排除」，而是降級為湊學分下限用的候選
     const satisfies = o.category.some((c) => relevantCats.has(c))
       ? ctx.requirements
-          .filter((r) => o.category.includes(r.categoryId) && (!r.domain || o.generalDomain === r.domain))
+          .filter((r) => meets(o, r))
           .map((r) => r.id)
       : [];
 
@@ -261,7 +289,7 @@ function filterCandidates(ctx: SolveContext): {
     // extracted 先修：只提示，不排除（低信心抽取不得造成無聲的錯誤建議）
     const soft = o.prerequisites.find((p) => p.confidence !== "explicit" && p.sourceText);
     const idx = (domain: boolean) =>
-      ctx.requirements.flatMap((r, k) => (satisfies.includes(r.id) && Boolean(r.domain) === domain ? [k] : []));
+      ctx.requirements.flatMap((r, k) => (satisfies.includes(r.id) && isSub(r) === domain ? [k] : []));
     const c: Candidate = {
       offering: o,
       remaining,
@@ -588,7 +616,7 @@ function attemptSolve(
   const suffix = new Array<number>(sorted.length + 1).fill(0);
   for (let i = sorted.length - 1; i >= 0; i--) suffix[i] = suffix[i + 1]! + sorted[i]!.offering.credits;
 
-  const gainFactor = ctx.requirements.some((r) => r.domain && r.minCredits > 0) ? 2 : 1;
+  const gainFactor = ctx.requirements.some((r) => isSub(r) && r.minCredits > 0) ? 2 : 1;
   const solutions: { sel: Candidate[]; score: Score }[] = [];
   const sel: Candidate[] = [...pinnedCandidates];
   let nodes = 0;
@@ -823,7 +851,7 @@ function toPlanCourse(c: Candidate, ctx: SolveContext): PlanCourse {
 /** 無解回報：UI 上「哪兩個條件在打架」的來源 */
 function buildInfeasibility(req: Requirement, ctx: SolveContext, exclusions: Exclusion[]): Infeasibility {
   const catOfferings = ctx.offerings.filter(
-    (o) => o.category.includes(req.categoryId) && (!req.domain || o.generalDomain === req.domain),
+    (o) => meets(o, req),
   );
   const codes = new Set(catOfferings.map((o) => o.code));
   const mine = exclusions.filter((e) => codes.has(e.code));

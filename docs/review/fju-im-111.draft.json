@@ -3,7 +3,7 @@
   "dept": "IM",
   "admissionYear": 111,
   "program": "day",
-  "version": "0.6",
+  "version": "0.7",
   "approvedAt": "2026-10-01",
   "provenance": "draft",
   "approvedBy": null,
@@ -154,33 +154,28 @@
       }
     },
     {
-      "id": "major-elective",
-      "name": "本系專業選修",
-      "shortName": "系專選修",
-      "credits": 10,
-      "order": 5,
-      "match": {
-        "type": "deptElective",
-        "dept": "IM"
-      },
-      "subRules": [],
-      "ambiguities": [],
-      "citation": {
-        "docId": "fju-im-rules-111",
-        "locator": "第 1 頁 第二條（五）",
-        "quote": "選修課程中包含本系專業選修課程至少 10學分"
-      }
-    },
-    {
       "id": "free-elective",
-      "name": "其他選修",
-      "shortName": "其他選修",
-      "credits": 22,
-      "order": 6,
+      "name": "選修課程",
+      "shortName": "選修",
+      "credits": 32,
+      "order": 5,
       "match": {
         "type": "anyPassed"
       },
-      "subRules": [],
+      "subRules": [
+        {
+          "type": "minDeptCredits",
+          "id": "dept-elective-10",
+          "name": "本系專業選修",
+          "dept": "IM",
+          "minCredits": 10,
+          "citation": {
+            "docId": "fju-im-rules-111",
+            "locator": "第 1 頁 第二條（五）",
+            "quote": "選修課程中包含本系專業選修課程至少 10學分"
+          }
+        }
+      ],
       "ambiguities": [],
       "citation": {
         "docId": "fju-im-rules-111",
@@ -354,10 +349,10 @@
     ]
   },
   "_draft": {
-    "extractedAt": "2026-10-02T01:30:00",
+    "extractedAt": "2026-10-05T12:00:00",
     "extractedBy": "Claude（依兩份文字型 PDF 手動抽取，未經 scripts/extract-rulepack.ts）",
     "reviewNotes": "docs/review/fju-im-111.md",
-    "revision": "v0.6：依校對者成績單上的課名：外國語文以開頭比對、國防需兩學期",
+    "revision": "v0.7：系專選改為「選修課程 32 學分中包含本系專業選修至少 10 學分」（TODO H9）",
     "courseTitles": {
       "00007": "人生哲學",
       "00155": "大學入門",
@@ -382,12 +377,8 @@
       "30499": "創新與設計思考"
     },
     "itemNotes": {
-      "category:holistic-core": "照你的修正：體育屬於全人核心（0 學分、要上 4 學期）。原文改用規劃表第 4 頁列出體育的那一行。體育本身仍由「其他畢業條件：體育」那一項檢查。",
-      "category:basic-skills": "對照你的成績單：國文就叫「國文」；外國語文寫成「外國語文(中級英文)」「外國語文(基礎日文)」，括號裡是級別或語種，所以改成「課名以外國語文開頭」都算。分班、分級不影響。",
-      "overflow:basic-skills": "規劃表第 3 頁寫「全人教育課程學分數 A = 32」，也就是全人核心 8 + 基本能力 12 + 通識 12。所以原文說的「超修的全人教育課程」包含基本能力課程，不只體育和國防：國文、英文修超過的學分一樣不算畢業學分。如果你同意，請改按「通過」。",
-      "category:major-elective": "照你的修正：「組織學習與社會探究」「組織領導與社會創新實務」雖然畫在框線外，仍算本系專業選修，已取消排除。",
-      "check:defense-education": "對照你的成績單：課名就是「全民國防教育軍事訓練」，上下學期各一次。規劃表這一列在一上、一下各有一欄，所以設為至少修 2 個學期；系統直接看成績單判斷。",
-      "check:pe": "體育沒辦法看課名判斷：你的成績單大一寫「體育」，大二寫「保齡球」（項目名稱）。所以這一項維持請學生自行確認。"
+      "category:free-elective": "這一項改了：以前拆成「本系專業選修 10」＋「其他選修 22」兩類，但修業規則寫的是「選修課程中包含本系專業選修至少 10 學分」—— 是選修 32 學分裡的條件，不是另一類。拆開的話課不能拆，例如修 2＋3＋3＋3＋3＝14 學分本系選修，湊不出剛好 10，系統會說系專選還差 2。名稱也改成規則裡的「選修課程」。",
+      "subRule:dept-elective-10": "新的一項：原本「本系專業選修」那一類，改成「選修課程」底下的附加條件。原文同一句。"
     }
   },
   "school": "fju"

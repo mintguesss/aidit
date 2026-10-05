@@ -4,6 +4,7 @@ import { resolveRulePack, preloadPublishedRules } from "@/lib/rules/loader";
 import { constraintsFrom, describeConstraints } from "@/lib/solver/schedule";
 import { preferencesOf } from "@/lib/chat/apply";
 import { purgeDaily } from "@/lib/store/purge";
+import { preloadOfferings } from "@/lib/offerings/published";
 import type { FixtureId } from "@/lib/providers/fixtures";
 import type { CoursePreferences } from "@/lib/types";
 import { termLimitsFor } from "@/lib/rules/term-limits";
@@ -42,6 +43,8 @@ export async function getAuditSession(fixture: FixtureId, currentTerm: string): 
   // 已發布的規則包在這裡載入記憶體，之後 loadRulePacks()／loadCorpus() 維持同步。
   // 放在這個入口是因為它是所有審查的必經之路，而且已經是 async。
   await preloadPublishedRules();
+  // 開課資料同理：資料庫裡的學期先載入記憶體，排課、搜尋維持同步呼叫
+  await preloadOfferings();
 
   const key = `${fixture}:${currentTerm}`;
   const hit = cache.get(key);

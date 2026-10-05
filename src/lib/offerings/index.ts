@@ -62,12 +62,31 @@ function toPrerequisites(raw: RawOffering): Prerequisite[] {
   return out;
 }
 
-const ALL_RAW: RawOffering[] = [
+/** repo 裡的開課資料：CI 與離線環境的基準，也是資料庫還沒有那一學期時的退路 */
+const REPO_RAW: RawOffering[] = [
   ...RAW_OFFERINGS,
   ...(FJU_113_1 as RawOffering[]),
   ...(FJU_115_1 as RawOffering[]),
   ...(FJU_115_2 as RawOffering[]),
 ];
+
+/** 資料庫裡的開課資料，由 offerings/published.ts 的 preloadOfferings() 載入 */
+let published: RawOffering[] = [];
+
+const termKey = (r: Pick<RawOffering, "school" | "year" | "term">) => `${r.school ?? DEFAULT_SCHOOL}:${r.year}-${r.term}`;
+
+/** 換上資料庫的版本。同一學期以資料庫為準，整學期取代，不逐班合併 */
+export function setPublishedOfferings(rows: RawOffering[]): void {
+  published = rows;
+  cache = null;
+}
+
+/** 全部原始列：資料庫有的學期用資料庫的，其他用 repo 的 */
+export function rawOfferings(): RawOffering[] {
+  if (published.length === 0) return REPO_RAW;
+  const inDb = new Set(published.map(termKey));
+  return [...REPO_RAW.filter((r) => !inDb.has(termKey(r))), ...published];
+}
 
 let cache: Offering[] | null = null;
 
@@ -79,7 +98,7 @@ let cache: Offering[] | null = null;
  * **用課名找課、排課時一定要指定**：各校常有同名的課（資料結構、微積分這類），不分學校就會拿到別校的課。
  */
 export function allOfferings(school?: string): Offering[] {
-  if (!cache) cache = ALL_RAW.map(normalizeOffering);
+  if (!cache) cache = rawOfferings().map(normalizeOffering);
   return school === undefined ? cache : cache.filter((o) => o.school === school);
 }
 
@@ -104,7 +123,7 @@ export function remainingSeats(o: Pick<Offering, "capacity" | "enrolled">): numb
 
 /** 資料時效：決賽要能說明開課資料抓取時間 */
 export function fetchedAt(school: string = DEFAULT_SCHOOL): string {
-  const rows = ALL_RAW.filter((r) => (r.school ?? DEFAULT_SCHOOL) === school);
+  const rows = rawOfferings().filter((r) => (r.school ?? DEFAULT_SCHOOL) === school);
   return rows.reduce(
     (latest, r) => (r.fetchedAt > latest ? r.fetchedAt : latest),
     rows[0]?.fetchedAt ?? new Date().toISOString(),

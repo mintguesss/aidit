@@ -29,6 +29,7 @@ describe("A6：系選修框外的兩門課", () => {
     return {
       earned: (id: string) => a.categories.find((x) => x.id === id)!.earned,
       check: (id: string) => a.graduationChecks.find((x) => x.id === id)!,
+      sub: (id: string) => a.categories.flatMap((c) => c.subRules).find((s) => s.id === id)!,
     };
   }
 
@@ -36,19 +37,32 @@ describe("A6：系選修框外的兩門課", () => {
     code, name, credits, year: 114, term: 1, status: "passed", selectType: "elective", score: 80,
   });
 
-  it("校對結論（v0.5）：兩門都算系專選", () => {
-    expect(audit([elective("19664", "組織學習與社會探究", 2)]).earned("major-elective")).toBe(2);
-    expect(audit([elective("19663", "組織領導與社會創新實務", 2)]).earned("major-elective")).toBe(2);
+  it("校對結論（v0.5）：兩門都算本系專業選修（v0.7 起是選修課程底下的分項條件）", () => {
+    const r = audit([elective("19664", "組織學習與社會探究", 2), elective("19663", "組織領導與社會創新實務", 2)]);
+    expect(r.earned("free-elective")).toBe(4);
+    expect(r.sub("dept-elective-10").detail).toContain("已修 4 學分");
   });
 
   describe("排除課名的機制（excludeNames）", () => {
+    // 這個機制掛在「系專選」類別上。輔大 v0.7 已改成分項條件、不再用它，
+    // 這裡用 v0.6 的切分結構驗證機制本身（別的學校可能用得到）
+    const { subRules: _s, ...free } = (draft.categories as { id: string; subRules?: { citation: object }[] }[]).find(
+      (c) => c.id === "free-elective",
+    )!;
+    const deptSub = (draft.categories as { id: string; subRules?: { citation: object }[] }[]).find(
+      (c) => c.id === "free-elective",
+    )!.subRules![0]!;
     const excluding = zRulePack.parse({
       ...draft,
-      categories: (draft.categories as { id: string; match: object }[]).map((c) =>
-        c.id === "major-elective"
-          ? { ...c, match: { ...c.match, excludeNames: ["組織學習與社會探究", "組織領導與社會創新實務"] } }
-          : c,
-      ),
+      categories: [
+        ...(draft.categories as { id: string }[]).filter((c) => c.id !== "free-elective"),
+        {
+          id: "major-elective", name: "本系專業選修", shortName: "系專選修", credits: 10, order: 5,
+          match: { type: "deptElective", dept: "IM", excludeNames: ["組織學習與社會探究", "組織領導與社會創新實務"] },
+          citation: deptSub.citation,
+        },
+        { ...free, credits: 22, order: 6 },
+      ],
     });
 
     it("被排除的課只能算其他選修", () => {

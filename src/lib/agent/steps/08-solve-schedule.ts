@@ -43,6 +43,7 @@ export const solveScheduleStep: Step = {
       takenCodes: takenCourseCodes(state.record!.courses, state.pack!),
       continueCodes: continuingCourseCodes(state.record!.courses, state.pack!),
       admissionYear: state.record!.student.admissionYear,
+      studentDept: state.record!.student.dept,
       reserved: reservedFrom(state.record!.plannedCommitments),
       preferences,
       constraints: constraintsFrom(preferences, limits),

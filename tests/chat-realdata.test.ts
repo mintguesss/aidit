@@ -173,3 +173,13 @@ describe("對話送回的條件不得無聲截斷", () => {
     expect(sanitiseConstraintSet({ ...fallback, targetCourseCount: 12 }, fallback).targetCourseCount).toBe(12);
   });
 });
+
+describe("有本系保留班的課，只列本系的班", () => {
+  it("資管學生問人生哲學：只列資管那 2 班，並說明其他班是開給別系的", () => {
+    const r = answerCourseInfo("人生哲學", "113-1", "fju", "IM");
+    expect(r.headline).toContain("開 2 個班可選");
+    expect(r.detail).toContain("開給別系的");
+    const own = allOfferings("fju").filter((o) => o.code === "00007" && o.year === 113 && o.term === 1 && o.dept === "IM");
+    for (const o of own) expect(r.detail).toContain(o.teacher);
+  });
+});

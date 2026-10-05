@@ -260,7 +260,7 @@ function searchRules(topic: string, pack: RulePack, audit: AuditResult): RuleHit
 
 // ---------------------------------------------------------- course-info
 
-export function answerCourseInfo(query: string, nextTerm: string, school: string = DEFAULT_SCHOOL): Reply {
+export function answerCourseInfo(query: string, nextTerm: string, school: string = DEFAULT_SCHOOL, dept?: string): Reply {
   const q = query.replace(/\s/g, "");
   // 只找學生自己學校的課：各校常有同名的課，查到別校的時段與教師是錯誤資訊
   const all = allOfferings(school);
@@ -284,7 +284,11 @@ export function answerCourseInfo(query: string, nextTerm: string, school: string
   const termOf = (o: (typeof hits)[number]) => `${o.year}-${o.term}`;
   const inNext = hits.filter((o) => termOf(o) === nextTerm);
   const latest = [...new Set(hits.map(termOf))].sort().at(-1)!;
-  const shown = inNext.length > 0 ? inNext : hits.filter((o) => termOf(o) === latest);
+  const termRows = inNext.length > 0 ? inNext : hits.filter((o) => termOf(o) === latest);
+  // 有本系保留班的課只列本系的班：人生哲學七十幾班，資管學生能選的只有資管那 2 班（見排課的 ownDeptCodes）
+  const ownCodes = new Set(dept ? termRows.filter((o) => o.dept === dept).map((o) => o.code) : []);
+  const shown = termRows.filter((o) => !ownCodes.has(o.code) || o.dept === dept);
+  const otherDept = termRows.length - shown.length;
 
   const lines = [...new Set(shown.map((o) => {
     const seats = remainingSeats(o);
@@ -305,9 +309,12 @@ export function answerCourseInfo(query: string, nextTerm: string, school: string
     kind: "決定",
     headline:
       inNext.length > 0
-        ? `${first.name}（${first.code}）${nextTerm} 開 ${lines.length} 個班。`
+        ? `${first.name}（${first.code}）${nextTerm} 開 ${lines.length} 個班${otherDept > 0 ? "可選" : ""}。`
         : `${first.name}（${first.code}）${nextTerm} 沒有開課；最近一次是 ${latest}。`,
-    detail: lines.slice(0, 8).join("\n") + more,
+    detail:
+      lines.slice(0, 8).join("\n") +
+      more +
+      (otherDept > 0 ? `\n另有 ${otherDept} 班是開給別系的，不列出。` : ""),
     // 開課資料不是規章，其「依據」是資料本身的抓取時間，於頁尾標示
     citations: [],
   };

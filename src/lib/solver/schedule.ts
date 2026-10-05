@@ -154,6 +154,8 @@ export type SolveContext = {
   continueOffered?: Set<string>;
   /** 入學學年。配合 termLabel 算出排課那學期是大幾，高年級的必修不排給低年級 */
   admissionYear?: number;
+  /** 學生的系所代號（與開課資料的 dept 同一套）。同一門課有本系保留的班時，只排本系的班 */
+  studentDept?: string;
   reserved: { label: string; slots: TimeSlot[] }[];
   constraints: Constraints;
   termLabel: string;
@@ -239,6 +241,8 @@ function filterCandidates(ctx: SolveContext): {
   candidates: Candidate[];
   fillers: Candidate[];
   exclusions: Exclusion[];
+  /** 每門課所有可選的班（上限截掉之前），搜尋完換班用 */
+  sections: Map<string, Candidate[]>;
 } {
   const exclusions: Exclusion[] = [];
   const candidates: Candidate[] = [];
@@ -250,10 +254,19 @@ function filterCandidates(ctx: SolveContext): {
   const studyYear =
     ctx.admissionYear !== undefined && termYear !== undefined ? Number(termYear) - ctx.admissionYear + 1 : undefined;
   const pinned = new Set(ctx.constraints.pinCourses ?? []);
+  // 有本系保留班的課只排本系的班。輔大人生哲學一學期七十幾班，資管系自己的只有 2 班，
+  // 其餘是開給別系的 —— 排到別系的班，學生選課時根本選不到。
+  // 開課資料目前只有開課單位、沒有開課班級，所以只能做到「有本系的班就只用本系的」（TODO C7）
+  const ownDeptCodes = new Set(
+    ctx.studentDept ? ctx.offerings.filter((o) => o.dept === ctx.studentDept).map((o) => o.code) : [],
+  );
 
   for (const o of [...ctx.offerings].sort((a, b) => cmp(a.code, b.code))) {
     const drop = (step: ExclusionReason["step"], reason: string) =>
       exclusions.push({ reason, code: o.code, name: o.name, step });
+
+    // 別系的班不是「排除」：這門課本系的班照常是候選，所以不列在排除清單
+    if (ownDeptCodes.has(o.code) && o.dept !== ctx.studentDept) continue;
 
     // 0. 使用者明講不要的課
     if (excluded.has(o.code)) {
@@ -340,36 +353,57 @@ function filterCandidates(ctx: SolveContext): {
     else fillers.push(c);
   }
 
-  // 同一門課只留時段不同的前幾班（指定保留的課不限）
+  // 使用者眼前課表上的課不受下面兩道上限影響：被上限刷掉的話，「盡量保留原本的課」根本無從保留
+  const keep = new Set(ctx.keep ?? []);
+  const uncapped = (c: Candidate) => c.pinned || keep.has(c.offering.code);
+
+  // 同一門課只留時段不同的幾班（指定保留的課不限）。
+  // 以前留的是資料順序的前幾班，而資料依時段排序，留下來的幾乎都是星期一早上 ——
+  // 「不排早八」因此找不到人生哲學的非早八班。改成先留非早八的，再盡量分散在不同天
   const capSections = (list: Candidate[]) => {
-    const seen = new Map<string, Set<string>>();
-    return list.filter((c) => {
-      if (c.pinned) return true;
-      const slots = seen.get(c.offering.code) ?? new Set<string>();
-      seen.set(c.offering.code, slots);
-      const key = c.offering.rawSlotText ?? "";
-      if (slots.has(key) || slots.size >= SECTION_LIMIT) return false;
-      slots.add(key);
-      return true;
-    });
+    const byCode = new Map<string, Candidate[]>();
+    for (const c of list) byCode.set(c.offering.code, [...(byCode.get(c.offering.code) ?? []), c]);
+    const chosen = new Set<Candidate>();
+    for (const group of byCode.values()) {
+      const distinct = [...new Map(group.filter((c) => !uncapped(c)).map((c) => [c.offering.rawSlotText ?? "", c])).values()]
+        .sort((a, b) => Number(a.early) - Number(b.early));
+      const days = new Set<number>();
+      for (let n = 0; n < SECTION_LIMIT && distinct.length > 0; n++) {
+        // 優先挑還沒涵蓋到的星期；都涵蓋過了就照順序（非早八在前）
+        const i = Math.max(0, distinct.findIndex((c) => c.offering.slots.some((s) => !days.has(s.day))));
+        const c = distinct.splice(i, 1)[0]!;
+        for (const s of c.offering.slots) days.add(s.day);
+        chosen.add(c);
+      }
+      for (const c of group) if (uncapped(c)) chosen.add(c);
+    }
+    return list.filter((c) => chosen.has(c));
   };
   // 對排課來說可以互換的課（補的需求一樣、學分一樣）只留前幾門。輔大一學期的通識上百門，
   // 同領域 2 學分的課彼此只差在時段與課名，全部放進搜尋只會撞到 NODE_LIMIT（大一的案例要 10 秒）。
   // 指定保留、學年課下半不受限
+  // 以前照課號取前幾門，與使用者的條件無關；改成有非早八班的課優先
   const capClasses = (list: Candidate[]) => {
+    const nonEarly = new Set(list.filter((c) => !c.early).map((c) => c.offering.code));
+    const ordered = [...list].sort((a, b) => Number(nonEarly.has(b.offering.code)) - Number(nonEarly.has(a.offering.code)));
     const codesByClass = new Map<string, Set<string>>();
-    return list.filter((c) => {
-      if (c.pinned || c.continues) return true;
-      const key = `${[...c.satisfies].sort().join("|")}:${c.offering.credits}`;
-      const codes = codesByClass.get(key) ?? new Set<string>();
-      codesByClass.set(key, codes);
-      if (codes.has(c.offering.code)) return true;
-      if (codes.size >= CLASS_LIMIT) return false;
-      codes.add(c.offering.code);
-      return true;
-    });
+    const kept = new Set(
+      ordered.filter((c) => {
+        if (uncapped(c) || c.continues) return true;
+        const key = `${[...c.satisfies].sort().join("|")}:${c.offering.credits}`;
+        const codes = codesByClass.get(key) ?? new Set<string>();
+        codesByClass.set(key, codes);
+        if (codes.has(c.offering.code)) return true;
+        if (codes.size >= CLASS_LIMIT) return false;
+        codes.add(c.offering.code);
+        return true;
+      }),
+    );
+    return list.filter((c) => kept.has(c));
   };
-  return { candidates: capClasses(capSections(candidates)), fillers: capSections(fillers), exclusions };
+  const sections = new Map<string, Candidate[]>();
+  for (const c of [...candidates, ...fillers]) sections.set(c.offering.code, [...(sections.get(c.offering.code) ?? []), c]);
+  return { candidates: capClasses(capSections(candidates)), fillers: capSections(fillers), exclusions, sections };
 
 }
 
@@ -428,6 +462,66 @@ type Score = {
  * （與審查引擎的指派同一個精神，這裡用貪婪法近似，只用於評分）。
  * 領域需求是類別底下的分項條件，同一門通識本來就同時補通識學分和該領域，照舊另外計算。
  */
+/** 換班時每組課最多試幾種班的組合；超過就只用搜尋找到的那一組 */
+const SECTION_COMBO_LIMIT = 20_000;
+
+/**
+ * 搜尋完之後，對每一組課重新挑班。
+ *
+ * 同一門課換一班，學分與採計類別都不變，只有時段相關的項目會變（早八、上課天數、衝堂）。
+ * 搜尋把每一班當成獨立的候選，名額有限的節點大多花在「同一門課換一班」上：
+ * 實測輔大大一「不排早八」，經濟學有下午的班，搜尋卻交出早八那班，
+ * 節點上限開到 500 萬（55 秒）仍然找不到。這裡對同一組課把所有班的組合列出來挑最好的，
+ * 對這組課來說是精確的。
+ *
+ * 每組課留兩個版本：目標函數最好的，以及上課天數最少的（「排在 N 天內」的篩選要用）
+ */
+function reassignSections(
+  solutions: { sel: Candidate[]; score: Score }[],
+  sections: Map<string, Candidate[]>,
+  ctx: SolveContext,
+  termParts: (cs: Candidate[]) => { total: number; specific: number },
+): { sel: Candidate[]; score: Score }[] {
+  const obj = objectiveFor(ctx);
+  const better = (a: Score, b: Score) => lexCompare(obj(a), obj(b)) < 0;
+  const out = new Map<string, { sel: Candidate[]; score: Score }>();
+  const add = (s: { sel: Candidate[]; score: Score }) => {
+    const id = `${s.score.key}#${s.sel.map((c) => c.offering.rawSlotText).join("|")}`;
+    if (!out.has(id)) out.set(id, s);
+  };
+  const done = new Set<string>();
+  for (const s of solutions) {
+    add(s);
+    if (done.has(s.score.key)) continue;
+    done.add(s.score.key);
+    const options = s.sel.map((c) => sections.get(c.offering.code) ?? [c]);
+    if (options.reduce((n, o) => n * o.length, 1) > SECTION_COMBO_LIMIT) continue;
+
+    const parts = termParts(s.sel);
+    let best = s;
+    let fewestDays = s;
+    const pick: Candidate[] = [];
+    const walk = (i: number) => {
+      if (i === options.length) {
+        const sc = score(pick, ctx, parts);
+        if (better(sc, best.score)) best = { sel: [...pick], score: sc };
+        if (sc.dayCount < fewestDays.score.dayCount) fewestDays = { sel: [...pick], score: sc };
+        return;
+      }
+      for (const c of options[i]!) {
+        if (pick.some((p) => !p.offering.slotsUnknown && !c.offering.slotsUnknown && clashes(p.offering.slots, c.offering.slots))) continue;
+        pick.push(c);
+        walk(i + 1);
+        pick.pop();
+      }
+    };
+    walk(0);
+    add(best);
+    add(fewestDays);
+  }
+  return [...out.values()];
+}
+
 /** 一般修業年限的學期數（學士班四年）。延畢的學生剩餘學期以 1 計，也就是全部補完 */
 const STANDARD_TERMS = 8;
 
@@ -856,7 +950,7 @@ function attemptSolve(
   };
 
   dfs(0, pinnedCredits);
-  const solutions = [...buckets.values()].flat();
+  const solutions = reassignSections([...buckets.values()].flat(), filtered.sections, ctx, termParts);
 
   if (solutions.length === 0) {
     return {

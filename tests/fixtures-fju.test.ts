@@ -245,11 +245,11 @@ describe("各個時間點的示範學生（同一份成績單截到不同學期�
   const { preferencesOf } = await import("@/lib/chat/apply");
 
   type Id = "fju-im-111-year1-fall" | "fju-im-111-year1" | "fju-im-111-year3";
-  function plan(id: Id, cur: string, next: string) {
+  function plan(id: Id, cur: string, next: string, over: { avoidEarly?: boolean } = {}) {
     const rec = fixture(id).record;
     const a = auditCredits({ record: rec, pack, traceId: "t", currentTerm: cur, nextTerm: next });
     expect(a.countable + a.inProgress + a.unmet).toBe(a.minCredits);
-    const prefs = preferencesOf(rec.preferences);
+    const prefs = { ...preferencesOf(rec.preferences), ...over };
     const limits = termLimitsFor(pack, rec.student, next);
     const [y, t] = next.split("-").map(Number) as [number, 1 | 2];
     const r = solve({
@@ -259,6 +259,7 @@ describe("各個時間點的示範學生（同一份成績單截到不同學期�
       takenCodes: takenCourseCodes(rec.courses, pack),
       continueCodes: continuingCourseCodes(rec.courses, pack),
       admissionYear: rec.student.admissionYear,
+      studentDept: rec.student.dept,
       reserved: reservedFrom(rec.plannedCommitments),
       preferences: prefs,
       constraints: constraintsFrom(prefs, limits),
@@ -267,7 +268,7 @@ describe("各個時間點的示範學生（同一份成績單截到不同學期�
       termMaxCredits: limits.maxCredits,
     });
     expect(r.ok).toBe(true);
-    return { a, limits, names: r.ok ? r.plans[0]!.courses.map((c) => c.name) : [], codes: r.ok ? r.plans[0]!.courses.map((c) => c.code) : [] };
+    return { a, limits, names: r.ok ? r.plans[0]!.courses.map((c) => c.name) : [], codes: r.ok ? r.plans[0]!.courses.map((c) => c.code) : [], courses: r.ok ? r.plans[0]!.courses : [] };
   }
 
   it("大一上結束：已修 22（111-1 全部），還缺 106", () => {
@@ -286,6 +287,20 @@ describe("各個時間點的示範學生（同一份成績單截到不同學期�
     const { a } = plan("fju-im-111-year1", "111-2", "112-1");
     expect(a.countable).toBe(39);
     expect(a.graduationChecks.find((g) => g.id === "defense-education")!.status).toBe("satisfied");
+  });
+
+  it("人生哲學只排資管系自己的班（七十幾班裡其他都是開給別系的）", () => {
+    const { courses } = plan("fju-im-111-year1-fall", "111-1", "111-2");
+    const c = courses.find((x) => x.code === "00007");
+    expect(c).toBeDefined();
+    const own = offeringsFor(111, 2, "fju").filter((o) => o.code === "00007" && o.dept === "IM").map((o) => o.rawSlotText);
+    expect(own).toContain(c!.slotText);
+  });
+
+  it("大一結束 → 112-1 不排早八：經濟學有下午的班就排下午那班（以前搜尋交出早八那班）", () => {
+    const { courses } = plan("fju-im-111-year1", "111-2", "112-1", { avoidEarly: true });
+    const econ = courses.find((x) => x.name === "經濟學");
+    expect(econ?.slotText).not.toMatch(/D0|D1\b/);
   });
 
   it("大一結束 → 112-1：大二上必修（統計學、經濟學、資料庫管理、WEB 程式設計）排進來，微積分不再排", () => {

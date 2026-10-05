@@ -703,9 +703,7 @@ a.btn-primary:hover{color:#fff}
 .tt-in{display:block;padding:8px 10px;color:inherit}
 a.tt-link{text-decoration:none;color:inherit}
 a.tt-link:hover{text-decoration:none}
-.tt-name{display:block;font-size:13px;font-weight:700;line-height:1.45;color:var(--ink)}
-.tt-time{display:block;font-family:var(--mono);font-size:10.5px;margin:2px 0 4px;
-  color:color-mix(in srgb,var(--c) 70%,#000)}
+.tt-name{display:block;font-size:13px;font-weight:700;line-height:1.45;margin-bottom:3px;color:var(--ink)}
 .tt-sub{display:block;font-size:11px;line-height:1.6;color:var(--text-2)}
 .tt-code{font-family:var(--mono);font-size:10px}
 .tt-legend{margin:10px 0 0;font-size:12px;color:var(--text-3);line-height:1.7}
@@ -723,7 +721,6 @@ a.tt-link:hover{text-decoration:none}
   .tt-p .hm{font-size:8.5px}
   .tt-empty{height:44px}
   .tt-in{padding:5px}
-  .tt-time{display:none}
   .tt-name{font-size:11px;line-height:1.35}
   .tt-sub{font-size:9.5px;line-height:1.45;margin-top:1px}
   .tt-code{font-size:9px}

@@ -144,7 +144,7 @@ export function Timetable({
                       className={`tt-cell ${b.kind}${d >= 6 ? " wk" : ""}`}
                       data-c={b.color}
                     >
-                      <Cell b={b} search={search} time={spanTime(scheme, p, p + span - 1)} />
+                      <Cell b={b} search={search} />
                     </td>
                   );
                 })}
@@ -181,20 +181,10 @@ export function Timetable({
   );
 }
 
-/** 「D2–D4・09:10–12:00」：格子裡寫出上課時間，不必對照左欄 */
-function spanTime(scheme: ReturnType<typeof periodScheme>, from: number, to: number): string {
-  const a = periodRow(scheme, from);
-  const z = periodRow(scheme, to);
-  if (!a || !z) return "";
-  const label = from === to ? a.label : `${a.label}–${z.label}`;
-  return `${label}・${a.start}–${z.end}`;
-}
-
-function Cell({ b, search, time }: { b: Block; search: string; time: string }) {
+function Cell({ b, search }: { b: Block; search: string }) {
   const body = (
     <>
       <span className="tt-name">{b.name}</span>
-      {time ? <span className="tt-time">{time}</span> : null}
       {b.code ? (
         <span className="tt-sub">
           <span className="tt-code">{b.code}</span>

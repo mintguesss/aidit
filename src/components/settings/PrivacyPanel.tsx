@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { CoursePreferences } from "@/lib/types";
 import { exportJson, loadStored, PREF_TTL_MONTHS, type StoredPreferences } from "@/lib/ui/prefs";
 import { erase, fetchPreferences } from "@/lib/ui/sync";
@@ -53,6 +54,7 @@ export function PrivacyPanel({
   const hasOptional =
     Boolean(o.careerDirection) || o.interestAreas.length > 0 || o.avoidCourseTypes.length > 0;
 
+  const router = useRouter();
   const run = (
     scope: "optional" | "preferences" | "all",
     ok: string,
@@ -64,6 +66,8 @@ export function PrivacyPanel({
       .then((r) => {
         setMsg(withTraces ? withTraces(r.traces) : ok);
         reload();
+        // 畢業條件的自行勾選由伺服器端頁面帶進來，刪掉之後要重新整理才會從畫面上消失
+        router.refresh();
       })
       .finally(() => setBusy(false));
   };
@@ -189,7 +193,7 @@ export function PrivacyPanel({
             <button
               className="btn btn-danger"
               disabled={busy}
-              onClick={() => run("preferences", "已刪除全部偏好（伺服器與本機）。下次排課會回到本案例的預設值。")}
+              onClick={() => run("preferences", "已刪除全部偏好（伺服器與本機），畢業條件的自行勾選也一併刪除。下次排課會回到本案例的預設值。")}
             >
               刪除全部偏好
             </button>

@@ -36,7 +36,9 @@ function clamp(v: unknown, lo: number, hi: number): number | undefined {
 
 /** 各時段對應的節次（lib/offerings/periods.ts；夜間代號 A–E 為第 11–15 節） */
 const PART_PERIODS = {
-  morning: [1, 2, 3, 4],
+  // 第 0 節是輔大的特早節 D0（07:10）。說「不要早上的課」的人一定也不要它（TODO H7）；
+  // 合成資料沒有第 0 節，多擋一節不影響任何結果
+  morning: [0, 1, 2, 3, 4],
   afternoon: [5, 6, 7, 8, 9],
   evening: [10, 11, 12, 13, 14, 15],
 } as const;
@@ -46,6 +48,9 @@ const WEEKDAYS = [1, 2, 3, 4, 5];
 
 const sameSet = (a: readonly number[], b: readonly number[]) =>
   a.length === b.length && b.every((p) => a.includes(p));
+
+/** 是不是「早上」：第 1–4 節，含或不含第 0 節（加入特早節之前存下的設定是 1–4） */
+const isMorningSet = (ps: readonly number[]) => sameSet(ps, MORNING_PERIODS) || sameSet(ps, [1, 2, 3, 4]);
 
 /**
  * 節次的說法。
@@ -60,12 +65,15 @@ export type PeriodNames = {
   list: (ps: readonly number[]) => string;
   /** 「不排早八」實際擋掉的節次：合成資料是第 1 節，輔大還包含特早節 D0 */
   early: string;
+  /** 「不排早上」實際擋掉的節次：合成資料是第 1–4 節，輔大是 D0–D4 */
+  morning: string;
 };
 
 export const DEMO_PERIOD_NAMES: PeriodNames = {
   span: (ps) => `第 ${ps[0]}–${ps[ps.length - 1]} 節`,
   list: (ps) => `第 ${ps.join("、")} 節`,
   early: "第 1 節",
+  morning: "第 1–4 節",
 };
 
 export function periodNamesFor(school?: string): PeriodNames {
@@ -81,6 +89,10 @@ export function periodNamesFor(school?: string): PeriodNames {
     },
     list: (ps) => ps.map(label).join("、"),
     early: [0, 1].filter(exists).map(label).join("、"),
+    morning: (() => {
+      const xs = MORNING_PERIODS.filter(exists);
+      return `${label(xs[0]!)}–${label(xs[xs.length - 1]!)}`;
+    })(),
   };
 }
 
@@ -106,7 +118,7 @@ function describePeriods(
   for (const a of rest) {
     const day = "一二三四五六日"[a.day - 1];
     const part = (Object.keys(PART_PERIODS) as (keyof typeof PART_PERIODS)[]).find((k) =>
-      sameSet(a.periods, PART_PERIODS[k]),
+      k === "morning" ? isMorningSet(a.periods) : sameSet(a.periods, PART_PERIODS[k]),
     );
     out.push(part ? `空出星期${day}${PART_NAME[part]}` : `空出星期${day} ${names.list(a.periods)}`);
   }
@@ -124,9 +136,7 @@ function describePeriods(
  */
 function isMorningEntry(a: { day: number; periods: number[] }): boolean {
   return (
-    WEEKDAYS.includes(a.day) &&
-    a.periods.length === MORNING_PERIODS.length &&
-    MORNING_PERIODS.every((p) => a.periods.includes(p))
+    WEEKDAYS.includes(a.day) && isMorningSet(a.periods)
   );
 }
 
@@ -478,7 +488,7 @@ export function describeSet(c: ConstraintSet, names: PeriodNames = DEMO_PERIOD_N
   out.push(GOAL_LABEL[c.goal]);
   const morning = isMorningBlock(c.avoidPeriods);
   // 不排早上已經涵蓋第 1 節，兩條並列只是噪音
-  if (morning) out.push(`不排早上的課（${names.span(MORNING_PERIODS)}）`);
+  if (morning) out.push(`不排早上的課（${names.morning}）`);
   else if (c.avoidEarly) out.push(`不排早八（${names.early}）`);
   if (c.avoidDays.length > 0) out.push(`空出星期${c.avoidDays.map((d) => "一二三四五六日"[d - 1]).join("、")}`);
   out.push(...describePeriods(c.avoidPeriods.filter((a) => !(morning && isMorningEntry(a))), names));
@@ -523,7 +533,7 @@ export function describeDelta(
 
   const wasMorning = isMorningBlock(before.avoidPeriods);
   const nowMorning = isMorningBlock(after.avoidPeriods);
-  if (wasMorning !== nowMorning) out.push(nowMorning ? `不排早上的課（${names.span(MORNING_PERIODS)}）` : "恢復可排早上的課");
+  if (wasMorning !== nowMorning) out.push(nowMorning ? `不排早上的課（${names.morning}）` : "恢復可排早上的課");
   // 早上已涵蓋第 1 節，同一輪兩者都變時只講範圍較大的那個
   if (before.avoidEarly !== after.avoidEarly && !nowMorning) {
     out.push(after.avoidEarly ? `不排早八（${names.early}）` : "接受早八");

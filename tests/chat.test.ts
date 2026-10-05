@@ -514,7 +514,7 @@ describe("§1.1 時段由窄到寬：某天某時段不得擴大成整天或每�
     const r = await plan("我禮拜一早上要打工");
     const set = r.plan!.constraintSet;
     expect(set.avoidDays).not.toContain(1);
-    expect(set.avoidPeriods).toEqual([{ day: 1, periods: [1, 2, 3, 4] }]);
+    expect(set.avoidPeriods).toEqual([{ day: 1, periods: [0, 1, 2, 3, 4] }]);
     expect(r.reply.headline).toBe("已空出星期一早上。");
   });
 

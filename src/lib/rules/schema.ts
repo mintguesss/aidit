@@ -82,6 +82,21 @@ const zSubRule = z.discriminatedUnion("type", [
     minCreditsPerDomain: z.number().int().positive().optional(),
     citation: zCitation,
   }),
+  /**
+   * 這一類採計的課裡，至少要有幾學分是指定系所開的選修。
+   *
+   * 輔大資管 111：「選修課程中包含本系專業選修課程至少 10學分」。以前建成「系專選 10」＋「其他選修 22」
+   * 兩個切開的類別 —— 課不能拆，修了 2＋3＋3＋3＋3 ＝ 14 學分本系選修卻湊不出剛好 10，
+   * 系統說「系專選還差 2」，其實早就滿足（TODO H9）。「包含」是分項條件，不是另一個類別
+   */
+  z.object({
+    type: z.literal("minDeptCredits"),
+    id: z.string(),
+    name: z.string(),
+    dept: z.string().min(1),
+    minCredits: z.number().int().positive(),
+    citation: zCitation,
+  }),
   z.object({
     type: z.literal("minCoursesFromList"),
     id: z.string(),

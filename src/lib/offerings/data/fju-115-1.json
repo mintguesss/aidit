@@ -6072,7 +6072,6 @@
     "dept": "IM",
     "college": "MGT",
     "category": [
-      "major-elective",
       "free-elective"
     ],
     "capacity": 85,
@@ -6124,7 +6123,6 @@
     "dept": "IM",
     "college": "MGT",
     "category": [
-      "major-elective",
       "free-elective"
     ],
     "capacity": 100,
@@ -6142,7 +6140,6 @@
     "dept": "IM",
     "college": "MGT",
     "category": [
-      "major-elective",
       "free-elective"
     ],
     "capacity": 100,
@@ -6585,7 +6582,6 @@
     "dept": "IM",
     "college": "MGT",
     "category": [
-      "major-elective",
       "free-elective"
     ],
     "capacity": 55,
@@ -6603,7 +6599,6 @@
     "dept": "IM",
     "college": "MGT",
     "category": [
-      "major-elective",
       "free-elective"
     ],
     "capacity": 120,
@@ -6655,7 +6650,6 @@
     "dept": "IM",
     "college": "MGT",
     "category": [
-      "major-elective",
       "free-elective"
     ],
     "capacity": 50,
@@ -6673,7 +6667,6 @@
     "dept": "IM",
     "college": "MGT",
     "category": [
-      "major-elective",
       "free-elective"
     ],
     "capacity": 15,
@@ -6725,7 +6718,6 @@
     "dept": "IM",
     "college": "MGT",
     "category": [
-      "major-elective",
       "free-elective"
     ],
     "capacity": 58,
@@ -6777,7 +6769,6 @@
     "dept": "IM",
     "college": "MGT",
     "category": [
-      "major-elective",
       "free-elective"
     ],
     "capacity": 55,
@@ -6795,7 +6786,6 @@
     "dept": "IM",
     "college": "MGT",
     "category": [
-      "major-elective",
       "free-elective"
     ],
     "capacity": 85,
@@ -6813,7 +6803,6 @@
     "dept": "IM",
     "college": "MGT",
     "category": [
-      "major-elective",
       "free-elective"
     ],
     "capacity": 75,
@@ -6831,7 +6820,6 @@
     "dept": "IM",
     "college": "MGT",
     "category": [
-      "major-elective",
       "free-elective"
     ],
     "capacity": 40,

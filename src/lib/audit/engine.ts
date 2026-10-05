@@ -375,10 +375,15 @@ export function auditCredits(input: AuditInput): AuditResult {
     const f = main.filled.get(cat.id) ?? { earned: 0, inProgress: 0 };
     const t = tally(cat.credits, f.earned, f.inProgress);
 
+    const assignedHere = [...main.byCourse.entries()]
+      .filter(([, id]) => id === cat.id)
+      .map(([key]) => prepared.byKey.get(key)!);
     const subRules = cat.subRules.map((s) =>
       s.type === "domainCoverage"
         ? domainCoverage(s, generalCourses, pack)
-        : minCoursesFromList(s, prepared, pack),
+        : s.type === "minDeptCredits"
+          ? minDeptCredits(s, assignedHere, pack)
+          : minCoursesFromList(s, prepared, pack),
     );
 
     const notes: string[] = [];
@@ -430,6 +435,7 @@ export function auditCredits(input: AuditInput): AuditResult {
       citations,
       notes,
       assignedCodes,
+      ...(cat.match.type === "anyPassed" ? { catchAll: true } : {}),
     };
   });
 
@@ -478,6 +484,41 @@ export function auditCredits(input: AuditInput): AuditResult {
     verdict,
     currentTerm: input.currentTerm,
     nextTerm: input.nextTerm,
+  };
+}
+
+/** 這一類採計的課裡，指定系所開的選修有幾學分（輔大「選修中包含本系專業選修至少 10 學分」） */
+function minDeptCredits(
+  sub: Extract<RuleCategory["subRules"][number], { type: "minDeptCredits" }>,
+  assigned: CourseRecord[],
+  pack: RulePack,
+): SubRuleResult {
+  // 與 deptElective 同一條判斷：選別是選修、開課單位是該系（沒寫開課單位視為本系）
+  const fromDept = assigned.filter((c) => c.selectType === "elective" && (c.offeringDept ?? pack.dept) === sub.dept);
+  const sum = (cs: CourseRecord[]) => cs.reduce((a, c) => a + c.credits, 0);
+  const done = sum(fromDept.filter((c) => c.status === "passed" || c.status === "waived"));
+  const doing = sum(fromDept.filter((c) => c.status === "in_progress"));
+  const ok = done >= sub.minCredits;
+  const pending = !ok && done + doing >= sub.minCredits;
+  return {
+    id: sub.id,
+    name: sub.name,
+    status: ok ? "satisfied" : pending ? "pending_in_progress" : "unmet",
+    detail: ok
+      ? `至少 ${sub.minCredits} 學分，已修 ${done} 學分，滿足。`
+      : pending
+        ? `至少 ${sub.minCredits} 學分，已修 ${done} 學分，修課中 ${doing} 學分，成績登錄後始滿足。`
+        : `至少 ${sub.minCredits} 學分，已修 ${done} 學分${doing ? `、修課中 ${doing} 學分` : ""}，還差 ${sub.minCredits - done - doing} 學分。`,
+    items: [
+      {
+        label: sub.name,
+        ok,
+        note: pending ? "修課中" : ok ? undefined : `已修 ${done}／${sub.minCredits} 學分`,
+        ...(ok || pending ? {} : { shortBy: sub.minCredits - done - doing }),
+        dept: sub.dept,
+      },
+    ],
+    citations: [toCitation(sub.citation, pack)],
   };
 }
 

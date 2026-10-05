@@ -37,26 +37,35 @@ describe("中文數字", () => {
 describe("applyEdit", () => {
   const cat = (id: string) => editableOf(draft, `category:${id}`) as Extract<Editable, { kind: "category" }>;
 
+  // 通識 12 改成 4：原文「通識：12學分（人文與藝術(PT)4學分…」裡有 4
+  const planQuote = { docId: "fju-im-plan-111", locator: "第 4 頁 畢業規定摘要", quote: "通識：12學分（人文與藝術(PT)4學分" };
+
   it("改學分但沒換依據：原文裡沒有新數字就擋下", () => {
-    const v = { ...cat("major-elective"), credits: 12 };
-    const p = problemsOf(() => applyEdit(draft, corpus, "category:major-elective", v, { rebalanceFree: true }));
-    expect(p.some((x) => x.includes("依據的原文裡沒有 12"))).toBe(true);
+    const v = { ...cat("general"), credits: 4 };
+    const p = problemsOf(() => applyEdit(draft, corpus, "category:general", v, { rebalanceFree: true }));
+    expect(p.some((x) => x.includes("依據的原文裡沒有 4"))).toBe(true);
   });
 
-  it("改學分沒調其他選修：加總不等於 128 就擋下", () => {
-    const v = { ...cat("major-elective"), credits: 12, citation: { ...cat("major-elective").citation, quote: "修滿基本能力課程 12學分" } };
-    const p = problemsOf(() => applyEdit(draft, corpus, "category:major-elective", v));
+  it("改學分沒調選修課程：加總不等於 128 就擋下", () => {
+    const v = { ...cat("general"), credits: 4, citation: planQuote };
+    const p = problemsOf(() => applyEdit(draft, corpus, "category:general", v));
     expect(p.some((x) => x.includes("128"))).toBe(true);
   });
 
-  it("勾選一併調整：其他選修跟著改，變更清單寫出兩邊", () => {
-    const v = { ...cat("major-elective"), credits: 12, citation: { ...cat("major-elective").citation, quote: "修滿基本能力課程 12學分" } };
-    const r = applyEdit(draft, corpus, "category:major-elective", v, { rebalanceFree: true });
+  it("勾選一併調整：承接類別（選修課程）跟著改，變更清單寫出兩邊", () => {
+    const v = { ...cat("general"), credits: 4, citation: planQuote };
+    const r = applyEdit(draft, corpus, "category:general", v, { rebalanceFree: true });
     const cats = r.draft.categories as { id: string; credits: number }[];
-    expect(cats.find((c) => c.id === "major-elective")!.credits).toBe(12);
-    expect(cats.find((c) => c.id === "free-elective")!.credits).toBe(20);
-    expect(r.changes).toContain("學分：10 → 12");
-    expect(r.changes.some((c) => c.includes("其他選修") && c.includes("22 → 20"))).toBe(true);
+    expect(cats.find((c) => c.id === "general")!.credits).toBe(4);
+    expect(cats.find((c) => c.id === "free-elective")!.credits).toBe(40);
+    expect(r.changes).toContain("學分：12 → 4");
+    expect(r.changes.some((c) => c.includes("選修課程") && c.includes("32 → 40"))).toBe(true);
+  });
+
+  it("本系選修的分項條件也能改：數字要在原文裡", () => {
+    const b = editableOf(draft, "subRule:dept-elective-10") as Extract<Editable, { kind: "deptCredits" }>;
+    expect(b.minCredits).toBe(10);
+    expect(problemsOf(() => applyEdit(draft, corpus, "subRule:dept-elective-10", { ...b, minCredits: 9 })).join()).toContain("沒有 9");
   });
 
   it("依據的句子原文裡沒有：擋下", () => {

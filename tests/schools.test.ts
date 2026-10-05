@@ -41,12 +41,14 @@ describe("開課資料依學校", () => {
     expect(calc[0]!.rawSlotText).not.toBe(calc[1]!.rawSlotText);
   });
 
-  it("115-1 課程查詢：通識記下領域、外國語文算基本能力、系上選修算系專選", () => {
+  it("115-1 課程查詢：通識記下領域、外國語文算基本能力、系上選修算選修課程（本系）", () => {
     const t1 = offeringsFor(115, 1, "fju");
     const domains = new Set(t1.filter((o) => o.category.includes("general")).map((o) => o.generalDomain));
     expect([...domains].sort()).toEqual(["人文與藝術", "永續素養", "社會科學", "自然與科技"]);
     expect(t1.find((o) => o.name === "外國語文(中級英文)")?.category).toEqual(["basic-skills"]);
-    expect(t1.find((o) => o.code === "19664")?.category).toContain("major-elective");
+    const im = t1.find((o) => o.code === "19664")!;
+    expect(im.category).toContain("free-elective");
+    expect(im.dept).toBe("IM");
   });
 
   it("官方資料裡 19664 是「組織學習與社會探究」—— 規劃表把同一個課號也印給了資訊系統專案管理（校對清單 B1）", () => {

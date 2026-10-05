@@ -690,9 +690,8 @@ a.btn-primary:hover{color:#fff}
 
 /* 顏色塗在格子（td）上，不塗在內層：合併格（rowSpan）裡內層的 height:100% 不會生效，
    以前方塊只長到文字的高度，跨兩節的課看起來只佔一節半 */
-/* 課程色依類別，與修業進度條同一套（data-c 1–6）。底色淡、左邊一條實色，字用深色 */
-.tt-cell{padding:0;--c:#5B6B82;background:color-mix(in srgb,var(--c) 14%,#fff);
-  box-shadow:inset 4px 0 0 var(--c);color:var(--text)}
+/* 課程色依類別，與修業進度條同一套（data-c 1–6）。底色淡，字用深色 */
+.tt-cell{padding:0;--c:#5B6B82;background:color-mix(in srgb,var(--c) 16%,#fff);color:var(--text)}
 .tt-cell[data-c="1"]{--c:#3F7FC4}
 .tt-cell[data-c="2"]{--c:#26A3A8}
 .tt-cell[data-c="3"]{--c:#68B05A}
@@ -701,7 +700,7 @@ a.btn-primary:hover{color:#fff}
 .tt-cell[data-c="6"]{--c:#8C86D8}
 .tt-cell.reserved{--c:#A3ACB9;background:repeating-linear-gradient(135deg,var(--surface),var(--surface) 6px,var(--surface-2) 6px,var(--surface-2) 12px);color:var(--text-2)}
 .tt-cell:has(a.tt-link:hover){background:color-mix(in srgb,var(--c) 24%,#fff)}
-.tt-in{display:block;padding:8px 10px 8px 13px;color:inherit}
+.tt-in{display:block;padding:8px 10px;color:inherit}
 a.tt-link{text-decoration:none;color:inherit}
 a.tt-link:hover{text-decoration:none}
 .tt-name{display:block;font-size:13px;font-weight:700;line-height:1.45;color:var(--ink)}
@@ -723,7 +722,7 @@ a.tt-link:hover{text-decoration:none}
   .tt-p .n{font-size:11.5px}
   .tt-p .hm{font-size:8.5px}
   .tt-empty{height:44px}
-  .tt-in{padding:5px 5px 5px 8px}
+  .tt-in{padding:5px}
   .tt-time{display:none}
   .tt-name{font-size:11px;line-height:1.35}
   .tt-sub{font-size:9.5px;line-height:1.45;margin-top:1px}
@@ -1122,3 +1121,22 @@ details.fset > *:last-child{margin-bottom:14px}
 .tt-notime{margin:10px 0 0;padding:10px 14px;border:1px dashed var(--line);border-radius:4px;
   background:var(--paper);font-size:13px}
 .tt-notime ul{margin:4px 0 0;padding-left:20px}
+
+/* ===================================================== 載入中（TODO G6） */
+.spin-wrap{display:inline-flex;align-items:center;gap:8px;vertical-align:middle}
+.spin{display:inline-block;border:2px solid color-mix(in srgb,currentColor 25%,transparent);
+  border-top-color:currentColor;border-radius:50%;animation:spin .7s linear infinite;flex:none}
+.spin-label{font-size:13.5px;color:var(--text-2)}
+.btn .spin-label{color:inherit;font-size:inherit}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:2s}}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.page-loading{max-width:1180px;margin:0 auto;padding:40px 24px;color:var(--text-2)}
+.skel{display:flex;flex-direction:column;gap:14px;margin-top:28px}
+.skel i{display:block;height:22px;border-radius:4px;
+  background:linear-gradient(90deg,var(--surface) 25%,var(--surface-2) 50%,var(--surface) 75%);
+  background-size:200% 100%;animation:skel 1.4s ease-in-out infinite}
+@keyframes skel{from{background-position:200% 0}to{background-position:-200% 0}}
+.busy-toast{position:fixed;right:20px;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:50;
+  background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:9px 14px;
+  box-shadow:0 4px 14px rgba(0,0,0,.12)}

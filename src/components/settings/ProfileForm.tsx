@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { CoursePreferences, ExtraGoal, GraduationCheck, Student } from "@/lib/types";
 import { EMPTY_OPTIONAL, type OptionalPreferences } from "@/lib/ui/prefs";
 import { erase, fetchPreferences, pushPreferences } from "@/lib/ui/sync";
+import { Spinner } from "@/components/shell/Spinner";
 
 /**
  * 個人資料與選課傾向。
@@ -49,7 +50,7 @@ export function ProfileForm({
   search: string;
 }) {
   const [prefs, setPrefs] = useState<CoursePreferences>(defaults);
-  const [saved, setSaved] = useState<"idle" | "ok" | "fail">("idle");
+  const [saved, setSaved] = useState<"idle" | "saving" | "ok" | "fail">("idle");
   const [opt, setOpt] = useState<OptionalPreferences>(EMPTY_OPTIONAL);
   const [hydrated, setHydrated] = useState(false);
 
@@ -69,6 +70,7 @@ export function ProfileForm({
   };
 
   const submit = () => {
+    setSaved("saving");
     void pushPreferences(fixture, term, prefs, opt).then((ok) => setSaved(ok ? "ok" : "fail"));
   };
 
@@ -346,8 +348,8 @@ export function ProfileForm({
           </details>
 
           <div className="formactions">
-            <button className="btn btn-primary" type="button" onClick={submit} disabled={!hydrated}>
-              儲存設定
+            <button className="btn btn-primary" type="button" onClick={submit} disabled={!hydrated || saved === "saving"}>
+              {saved === "saving" ? <Spinner label="儲存中…" /> : "儲存設定"}
             </button>
             <button className="btn" type="button" onClick={reset} disabled={!hydrated}>
               回到預設值

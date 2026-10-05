@@ -39,6 +39,34 @@ describe("學期起訖", () => {
     expect(TERM_DATES.of("115")).toBeNull();
     expect(TERM_DATES.of("115-3")).toBeNull();
   });
+
+  it("輔大 115 學年度照秘書室行事曆（TODO C5）", () => {
+    expect(TERM_DATES.of("115-1", "fju")).toMatchObject({ start: "2026-09-14", end: "2027-01-02" });
+    expect(TERM_DATES.of("115-2", "fju")).toMatchObject({ start: "2027-02-22", end: "2027-06-12" });
+    expect(TERM_DATES.of("115-1", "fju")!.source).toContain("秘書室");
+  });
+
+  it("輔大沒收錄的學期依同一套規律推估，並標明是推估", () => {
+    const d = TERM_DATES.of("113-1", "fju")!;
+    // 113-1 實際開學 2024-09-09，正是 9 月第二個週一
+    expect(d.start).toBe("2024-09-09");
+    expect(d.source).toContain("推估");
+    // 規律套回 115 也要對得上行事曆
+    expect(TERM_DATES.of("115-2", "fju")!.start).toBe("2027-02-22");
+  });
+});
+
+describe("單雙週匯出", () => {
+  const odd: Plan = {
+    ...plan,
+    courses: [{ ...plan.courses[0]!, slots: [{ day: 2, periods: [2], weeks: "odd" }, { day: 2, periods: [3], weeks: "even" }] }],
+  };
+  const ics = toIcs(odd, new Date("2026-10-01T00:00:00Z"));
+  it("單週從第一週、雙週從第二週起，每兩週一次", () => {
+    expect(ics).toContain("INTERVAL=2");
+    const starts = [...ics.matchAll(/DTSTART:(\d{8})/g)].map((m) => m[1]);
+    expect(Number(starts[1]) - Number(starts[0])).toBe(7);
+  });
 });
 
 describe("CSV", () => {

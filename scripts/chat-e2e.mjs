@@ -196,11 +196,20 @@ async function converse(scope, turns) {
   const responses = [];
   for (const text of turns) {
     history.push({ role: "user", content: text });
-    const res = await fetch(`${BASE}/api/chat`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ scope, constraints, shown, messages: history }),
-    });
+    const send = () =>
+      fetch(`${BASE}/api/chat`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ scope, constraints, shown, messages: history }),
+      });
+    let res = await send();
+    // 伺服器有速率限制（src/middleware.ts，每分鐘 15 次）。被擋就照 Retry-After 等，不是測試失敗
+    while (res.status === 429) {
+      const wait = Number(res.headers.get("retry-after") ?? "5");
+      process.stdout.write(`（速率限制，等 ${wait} 秒）`);
+      await new Promise((r) => setTimeout(r, wait * 1000));
+      res = await send();
+    }
     const r = await res.json();
     responses.push(r);
     if (r.plan) {

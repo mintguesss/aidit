@@ -25,7 +25,7 @@ import { clarify, forbidden, outOfScope, uncertain } from "./compose";
 import { buildContext, explain, runPlanTurn, type PlanTurnOutcome } from "./plan-turn";
 import type { ChatMessage, ConstraintSet, Reply } from "./types";
 import { LIMITS } from "./types";
-import { schoolOf } from "@/lib/schools";
+import { schoolOf, withoutOwnSchool } from "@/lib/schools";
 
 /**
  * 兩個介面的路由器。
@@ -89,8 +89,10 @@ export async function planTurn(
   }
 
   const raw = lastUser(messages);
+  // 規則看的句子：學生自己學校的稱呼換成「本校」，「輔大」才不會被當成他校
+  const forRules = withoutOwnSchool(raw, schoolOf(ctx.record.student));
   const tools = ["chat.intent"];
-  let intent = await orRules(parsePlanIntent(messages, budget), () => rulePlanIntent(raw), tools);
+  let intent = await orRules(parsePlanIntent(messages, budget), () => rulePlanIntent(forRules), tools);
 
   // 使用者眼前的課表（見 shownPlan）。ctx.currentPlan 是依個人資料求的第一版，
   // 多輪之後就不是使用者看到的了 —— 拿它當「之前」，課表差異會一直跟第一版比，
@@ -104,7 +106,8 @@ export async function planTurn(
   const changesOf = (p: PlanParams, next: ConstraintSet) =>
     p.reset ? ["重設為個人資料的原始設定"] : describeDelta(ctx.constraints, next, periodNamesFor(ctx.record.student.school));
 
-  const rules = rulePlanIntent(raw);
+  const rules = rulePlanIntent(forRules);
+  intent = correctOtherInstitution(intent, rules, tools);
   if (rules.kind === "forbidden") {
     // 模型沒擋就補擋；模型也擋了但理由不同，採用規則的理由 ——
     // 理由決定轉介到哪裡：說壓力大睡不著的學生該被指向輔導中心，
@@ -422,11 +425,13 @@ export async function askTurn(
   }
 
   const tools = ["chat.intent"];
-  let intent = await orRules(parseAskIntent(messages, budget), () => ruleAskIntent(lastUser(messages)), tools);
+  const forRules = withoutOwnSchool(lastUser(messages), schoolOf(ctx.record.student));
+  let intent = await orRules(parseAskIntent(messages, budget), () => ruleAskIntent(forRules), tools);
 
   // 與 planTurn 相同的安全網與後援：規則可以多擋、可以補上模型漏判的路由，
   // 但絕不推翻模型的拒絕
-  const rules = ruleAskIntent(lastUser(messages));
+  const rules = ruleAskIntent(forRules);
+  intent = correctOtherInstitution(intent, rules, tools);
   const ruleScenario = rules.kind === "intent" && rules.intent === "what-if" ? rules.params.scenario : null;
   const modelScenario = intent.kind === "intent" && intent.intent === "what-if" ? intent.params.scenario : null;
   if (rules.kind === "forbidden") {
@@ -685,4 +690,22 @@ function lookup(keyword: string | undefined, raw: string, answer: (q: string) =>
   if (first.kind === "決定" || !keyword || keyword === raw) return first;
   const second = answer(raw);
   return second.kind === "決定" ? second : first;
+}
+
+/**
+ * 模型判成「他校事務」、但句子裡根本沒有別的學校（TODO G3）。
+ *
+ * 實測 qwen3:14b 對「今天天氣如何」拒絕時套用「他校事務」的說法，轉介到錯的單位；
+ * 模型也不知道學生讀哪一所，輔大學生問「輔大的規定」會被它當成問別校。
+ * 「他校」是看得到證據的：句子裡要有別的學校的名字（自己學校的稱呼已換成「本校」）。
+ * 規則找不到 —— 規則看得懂這句話就照規則走；看不懂就是一般的超出範圍。
+ *
+ * 這是「規則不推翻模型拒絕」的唯一例外：拒絕的依據是事實錯誤（把本校當他校），不是判斷不同。
+ * 其他禁止主題（成績預測、教師評價…）照舊，規則只能多擋、不能放行。
+ */
+function correctOtherInstitution<T extends { kind: string }>(intent: T, rules: T, tools: string[]): T {
+  const topic = (intent as { topic?: string }).topic;
+  if (intent.kind !== "forbidden" || topic !== "other-institution" || rules.kind === "forbidden") return intent;
+  tools.push("rule.other-institution");
+  return rules.kind === "intent" ? rules : ({ kind: "out-of-scope" } as unknown as T);
 }

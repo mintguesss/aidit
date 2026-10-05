@@ -13,7 +13,7 @@ import { describeSet, toSolverConstraints, DEMO_PERIOD_NAMES, type PeriodNames }
 import type { ConstraintSet } from "./types";
 import { termLimitsFor } from "@/lib/rules/term-limits";
 import { schoolOf } from "@/lib/schools";
-import { takenCourseCodes } from "@/lib/solver/taken";
+import { continuingCourseCodes, takenCourseCodes } from "@/lib/solver/taken";
 
 /**
  * A 介面的一輪（docs/CONVERSATION.md §1.3、§1.4）。
@@ -54,6 +54,8 @@ export function buildContext(
         .map((c) => c.equivalentOf ?? c.code),
     ),
     takenCodes: takenCourseCodes(record.courses, pack),
+    continueCodes: continuingCourseCodes(record.courses, pack),
+    admissionYear: record.student.admissionYear,
     reserved: reservedFrom(record.plannedCommitments),
     preferences: {
       goal: set.goal,

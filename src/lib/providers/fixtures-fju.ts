@@ -144,7 +144,8 @@ function fjuRecord(student: Student, courses: CourseRecord[]): StudentRecord {
   };
 }
 
-const UPTO_YEAR2 = COURSES.filter((x) => x.year <= 112);
+/** 修到某一學期為止（含）。學期以 學年*10+學期 比較 */
+const upTo = (year: number, term: 1 | 2) => COURSES.filter((x) => x.year * 10 + (x.term === "summer" ? 3 : x.term) <= year * 10 + term);
 
 export const FJU_FIXTURES = [
   {
@@ -155,10 +156,31 @@ export const FJU_FIXTURES = [
     record: fjuRecord({ ...STUDENT, className: "資管四（日間部）" }, COURSES),
   },
   {
+    id: "fju-im-111-year3" as const,
+    title: "輔大資管 111：大三結束、即將升大四",
+    tests: "同一份成績單只到 113-2：剩專業倫理、通識社會科學、選修，114-1 怎麼排；大四學分上下限（9／32）",
+    term: "113-2",
+    record: fjuRecord({ ...STUDENT, id: "S-FJU-IM111-D", className: "資管三（日間部）" }, upTo(113, 2)),
+  },
+  {
     id: "fju-im-111-year2" as const,
     title: "輔大資管 111：大二結束、準備升大三",
     tests: "同一份成績單只到 112-2：還缺哪些、113-1 怎麼排（113-1 真實開課資料）",
     term: "112-2",
-    record: fjuRecord({ ...STUDENT, id: "S-FJU-IM111-B", className: "資管二（日間部）" }, UPTO_YEAR2),
+    record: fjuRecord({ ...STUDENT, id: "S-FJU-IM111-B", className: "資管二（日間部）" }, upTo(112, 2)),
+  },
+  {
+    id: "fju-im-111-year1" as const,
+    title: "輔大資管 111：大一結束",
+    tests: "同一份成績單只到 111-2：全學年課程上下學期都修完、112-1 怎麼排",
+    term: "111-2",
+    record: fjuRecord({ ...STUDENT, id: "S-FJU-IM111-E", className: "資管一（日間部）" }, upTo(111, 2)),
+  },
+  {
+    id: "fju-im-111-year1-fall" as const,
+    title: "輔大資管 111：大一上學期結束",
+    tests: "同一份成績單只到 111-1：全學年課程只修了上半，下學期那一半要排進 111-2",
+    term: "111-1",
+    record: fjuRecord({ ...STUDENT, id: "S-FJU-IM111-F", className: "資管一（日間部）" }, upTo(111, 1)),
   },
 ];

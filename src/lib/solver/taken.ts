@@ -34,3 +34,17 @@ export function takenCourseCodes(courses: CourseRecord[], pack: Pick<RulePack, "
   }
   return out;
 }
+
+/**
+ * 學年課只修了一半（上學期修過、下學期還沒）：下學期那一半要接著修。
+ *
+ * 輔大的國文、外國語文、微積分、會計學都是上下學期接著修的學年課。大一上結束時，
+ * 排課要優先把下半排進來 —— 不然它會拿別的必修（例如大二的統計學下半）湊學分。
+ */
+export function continuingCourseCodes(courses: CourseRecord[], pack: Pick<RulePack, "yearLongCourses">): Set<string> {
+  const passed = courses.filter((c) => c.status === "passed" || c.status === "waived" || c.status === "in_progress");
+  const codeOf = (c: CourseRecord) => c.equivalentOf ?? c.code;
+  const yearLong = new Set([...pack.yearLongCourses, ...passed.filter((c) => c.yearLong).map(codeOf)]);
+  const taken = takenCourseCodes(courses, pack);
+  return new Set(passed.map(codeOf).filter((code) => code && yearLong.has(code) && !taken.has(code)));
+}

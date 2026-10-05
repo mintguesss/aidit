@@ -115,6 +115,7 @@ const SECRET_ALLOW = [
   // ICS 的日期時間是 YYYYMMDD(THHMMSS)，八位數字長得跟學號一樣。
   // 限定必須跟在 ICS 欄位名後面，不放寬成「任何八位數字」。
   /(?:DTSTART|DTEND|DTSTAMP|UNTIL)[:=]\d/,
+  /max-age=\d+/, // HTTP 標頭的秒數（HSTS 一年的秒數長得跟學號一樣）
 ];
 
 export function scanSecrets(): SecretHit[] {

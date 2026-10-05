@@ -125,7 +125,21 @@ type Candidate = {
   slotUnknownNote?: boolean;
   /** 使用者指定一定要留的課，任何解都必須包含 */
   pinned: boolean;
+  /** 這學期該修的課（學年課的下半、規劃在這個年級的本系必修），要優先排 */
+  continues: boolean;
 };
+
+/**
+ * 同一門課最多試幾個不同時段的班。
+ *
+ * 輔大一學期國文九十幾班、外國語文兩百多班，課表上它們只差在時段。全部放進搜尋，
+ * 時間都花在「同一門課換一班」上（大一的案例一次求解要將近 10 秒）。
+ * 留下時段各不相同的前幾班已足夠避開衝堂；被略過的班不是「排除」，不列在排除清單裡
+ */
+const SECTION_LIMIT = 6;
+
+/** 補的需求、學分都一樣的課最多試幾門（見 filterCandidates 的 capClasses） */
+const CLASS_LIMIT = 8;
 
 export type SolveContext = {
   offerings: Offering[];
@@ -134,6 +148,12 @@ export type SolveContext = {
   passedCodes: Set<string>;
   /** 已修畢或正在修的課號，不再建議（學年課要上下兩半都修過，見 solver/taken.ts） */
   takenCodes: Set<string>;
+  /** 學年課只修了上半：下半要優先排（solver/taken.ts 的 continuingCourseCodes） */
+  continueCodes?: Set<string>;
+  /** continueCodes 裡這學期真的有開、也沒被排除的（求解時算出，呼叫端不用填） */
+  continueOffered?: Set<string>;
+  /** 入學學年。配合 termLabel 算出排課那學期是大幾，高年級的必修不排給低年級 */
+  admissionYear?: number;
   reserved: { label: string; slots: TimeSlot[] }[];
   constraints: Constraints;
   termLabel: string;
@@ -201,7 +221,9 @@ const DAY_NAME: Record<number, string> = { 1: "一", 2: "二", 3: "三", 4: "四
 
 type Exclusion = { reason: string; code: string; name: string; step: ExclusionReason["step"] };
 
-const MAX_COURSES = 6;
+// 一學期最多幾門。以前是 6，比輔大學生實際修的少（大一下有學分的課就有 7 門）；
+// 真正的上限是學分上限（25），這裡只是搜尋深度
+const MAX_COURSES = 8;
 const NODE_LIMIT = 300_000;
 
 /**
@@ -225,6 +247,9 @@ function filterCandidates(ctx: SolveContext): {
   const relevantCats = new Set(ctx.requirements.map((r) => r.categoryId));
 
   const excluded = new Set(ctx.constraints.excludeCourses ?? []);
+  const termYear = /^(\d{3})-/.exec(ctx.termLabel)?.[1];
+  const studyYear =
+    ctx.admissionYear !== undefined && termYear !== undefined ? Number(termYear) - ctx.admissionYear + 1 : undefined;
   const pinned = new Set(ctx.constraints.pinCourses ?? []);
 
   for (const o of [...ctx.offerings].sort((a, b) => cmp(a.code, b.code))) {
@@ -240,6 +265,13 @@ function filterCandidates(ctx: SolveContext): {
     // 0.5 已經修過（或正在修）的課不再建議
     if (ctx.takenCodes.has(o.code)) {
       drop("already-taken", "已經修過");
+      continue;
+    }
+
+    // 0.6 規劃表排在更高年級的本系必修，不排給低年級（大一不會被排到大二的統計學）。
+    // 選修、通識沒有年級限制
+    if (studyYear !== undefined && o.forGrade !== undefined && o.forGrade > studyYear) {
+      drop("later-grade", `規劃表排在大${"一二三四"[o.forGrade - 1] ?? o.forGrade}`);
       continue;
     }
 
@@ -300,12 +332,46 @@ function filterCandidates(ctx: SolveContext): {
       prereqWarning: soft?.sourceText,
       slotUnknownNote: o.slotsUnknown,
       pinned: pinned.has(o.code),
+      // 「這學期該修的課」：學年課的下半，以及規劃在這個年級（或更早、還沒修）的本系必修
+      continues:
+        (ctx.continueCodes?.has(o.code) ?? false) ||
+        (studyYear !== undefined && o.forGrade !== undefined && o.forGrade <= studyYear),
     };
     if (satisfies.length > 0 || c.pinned) candidates.push(c);
     else fillers.push(c);
   }
 
-  return { candidates, fillers, exclusions };
+  // 同一門課只留時段不同的前幾班（指定保留的課不限）
+  const capSections = (list: Candidate[]) => {
+    const seen = new Map<string, Set<string>>();
+    return list.filter((c) => {
+      if (c.pinned) return true;
+      const slots = seen.get(c.offering.code) ?? new Set<string>();
+      seen.set(c.offering.code, slots);
+      const key = c.offering.rawSlotText ?? "";
+      if (slots.has(key) || slots.size >= SECTION_LIMIT) return false;
+      slots.add(key);
+      return true;
+    });
+  };
+  // 對排課來說可以互換的課（補的需求一樣、學分一樣）只留前幾門。輔大一學期的通識上百門，
+  // 同領域 2 學分的課彼此只差在時段與課名，全部放進搜尋只會撞到 NODE_LIMIT（大一的案例要 10 秒）。
+  // 指定保留、學年課下半不受限
+  const capClasses = (list: Candidate[]) => {
+    const codesByClass = new Map<string, Set<string>>();
+    return list.filter((c) => {
+      if (c.pinned || c.continues) return true;
+      const key = `${[...c.satisfies].sort().join("|")}:${c.offering.credits}`;
+      const codes = codesByClass.get(key) ?? new Set<string>();
+      codesByClass.set(key, codes);
+      if (codes.has(c.offering.code)) return true;
+      if (codes.size >= CLASS_LIMIT) return false;
+      codes.add(c.offering.code);
+      return true;
+    });
+  };
+  return { candidates: capClasses(capSections(candidates)), fillers: capSections(fillers), exclusions };
+
 }
 
 /** 湊學分下限的候選不需要全部進搜尋空間，取學分數較大的幾門即可 */
@@ -336,6 +402,8 @@ type Score = {
   unmetAfter: number;
   /** 扣掉承接類別之後還缺多少（見 shortfallParts） */
   unmetSpecific: number;
+  /** 有開課、卻沒排進來的學年課下半 */
+  missedContinuations: number;
   courseCount: number;
   earlyMorningCount: number;
   belowTermMin: number;
@@ -396,13 +464,28 @@ function shortfallParts(sel: Candidate[], reqs: Requirement[]): { total: number;
       hits[k]! += 1;
     }
   }
-  let total = 0;
-  let specific = 0;
+  // 分項需求（領域、本系選修）的學分包含在所屬類別的學分裡，不是另外加的：
+  // 通識還差 8、自然與社會各差 4，總共還是差 8，不是 16。每一類取「類別缺口」與「分項缺口合計」的較大者。
+  // 以前直接相加，一門有領域的通識被算成兩倍的價值，大一的必修因此被通識擠掉
+  const byCat = new Map<string, { cat: number; subs: number; catchAll: boolean }>();
   reqs.forEach((r, k) => {
     const gap = need[k]! + (r.minCourses && hits[k]! < r.minCourses ? DOMAIN_WEIGHT : 0);
-    total += gap;
-    if (!(r.catchAll && !isSub(r))) specific += gap;
+    const e = byCat.get(r.categoryId) ?? { cat: 0, subs: 0, catchAll: false };
+    if (isSub(r)) e.subs += gap;
+    else {
+      e.cat += gap;
+      e.catchAll = Boolean(r.catchAll);
+    }
+    byCat.set(r.categoryId, e);
   });
+  let total = 0;
+  let specific = 0;
+  for (const e of byCat.values()) {
+    const gap = Math.max(e.cat, e.subs);
+    total += gap;
+    // 承接類別（選修課程）本身什麼課都能補，只有它的分項（本系選修）算特定缺口
+    specific += e.catchAll ? e.subs : gap;
+  }
   return { total, specific };
 }
 
@@ -416,6 +499,7 @@ function score(sel: Candidate[], ctx: SolveContext): Score {
       const p = shortfallParts(sel, ctx.requirements);
       return { unmetAfter: p.total, unmetSpecific: p.specific };
     })(),
+    missedContinuations: [...(ctx.continueOffered ?? [])].filter((code) => !sel.some((c) => c.offering.code === code)).length,
     courseCount: sel.length,
     earlyMorningCount: sel.filter((c) => c.early).length,
     belowTermMin: Math.max(0, ctx.termMinCredits - totalCredits),
@@ -572,7 +656,10 @@ function attemptSolve(
   relaxations: string[],
   allowPartial: boolean,
 ): SolveResult {
-  const { candidates, fillers, exclusions } = filterCandidates(ctx);
+  const filtered = filterCandidates(ctx);
+  const { candidates, fillers, exclusions } = filtered;
+  // 學年課下半：這學期有開、也沒被排除的才算「應該接上」—— 沒開的不能怪課表
+  ctx = { ...ctx, continueOffered: new Set([...candidates, ...fillers].filter((c) => c.continues).map((c) => c.offering.code)) };
   const excluded = summarize(exclusions, ctx.offerings.length);
 
   // 2. 任一 unmet 類別的候選集為空 → 立即回報 infeasible，附原因
@@ -633,8 +720,13 @@ function attemptSolve(
   // 嘗試順序：能補「特定缺口」（必修、核心、通識領域、本系選修）的課先試，其次才是只能補承接類別的，
   // 同一組裡學分大的先。以前只照學分排：輔大一學期四百多個候選，3 學分的選修排在前面，
   // 搜尋到 NODE_LIMIT 就停，2 學分的人生哲學根本沒被試到（TODO G4）
+  // 學年課下半最先，其次能補特定缺口的，最後只能補承接類別的
   const specificRank = (c: Candidate) =>
-    [...c.creditIdx, ...c.domainIdx].some((k) => !ctx.requirements[k]!.catchAll || isSub(ctx.requirements[k]!)) ? 0 : 1;
+    c.continues
+      ? -1
+      : [...c.creditIdx, ...c.domainIdx].some((k) => !ctx.requirements[k]!.catchAll || isSub(ctx.requirements[k]!))
+        ? 0
+        : 1;
   const byPriority = (a: Candidate, b: Candidate) =>
     specificRank(a) - specificRank(b) || b.offering.credits - a.offering.credits || cmp(a.offering.code, b.offering.code);
   const usableFillers = [...fillers]
@@ -646,6 +738,11 @@ function attemptSolve(
 
   const gainFactor = ctx.requirements.some((r) => isSub(r) && r.minCredits > 0) ? 2 : 1;
   const solutions: { sel: Candidate[]; score: Score }[] = [];
+  let bestKey: [number, number, number] = [Infinity, Infinity, Infinity];
+  /** 所有組合裡最小的總缺口（無解判定用；去掉贅餘的課不會改變它，所以不必先做贅餘檢查） */
+  let minTotal = Number.POSITIVE_INFINITY;
+  const continueOffered = [...(ctx.continueOffered ?? [])];
+  const missedOf = (cs: Candidate[]) => continueOffered.filter((code) => !cs.some((c) => c.offering.code === code)).length;
   const sel: Candidate[] = [...pinnedCandidates];
   let nodes = 0;
   let truncated = false;
@@ -656,14 +753,26 @@ function attemptSolve(
       truncated = true;
       return;
     }
-    if (sel.length > 0 && isIrredundant(sel, ctx, pinnedCandidates.length)) {
-      solutions.push({ sel: [...sel], score: score(sel, ctx) });
+    const parts = shortfallParts(sel, ctx.requirements);
+    if (sel.length > 0) {
+      // 邊搜邊比：後面挑解只看（漏接的該修課、特定缺口、總缺口）最好的那一群，
+      // 比目前最好的差就不必存、也不必做贅餘檢查與完整評分。挑出來的結果與全部存下來再挑相同
+      minTotal = Math.min(minTotal, parts.total);
+      const missed = missedOf(sel);
+      const cmpKey = missed - bestKey[0] || parts.specific - bestKey[1] || parts.total - bestKey[2];
+      if (cmpKey <= 0 && isIrredundant(sel, ctx, pinnedCandidates.length)) {
+        if (cmpKey < 0) {
+          solutions.length = 0;
+          bestKey = [missed, parts.specific, parts.total];
+        }
+        solutions.push({ sel: [...sel], score: score(sel, ctx) });
+      }
     }
     if (i >= sorted.length || sel.length >= MAX_COURSES) return;
 
     // 剪枝：剩餘候選可提供學分 < 尚缺學分
     // 以學分計的領域需求：一門通識同時補通識學分和該領域，最多能減掉兩倍學分
-    if (shortfall(sel, ctx.requirements) > gainFactor * suffix[i]! + DOMAIN_WEIGHT * ctx.requirements.length) return;
+    if (parts.total > gainFactor * suffix[i]! + DOMAIN_WEIGHT * ctx.requirements.length) return;
 
     for (let j = i; j < sorted.length; j++) {
       const c = sorted[j]!;
@@ -699,7 +808,7 @@ function attemptSolve(
   // 少了這一步，fewest-courses 會挑出一門課就交差、卻留著未修學分的方案 ——
   // 那在畢業審查的場域不是一個「比較少堂數的選擇」，而是一份錯的建議。
   // 不用 Math.min(...)：可行解可以多到幾十萬組（輔大一學期六百多班），展開成參數會撐爆呼叫堆疊
-  const bestUnmet = solutions.reduce((m, s) => Math.min(m, s.score.unmetAfter), Number.POSITIVE_INFINITY);
+  const bestUnmet = minTotal;
   if (bestUnmet > 0 && !allowPartial) {
     return {
       ok: false,
@@ -708,9 +817,12 @@ function attemptSolve(
       relaxations,
     };
   }
-  // 先補只有特定課能補的缺口（必修、核心、通識領域、本系選修），再看總缺口（TODO G4）
-  const bestSpecific = solutions.reduce((m, s) => Math.min(m, s.score.unmetSpecific), Number.POSITIVE_INFINITY);
-  const focused = solutions.filter((s) => s.score.unmetSpecific === bestSpecific);
+  // 學年課的下半先接上；再補只有特定課能補的缺口（必修、核心、通識領域、本系選修），
+  // 最後才看總缺口（TODO G4）
+  const bestCont = solutions.reduce((m, s) => Math.min(m, s.score.missedContinuations), Number.POSITIVE_INFINITY);
+  const continued = solutions.filter((s) => s.score.missedContinuations === bestCont);
+  const bestSpecific = continued.reduce((m, s) => Math.min(m, s.score.unmetSpecific), Number.POSITIVE_INFINITY);
+  const focused = continued.filter((s) => s.score.unmetSpecific === bestSpecific);
   const bestTotal = focused.reduce((m, s) => Math.min(m, s.score.unmetAfter), Number.POSITIVE_INFINITY);
   let complete = focused.filter((s) => s.score.unmetAfter === bestTotal);
 

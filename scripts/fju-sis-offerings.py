@@ -118,6 +118,11 @@ def main():
             }
             if domain:
                 row["generalDomain"] = domain
+            # 本系必修規劃給哪個年級（開課班級「資管二甲」→ 2）。排課不會把大二的必修排給大一，
+            # 學年課也不會只排到下半（大一上排到「統計學」下學期那一半）
+            grade = re.match(r"資管([一二三四])", r.get("avaDptCNa") or "")
+            if unit == DEPT and r["reqSel"] == "R" and grade:
+                row["forGrade"] = "一二三四".index(grade.group(1)) + 1
             if row["capacity"] is None:
                 del row["capacity"]
             out_rows.append(row)

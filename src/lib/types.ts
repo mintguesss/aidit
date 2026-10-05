@@ -134,6 +134,8 @@ export type Offering = {
   /** 可採計之類別 id */
   category: string[];
   generalDomain?: string;
+  /** 本系必修規劃給哪個年級。排課不會把高年級的必修排給低年級 */
+  forGrade?: number;
   prerequisites: Prerequisite[];
   /**
    * 修課人數上限與已選人數。**可能未知**：系上課表沒有這兩個數字，只有教務處系統有。
@@ -362,6 +364,8 @@ export type ExclusionReason = {
     | "avoid-day"
     | "avoid-period"
     | "excluded-by-user"
+    /** 規劃表排在比較高的年級 */
+    | "later-grade"
     /** 已經修過（或正在修） */
     | "already-taken"
     | "not-chosen"

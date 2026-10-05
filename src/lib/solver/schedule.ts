@@ -221,10 +221,9 @@ const DAY_NAME: Record<number, string> = { 1: "一", 2: "二", 3: "三", 4: "四
 
 type Exclusion = { reason: string; code: string; name: string; step: ExclusionReason["step"] };
 
-// 一學期最多幾門。以前是 6，比輔大學生實際修的少（大一下有學分的課就有 7 門）；
-// 真正的上限是學分上限（25），這裡只是搜尋深度
-const MAX_COURSES = 8;
 const NODE_LIMIT = 300_000;
+/** 搜尋時每組平手的解留幾個（見 dfs 裡的分組）；後面只取前 3 名 */
+const BUCKET_KEEP = 3;
 
 /**
  * 候選過濾。
@@ -429,6 +428,29 @@ type Score = {
  * （與審查引擎的指派同一個精神，這裡用貪婪法近似，只用於評分）。
  * 領域需求是類別底下的分項條件，同一門通識本來就同時補通識學分和該領域，照舊另外計算。
  */
+/** 一般修業年限的學期數（學士班四年）。延畢的學生剩餘學期以 1 計，也就是全部補完 */
+const STANDARD_TERMS = 8;
+
+/**
+ * 這學期該補多少缺口（學分）。
+ *
+ * - 最快畢業：全部，能修多少修多少
+ * - 正常進度：剩下的缺口平均分到剩下的學期，但不低於學則的學期下限
+ * - 輕量：學期下限就好
+ *
+ * 不知道入學年或學期時無從算進度，退回「全部」（舊行為）
+ */
+function termShare(ctx: SolveContext): number {
+  const all = Number.POSITIVE_INFINITY;
+  if (ctx.preferences.goal === "asap") return all;
+  if (ctx.preferences.goal === "light") return ctx.termMinCredits;
+  const m = /^(\d{3})-([12])$/.exec(ctx.termLabel);
+  if (!m || !ctx.admissionYear) return all;
+  const nth = (Number(m[1]) - ctx.admissionYear) * 2 + Number(m[2]);
+  const remaining = Math.max(1, STANDARD_TERMS - nth + 1);
+  return Math.max(ctx.termMinCredits, Math.ceil(shortfallParts([], ctx.requirements).total / remaining));
+}
+
 function shortfall(sel: Candidate[], reqs: Requirement[]): number {
   return shortfallParts(sel, reqs).total;
 }
@@ -489,16 +511,14 @@ function shortfallParts(sel: Candidate[], reqs: Requirement[]): { total: number;
   return { total, specific };
 }
 
-function score(sel: Candidate[], ctx: SolveContext): Score {
+function score(sel: Candidate[], ctx: SolveContext, parts = shortfallParts(sel, ctx.requirements)): Score {
   const totalCredits = sel.reduce((a, c) => a + c.offering.credits, 0);
   const days = new Set<number>();
   for (const c of sel) for (const s of c.offering.slots) days.add(s.day);
   const target = ctx.constraints.targetCourseCount;
   return {
-    ...(() => {
-      const p = shortfallParts(sel, ctx.requirements);
-      return { unmetAfter: p.total, unmetSpecific: p.specific };
-    })(),
+    unmetAfter: parts.total,
+    unmetSpecific: parts.specific,
     missedContinuations: [...(ctx.continueOffered ?? [])].filter((code) => !sel.some((c) => c.offering.code === code)).length,
     courseCount: sel.length,
     earlyMorningCount: sel.filter((c) => c.early).length,
@@ -736,8 +756,21 @@ function attemptSolve(
   const suffix = new Array<number>(sorted.length + 1).fill(0);
   for (let i = sorted.length - 1; i >= 0; i--) suffix[i] = suffix[i + 1]! + sorted[i]!.offering.credits;
 
+  // 缺口只算「這學期該補的份」：比 termShare 多出來的缺口留給之後的學期，不算這份課表沒做到。
+  // 以前算的是整個學位還缺多少，對還差一百多學分的學生永遠是修越多越好，
+  // 「正常進度」「輕量」都被推到學分上限，只是被一學期最多 8 門的搜尋上限擋住才沒露餡
+  const share = termShare(ctx);
+  const base = shortfallParts([], ctx.requirements);
+  const slack = { total: Math.max(0, base.total - share), specific: Math.max(0, base.specific - share) };
+  const termParts = (cs: Candidate[]) => {
+    const p = shortfallParts(cs, ctx.requirements);
+    return { total: Math.max(0, p.total - slack.total), specific: Math.max(0, p.specific - slack.specific) };
+  };
+
   const gainFactor = ctx.requirements.some((r) => isSub(r) && r.minCredits > 0) ? 2 : 1;
-  const solutions: { sel: Candidate[]; score: Score }[] = [];
+  const buckets = new Map<string, { sel: Candidate[]; score: Score }[]>();
+  const keepSet = new Set(ctx.keep ?? []);
+  const keptCount = (cs: Candidate[]) => cs.filter((c) => keepSet.has(c.offering.code)).length;
   let bestKey: [number, number, number] = [Infinity, Infinity, Infinity];
   /** 所有組合裡最小的總缺口（無解判定用；去掉贅餘的課不會改變它，所以不必先做贅餘檢查） */
   let minTotal = Number.POSITIVE_INFINITY;
@@ -753,22 +786,53 @@ function attemptSolve(
       truncated = true;
       return;
     }
-    const parts = shortfallParts(sel, ctx.requirements);
+    const parts = termParts(sel);
     if (sel.length > 0) {
       // 邊搜邊比：後面挑解只看（漏接的該修課、特定缺口、總缺口）最好的那一群，
       // 比目前最好的差就不必存、也不必做贅餘檢查與完整評分。挑出來的結果與全部存下來再挑相同
       minTotal = Math.min(minTotal, parts.total);
       const missed = missedOf(sel);
       const cmpKey = missed - bestKey[0] || parts.specific - bestKey[1] || parts.total - bestKey[2];
-      if (cmpKey <= 0 && isIrredundant(sel, ctx, pinnedCandidates.length)) {
-        if (cmpKey < 0) {
-          solutions.length = 0;
-          bestKey = [missed, parts.specific, parts.total];
+      if (cmpKey <= 0) {
+        // 平手的解依「後面排序與篩選會看的每一項」分組，每組只留課號串最小的 3 組。
+        // 同組的解在後面每一步都平手、只差最後的課號決勝，所以留下的前 3 名與全部留著完全相同。
+        // 補到這學期份量的組合可以有十幾萬組（輔大大一），每組都做贅餘檢查要 10 秒
+        const sc = score(sel, ctx, parts);
+        const b =
+          `${sc.earlyMorningCount}|${sc.dayCount}|${sc.courseCount}|${sc.totalCredits}|${sc.belowTermMin}|` +
+          `${sc.countGap}|${sc.affinity}|${keptCount(sel)}|${sel.some((c) => c.offering.slotsUnknown)}`;
+        const group = cmpKey < 0 ? [] : (buckets.get(b) ?? []);
+        const full = group.length >= BUCKET_KEEP && group.every((g) => cmp(g.score.key, sc.key) < 0);
+        // 只有不贅餘的解能刷新最佳值：贅餘的解若先清掉其他組，最後可能一組都不剩
+        if (!full && isIrredundant(sel, ctx, pinnedCandidates.length)) {
+          if (cmpKey < 0) {
+            buckets.clear();
+            bestKey = [missed, parts.specific, parts.total];
+          }
+          group.push({ sel: [...sel], score: sc });
+          group.sort((x, y) => cmp(x.score.key, y.score.key));
+          if (group.length > BUCKET_KEEP) group.pop();
+          buckets.set(b, group);
         }
-        solutions.push({ sel: [...sel], score: score(sel, ctx) });
       }
     }
-    if (i >= sorted.length || sel.length >= MAX_COURSES) return;
+    if (i >= sorted.length) return;
+
+    // 剪枝：這學期的份已經補到、學期下限與期望堂數也都到了，再加課只會更差 ——
+    // 正常進度與輕量的目標函數接下來比的早八數、上課天數、堂數、學分，加一門課都只增不減。
+    // 少了這條，補到份量的組合全部平手，每一組都要做贅餘檢查與評分，輔大一次求解從 1 秒變 10 秒
+    const target = ctx.constraints.targetCourseCount;
+    if (
+      share !== Number.POSITIVE_INFINITY &&
+      sel.length > 0 &&
+      parts.total === 0 &&
+      parts.specific === 0 &&
+      missedOf(sel) === 0 &&
+      credits >= ctx.termMinCredits &&
+      (target === undefined || sel.length >= target)
+    ) {
+      return;
+    }
 
     // 剪枝：剩餘候選可提供學分 < 尚缺學分
     // 以學分計的領域需求：一門通識同時補通識學分和該領域，最多能減掉兩倍學分
@@ -792,6 +856,7 @@ function attemptSolve(
   };
 
   dfs(0, pinnedCredits);
+  const solutions = [...buckets.values()].flat();
 
   if (solutions.length === 0) {
     return {
@@ -935,7 +1000,8 @@ function toPlan(
     );
   }
   if (s.unmetAfter > 0) {
-    warnings.push(`本方案執行後仍有未修學分，無法於 ${ctx.termLabel} 補齊。`);
+    // unmetAfter 是「這學期該補的份」還差多少（見 termShare），不是整個學位還差多少
+    warnings.push(`這學期該補的學分還差 ${s.unmetAfter} 學分，${ctx.termLabel} 可選的開課補不齊。`);
   }
   if (ordered.some((c) => c.offering.slotsUnknown)) {
     warnings.push("含時段未知之課程，衝堂判定未涵蓋該門。");

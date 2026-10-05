@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { loadCorpus, loadRulePacks } from "@/lib/rules/loader";
+import { loadCorpus, loadRulePacks, preloadPublishedRules } from "@/lib/rules/loader";
 import { extraCorpus, loadExtraPacks } from "@/lib/rules/extra-packs";
 
 export const runtime = "nodejs";
@@ -14,6 +14,8 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(_req: Request, { params }: { params: Promise<{ docId: string }> }) {
   const { docId } = await params;
+  // 輔大的規章原文跟規則包一起存在資料庫，沒先載入的話伺服器剛啟動時點引文會 404
+  await preloadPublishedRules();
   const text = loadCorpus().get(docId) ?? extraCorpus().get(docId);
 
   const doc =

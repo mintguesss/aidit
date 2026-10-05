@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { runAudit } from "@/lib/agent/runner";
+import { preloadPublishedRules } from "@/lib/rules/loader";
+import { preloadOfferings } from "@/lib/offerings/published";
 import { traceStore } from "@/lib/store";
 import type { ProviderKind } from "@/lib/types";
 import type { FixtureId } from "@/lib/providers/fixtures";
@@ -35,6 +37,10 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
+
+  // 輔大規則包與開課資料只在資料庫，要先載入；少了這兩行，上傳成績單走這支 API 時
+  // 只看得到 repo 裡的示範規則包，輔大學生會被判成「無適用規則包」
+  await Promise.all([preloadPublishedRules(), preloadOfferings()]);
 
   const result = await runAudit({
     providerKind,

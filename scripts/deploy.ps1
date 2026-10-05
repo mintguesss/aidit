@@ -7,7 +7,7 @@
 # 前置設定只做一次（詳見 docs/SELFHOST.md §二）：
 #     npm i -g pm2 pm2-windows-startup
 #     pm2-startup install
-#     pm2 start node_modules/next/dist/bin/next --name aidit -- start -H <Tailscale 位址>
+#     pm2 start node_modules/next/dist/bin/next --name aidit --exp-backoff-restart-delay=1000 -- start -H <Tailscale 位址>
 #     pm2 save
 #
 # 不要用 `pm2 start npm -- start`：Windows 上 pm2 會把 npm.cmd 當 JS 解析，

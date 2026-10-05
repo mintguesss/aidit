@@ -20,11 +20,36 @@ const ONLY_SUPPORTED = "本系統目前只支援資訊管理學系 111 學年度
 
 // ------------------------------------------------------- personal-audit
 
+/**
+ * 從一段文字找出指的是哪個類別：取與類別名稱最長的共同字串（至少兩個字）。
+ *
+ * 類別名稱來自這位學生的規則包，不寫死：輔大是「院系必修課程」「本系專業選修」，
+ * 合成資料是「系專業選修」。先前離線規則只認得合成資料的名稱，
+ * 問「院系必修還差多少」會答成整體進度。
+ * 平手就不猜（「選修還差多少」同時對到本系專業選修與其他選修），回 undefined。
+ */
+export function categoryFromText(audit: AuditResult, text: string): string | undefined {
+  // 「課程」「學分」每個類別名稱都可能有，對到它們不代表指哪一類
+  const t = text.replace(/\s|課程|學分/g, "");
+  const lcs = (a: string) => {
+    let best = 0;
+    for (let i = 0; i < a.length; i++)
+      for (let j = i + 2; j <= a.length; j++) if (t.includes(a.slice(i, j))) best = Math.max(best, j - i);
+    return best;
+  };
+  const scored = audit.categories.map((c) => ({ name: c.name, n: lcs(c.name) })).sort((a, b) => b.n - a.n);
+  const top = scored[0];
+  if (!top || top.n < 2 || scored[1]?.n === top.n) return undefined;
+  return top.name;
+}
+
 export function answerPersonalAudit(audit: AuditResult, category?: string): Reply {
   const holds = audit.holds.length;
 
   if (category) {
-    const cat = audit.categories.find((c) => c.name.includes(category) || category.includes(c.shortName));
+    const cat =
+      audit.categories.find((c) => c.name.includes(category) || category.includes(c.shortName)) ??
+      audit.categories.find((c) => c.name === categoryFromText(audit, category));
     if (!cat) {
       return {
         kind: "不確定",
@@ -37,9 +62,13 @@ export function answerPersonalAudit(audit: AuditResult, category?: string): Repl
     const sub = cat.subRules.find((s) => s.status === "unmet");
     return {
       kind: "決定",
+      // 學分還不夠、分項條件也沒過時，兩件都要講：只說「通識還差 4 學分」，
+      // 學生隨便修 4 學分的通識，缺的領域還是缺，照樣畢不了業
       headline:
         cat.unmet > 0
-          ? `${cat.name}還差 ${cat.unmet} 學分。`
+          ? sub
+            ? `${cat.name}還差 ${cat.unmet} 學分，要注意：${sub.detail}`
+            : `${cat.name}還差 ${cat.unmet} 學分。`
           : sub
             ? `${cat.name}學分已足，但${sub.detail}`
             : `${cat.name}已滿足。`,
@@ -70,7 +99,12 @@ export function answerPersonalAudit(audit: AuditResult, category?: string): Repl
       `畢業最低 ${audit.minCredits}；已修得 ${audit.totalEarned}、可採計 ${audit.countable}、` +
       `修課中 ${audit.inProgress}` +
       (audit.overflow > 0 ? `；超修 ${audit.overflow} 依學則不得流用` : "") +
-      "。畢業資格以教務處審查為準。",
+      "。" +
+      // 學分之外的分項條件（通識領域等）也要列，不然「還差 4 學分」看起來修什麼都行
+      audit.categories
+        .flatMap((c) => c.subRules.filter((s) => s.status === "unmet").map((s) => `\n${c.name}：${s.detail}`))
+        .join("") +
+      "\n畢業資格以教務處審查為準。",
     citations: audit.categories.filter((c) => c.unmet > 0).flatMap((c) => c.citations.slice(0, 1)),
     uncountedHolds: holds,
   };
@@ -244,7 +278,15 @@ export function answerCourseInfo(query: string, nextTerm: string, school: string
     };
   }
 
-  const lines = hits.slice(0, 4).map((o) => {
+  // 只列學生下學期那一期的班。開課資料存了好幾個學期，不分學期的話，
+  // 問「人生哲學什麼時候上課」會列出 111-2 的班，還把各學期的班混在一起。
+  // 下學期沒開才退而列最近一期，並且明講下學期沒開
+  const termOf = (o: (typeof hits)[number]) => `${o.year}-${o.term}`;
+  const inNext = hits.filter((o) => termOf(o) === nextTerm);
+  const latest = [...new Set(hits.map(termOf))].sort().at(-1)!;
+  const shown = inNext.length > 0 ? inNext : hits.filter((o) => termOf(o) === latest);
+
+  const lines = [...new Set(shown.map((o) => {
     const seats = remainingSeats(o);
     // 節次名稱依學校：輔大的內部第 6 節是 D5
     const scheme = periodScheme(o.school);
@@ -255,12 +297,17 @@ export function answerCourseInfo(query: string, nextTerm: string, school: string
       (seats === null ? "餘額未知" : `餘額 ${seats}／${o.capacity}`) +
       (prereq ? `　先修 ${prereq.codes.join("、")}` : "")
     );
-  });
+  }))];
+  const first = shown[0]!;
+  const more = lines.length > 8 ? `\n（共 ${lines.length} 個班，只列前 8 個）` : "";
 
   return {
     kind: "決定",
-    headline: `${hits[0]!.name}（${hits[0]!.code}）在 ${hits[0]!.year}-${hits[0]!.term} 有開課。`,
-    detail: lines.join("\n"),
+    headline:
+      inNext.length > 0
+        ? `${first.name}（${first.code}）${nextTerm} 開 ${lines.length} 個班。`
+        : `${first.name}（${first.code}）${nextTerm} 沒有開課；最近一次是 ${latest}。`,
+    detail: lines.slice(0, 8).join("\n") + more,
     // 開課資料不是規章，其「依據」是資料本身的抓取時間，於頁尾標示
     citations: [],
   };

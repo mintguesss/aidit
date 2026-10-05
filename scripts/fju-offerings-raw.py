@@ -63,6 +63,8 @@ def main():
             "code": o["code"],
             "name": o["name"],
             "credits": o["credits"],
+            # 選別：網站排課時依學生的規則包判斷可採計類別（TODO H10）
+            "selectType": "required" if o["kind"] == "required" else "elective",
             "year": int(year),
             "term": int(term),
             "teacher": o["teacher"] or "未定",

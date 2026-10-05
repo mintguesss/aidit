@@ -28,7 +28,7 @@ export const searchOfferingsStep: Step = {
       "course.search",
       { year: state.nextYear, term: nextHalf, categories, school },
       async () => {
-        const offerings = courseSearch(state.nextYear, nextHalf, categories, school);
+        const offerings = courseSearch(state.nextYear, nextHalf, categories, school, state.pack);
         return {
           data: offerings,
           status: offerings.length > 0 ? ("ok" as const) : ("partial" as const),

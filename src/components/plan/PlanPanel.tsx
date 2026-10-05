@@ -216,7 +216,7 @@ export function PlanPanel({
                       </span>
                     </td>
                     <td className="span nowrap" data-lb="課綱">
-                      <Link className="syl" href={`/syllabus/${c.code}${search}`}>
+                      <Link className="syl" href={`/syllabus/${c.code}${search}${c.section ? `${search ? "&" : "?"}sec=${c.section}` : ""}`}>
                         課綱
                       </Link>
                     </td>

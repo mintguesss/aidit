@@ -33,6 +33,7 @@
 | **輔大資管規則包草稿** | 草稿儲存層（`rulepack_drafts`）；副本在 `docs/review/` | 真實規則，校對鎖版前不用於判定 |
 | **輔大原文語料** | `src/lib/rules/corpus/fju-im-*.txt` | 公開文件，引用回查用 |
 | **輔大開課資料** | `src/lib/offerings/data/fju-115-1.json`（課程查詢 API，原始回應在 `.data/sources/fju-sis/`，不進 repo）；`fju-115-2.json`（系上課表抽出） | 公開資料、無個資。115-1 有名額上限、沒有已選人數；115-2 兩者都沒有。餘額一律顯示未知 |
+| **課程大綱** | 不存：打開課綱頁時才向輔大課程大綱系統（outline.fju.edu.tw）抓那一班，Next 資料快取一天 | 公開資料。教師的電話、信箱、辦公時間不收 |
 
 ## 三、作業紀錄
 

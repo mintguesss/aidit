@@ -405,6 +405,7 @@ const STEP_LABEL: Record<ExclusionReason["step"], string> = {
   "avoid-period": "落在你指定要空出的節次",
   "excluded-by-user": "你指定要排除",
   "already-taken": "已經修過",
+  "later-grade": "規劃表排在比較高的年級",
   "not-chosen": "有資格但未被選入",
   chosen: "已經排在課表裡",
 };

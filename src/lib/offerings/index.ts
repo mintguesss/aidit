@@ -5,8 +5,12 @@ import { DEFAULT_SCHOOL } from "@/lib/schools";
 // 輔大 115-1：學生資訊平台的公開課程查詢（scripts/fju-sis-fetch.py → fju-sis-offerings.py），
 // 資管系＋全人、基本能力、通識，含開課名額
 import FJU_115_1 from "./data/fju-115-1.json";
-// 輔大 113-1：同一條管線抓的歷年資料，給「大二結束、準備升大三」的示範學生排課用
+// 輔大歷年資料（同一條管線）：給各個時間點的示範學生排「下學期」用
+// 111-2 大一上結束、112-1 大一結束、113-1 大二結束、114-1 大三結束
+import FJU_111_2 from "./data/fju-111-2.json";
+import FJU_112_1 from "./data/fju-112-1.json";
 import FJU_113_1 from "./data/fju-113-1.json";
+import FJU_114_1 from "./data/fju-114-1.json";
 // 輔大資管系 115-2 系上課表（scripts/fju-timetable.py → fju-offerings-raw.py）。
 // 課程查詢系統還沒公布 115-2，公布後改用上面那條管線重抓
 import FJU_115_2 from "./data/fju-115-2.json";
@@ -38,6 +42,7 @@ export function normalizeOffering(raw: RawOffering): Offering {
     college: raw.college,
     category: raw.category,
     generalDomain: raw.generalDomain,
+    ...(raw.forGrade ? { forGrade: raw.forGrade } : {}),
     prerequisites: toPrerequisites(raw),
     capacity: raw.capacity,
     enrolled: raw.enrolled,
@@ -65,7 +70,10 @@ function toPrerequisites(raw: RawOffering): Prerequisite[] {
 /** repo 裡的開課資料：CI 與離線環境的基準，也是資料庫還沒有那一學期時的退路 */
 const REPO_RAW: RawOffering[] = [
   ...RAW_OFFERINGS,
+  ...(FJU_111_2 as RawOffering[]),
+  ...(FJU_112_1 as RawOffering[]),
   ...(FJU_113_1 as RawOffering[]),
+  ...(FJU_114_1 as RawOffering[]),
   ...(FJU_115_1 as RawOffering[]),
   ...(FJU_115_2 as RawOffering[]),
 ];

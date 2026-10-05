@@ -58,6 +58,7 @@ export default async function PlanPage({
                   : undefined,
             }}
             originalPreferences={preferences}
+            categoryOrder={outcome.audit.categories.map((c) => c.id)}
             nextTerm={outcome.audit.nextTerm}
             termLimits={termLimits}
             reserved={outcome.state.record?.plannedCommitments ?? []}

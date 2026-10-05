@@ -93,6 +93,7 @@ export async function POST(req: Request) {
     takenCodes: takenCourseCodes(record.courses, pack),
     continueCodes: continuingCourseCodes(record.courses, pack),
     admissionYear: record.student.admissionYear,
+    studentDept: record.student.dept,
     reserved: reservedFrom(record.plannedCommitments),
     preferences,
     constraints,

@@ -509,7 +509,7 @@ export async function askTurn(
     case "course-info":
       tools.push("course.search");
       return {
-        reply: lookup(p.course, p.raw, (q) => answerCourseInfo(q, ctx.audit.nextTerm, schoolOf(ctx.record.student))),
+        reply: lookup(p.course, p.raw, (q) => answerCourseInfo(q, ctx.audit.nextTerm, schoolOf(ctx.record.student), ctx.record.student.dept)),
         tools,
         intent: intent.intent,
         clarifying: false,

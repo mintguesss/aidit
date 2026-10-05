@@ -200,7 +200,7 @@ async function converse(scope, turns) {
       fetch(`${BASE}/api/chat`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ scope, constraints, shown, messages: history }),
+        body: JSON.stringify({ fixture: "demo", scope, constraints, shown, messages: history }),
       });
     let res = await send();
     // 伺服器有速率限制（src/middleware.ts，每分鐘 15 次）。被擋就照 Retry-After 等，不是測試失敗

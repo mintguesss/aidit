@@ -1,6 +1,7 @@
 import { z } from "zod/v4";
 import { structured, type LlmBudget } from "@/lib/llm/client";
 import { findCourseCode } from "@/lib/courses/code";
+import { allOfferings } from "@/lib/offerings";
 import type { AskIntent, ChatMessage, ForbiddenTopic, PlanIntent } from "./types";
 
 /**
@@ -360,8 +361,19 @@ const FORBIDDEN_PATTERNS: [RegExp, ForbiddenTopic][] = [
 ];
 
 function detectForbidden(t: string): ForbiddenTopic | null {
-  for (const [re, topic] of FORBIDDEN_PATTERNS) if (re.test(t)) return topic;
+  // 課名裡的字不算：「法律與生活什麼時候上課」不是法律諮詢，「心理學與生活」不是心理諮商。
+  // 規則判出的拒絕在 route 裡一律優先（安全網），所以這裡誤判，模型答對了也會被蓋掉
+  const s = withoutCourseNames(t);
+  for (const [re, topic] of FORBIDDEN_PATTERNS) if (re.test(s)) return topic;
   return null;
+}
+
+/** 把句子裡出現的開課課名（三個字以上，長的先）挖掉 */
+function withoutCourseNames(t: string): string {
+  const names = [...new Set(allOfferings().map((o) => o.name.replace(/\s/g, "")))]
+    .filter((n) => n.length >= 3 && t.includes(n))
+    .sort((a, b) => b.length - a.length);
+  return names.reduce((s, n) => s.split(n).join("　"), t);
 }
 
 export const DAY_WORDS: [RegExp, number][] = [
@@ -630,9 +642,9 @@ function offlineAskIntent(raw: string): z.infer<typeof zAskIntent> {
   // 開課資訊的問句形式最明確（什麼時候開、誰教、有沒有名額），排最前面。
   // 排在「流程」後面的話，「企業流程管理什麼時候開」會因為課名裡有「流程」兩個字
   // 被當成辦理手續，回「系統未收錄這項事務的辦理流程」。
-  if (/什麼時候開|誰教|哪個老師開|有沒有名額|還有名額|餘額|幾學分.*課|時段/.test(t)) {
+  if (/什麼時候開|什麼時候上課?|上課時間|幾點上|星期幾上|禮拜幾上|哪天上|誰教|哪個老師開|有沒有名額|還有名額|餘額|幾學分.*課|時段/.test(t)) {
     const code = findCourseCode(raw);
-    const name = /([一-龥]{3,12})(?:什麼時候|誰教|有沒有|還有|是哪個)/.exec(t)?.[1];
+    const name = /([一-龥]{2,12}?)(?:什麼時候|的?上課時間|幾點|星期幾|禮拜幾|哪天|誰教|有沒有|還有|是哪個)/.exec(t)?.[1];
     return { ...base, intent: "course-info", course: code ?? name ?? t };
   }
 
@@ -725,7 +737,7 @@ function offlineAskIntent(raw: string): z.infer<typeof zAskIntent> {
 
   if (/幫我排|排課|排下學期|課表怎麼排/.test(t)) return { ...base, intent: "plan" };
 
-  if (/可以流用|能不能流用|規定|學則|規劃表|要幾學分|上限|下限|幾學分才能|領域/.test(t)) {
+  if (/可以流用|能不能流用|規定|學則|規劃表|要修?幾學分|總共.{0,4}幾學分|最低.{0,3}學分|上限|下限|幾學分才能|領域/.test(t)) {
     return { ...base, intent: "regulation", topic: t };
   }
 

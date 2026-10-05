@@ -17,6 +17,7 @@ import { applyParams, describeDelta, describeSet, periodNamesFor } from "./apply
 import {
   answerCourseInfo,
   answerPersonalAudit,
+  categoryFromText,
   answerProcedure,
   answerRegulation,
   capabilityLimits,
@@ -182,6 +183,18 @@ export async function planTurn(
   // guardCommon 已處理完其餘分支，這裡只可能是 intent；加這行讓型別收斂
   if (intent.kind !== "intent") {
     return { reply: outOfScope("這不在系統能力範圍內。", "請洽系辦公室。"), tools, intent: "out-of-scope", clarifying: false };
+  }
+
+  // 模型留空的欄位，規則從原句抽得到就補上。實測 qwen3:14b 對「不要早上的課」
+  // 只填 avoidEarly、avoidMorning 留空 —— 有生效的變更，下面「沒變更才改用規則」接不到，
+  // 結果只排掉早八，使用者要的整個早上沒做到。只補留空的，模型填了的不覆蓋；
+  // 規則抽到的都是原句字面上的條件，補上不會多做使用者沒說的事
+  if (rules.kind === "intent" && rules !== intent) {
+    const merged = fillEmpty(intent.params, rules.params);
+    if (merged !== intent.params) {
+      intent = { ...intent, params: merged };
+      tools.push("rule.merge");
+    }
   }
 
   let applied = applyParams(ctx.constraints, ctx.originalConstraints, intent.params, intent.reason, raw, shownCount, schoolOf(ctx.record.student));
@@ -474,7 +487,10 @@ export async function askTurn(
         reply: answerPersonalAudit(
           ctx.audit,
           spokenCategory(p.category, p.raw) ??
-            (rules.kind === "intent" && rules.intent === "personal-audit" ? rules.params.category : undefined),
+            (rules.kind === "intent" && rules.intent === "personal-audit" ? rules.params.category : undefined) ??
+            // 規則與模型都沒認出類別時，拿這位學生自己的類別名稱去比原句：
+            // 輔大的「院系必修課程」「本系專業選修」不在規則的固定清單裡
+            categoryFromText(ctx.audit, p.raw),
         ),
         tools,
         intent: intent.intent,
@@ -638,6 +654,23 @@ function toScenario(s: ScenarioParams) {
 
 export { describeSet };
 export type { SolveResult };
+
+/** 把規則抽到、模型卻留空（null、false 或空陣列）的欄位補上；沒有可補的就原樣回傳同一個物件 */
+export function fillEmpty<T extends object>(model: T, rules: T): T {
+  const out = { ...model } as Record<string, unknown>;
+  let filled = false;
+  for (const [k, v] of Object.entries(rules)) {
+    const m = out[k];
+    // false 也算留空：模型會把沒提到的開關隨手填 false（見「模型隨手填的 false 是雜訊」測試）
+    const empty = m === null || m === undefined || m === false || (Array.isArray(m) && m.length === 0);
+    const has = v !== null && v !== undefined && v !== false && !(Array.isArray(v) && v.length === 0);
+    if (empty && has) {
+      out[k] = v;
+      filled = true;
+    }
+  }
+  return filled ? (out as T) : model;
+}
 
 /**
  * 只接受使用者原句裡提到過的類別。

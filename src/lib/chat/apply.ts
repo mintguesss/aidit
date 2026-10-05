@@ -273,6 +273,18 @@ function numbersNear(raw: string, patterns: RegExp[]): number[] {
 const MORE_CUE = /多|加|增|再/;
 const LESS_CUE = /少|減/;
 
+const GOALS_CUE = {
+  "early-graduation": /提前|早點?畢業|提早畢業|早一?學期/,
+  minor: /輔系/,
+  "cert-program": /學程/,
+} as const;
+
+const GOAL_CUE = {
+  asap: /提前|快|拚|衝|早點?畢業|多修/,
+  balanced: /正常|一般|平衡|適中|普通|照原本|原本的進度/,
+  light: /輕|鬆|喘|少修|修少|不要太重|不要太多|太累|負擔/,
+} as const;
+
 /**
  * 把 LLM 解析出的參數套用到目前的約束集合。
  *
@@ -435,16 +447,25 @@ export function applyParams(
       refusedParams.push(`堂數${d > 0 ? "增加" : "減少"} ${Math.abs(d)} 堂（原句不是這個意思）`);
     }
   }
-  if (params.goal !== null) {
+  // 修課目標也要原句有對應的字。實測 qwen3:14b 對「多選一堂課」同時填了 goal=light，
+  // 回覆變成「已改為這學期修少一點」，跟使用者說的正好相反
+  if (params.goal !== null && raw && !GOAL_CUE[params.goal].test(raw)) {
+    refusedParams.push(`修課目標改為${{ asap: "最快畢業", balanced: "正常進度", light: "輕量修課" }[params.goal]}（原句沒有提到）`);
+  } else if (params.goal !== null) {
     requested = true;
     next.goal = params.goal;
   }
-  if (params.goals.length > 0) {
+  // 額外目標同理。實測 qwen3:14b 對「多選一堂課」填了 goals=["minor"]，回「已加入輔系需求」
+  const goals = raw ? params.goals.filter((g) => GOALS_CUE[g].test(raw)) : params.goals;
+  for (const g of params.goals.filter((x) => !goals.includes(x))) {
+    refusedParams.push(`${{ "early-graduation": "加入提前畢業目標", minor: "加入輔系需求", "cert-program": "加入學程需求" }[g]}（原句沒有提到）`);
+  }
+  if (goals.length > 0) {
     requested = true;
-    next.goals = [...new Set([...next.goals, ...params.goals])];
-    delta.goals = params.goals;
+    next.goals = [...new Set([...next.goals, ...goals])];
+    delta.goals = goals;
     // 「提前畢業」在求解層面就是把目標換成最快畢業
-    if (params.goals.includes("early-graduation")) next.goal = "asap";
+    if (goals.includes("early-graduation")) next.goal = "asap";
   }
 
   const offerings = allOfferings(school);
@@ -452,8 +473,17 @@ export function applyParams(
     const q = name.replace(/\s/g, "");
     const byCode = offerings.find((o) => o.code.toUpperCase() === q.toUpperCase());
     if (byCode) return byCode.code;
-    const byName = offerings.filter((o) => o.name.includes(q) || q.includes(o.name));
-    return byName.length === 1 ? byName[0]!.code : null;
+    // 比的是課號而不是開課筆數：輔大同一門課每個班、每個學期都是同一個課號
+    // （人生哲學一學期 77 個班都是 00007），以筆數判斷唯一會讓真實資料裡
+    // 「把人生哲學換掉」永遠查不到。名稱完全相同的優先，部分相符的才退而求其次
+    const unique = (xs: Offering[]) => {
+      const codes = [...new Set(xs.map((o) => o.code))];
+      return codes.length === 1 ? codes[0]! : null;
+    };
+    return (
+      unique(offerings.filter((o) => o.name === q)) ??
+      unique(offerings.filter((o) => o.name.includes(q) || q.includes(o.name)))
+    );
   };
 
   for (const raw of params.excludeCourses) {

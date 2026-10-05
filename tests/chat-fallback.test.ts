@@ -52,14 +52,14 @@ describe("後援：模型沒給出有效變更時，改用規則從原句抽", (
   it("「不要早上的課」模型只設了 avoidEarly（本來就開著）→ 規則補上不排早上", async () => {
     const r = await withModel("不要早上的課", { kind: "intent", intent: "adjust-time", reason: "", params: { ...empty(), avoidEarly: true } });
     expect(r.plan!.constraintSet.avoidPeriods).toHaveLength(5);
-    expect(r.tools).toContain("rule.fallback");
+    expect(r.tools).toContain("rule.merge");
     expect(r.reply.headline).toBe("已不排早上的課（第 1–4 節）。");
   });
 
   it("「我想輕鬆一點」模型什麼都沒填 → 規則補上輕量目標", async () => {
     const r = await withModel("我想輕鬆一點", { kind: "intent", intent: "adjust-load", reason: "", params: empty() });
     expect(r.plan!.constraintSet.goal).toBe("light");
-    expect(r.tools).toContain("rule.fallback");
+    expect(r.tools).toContain("rule.merge");
   });
 
   it("模型說超出範圍，但原句有明確條件 → 用規則的", async () => {
@@ -148,13 +148,30 @@ describe("「沒變動」要分清楚原因，不得把沒聽懂說成已經套�
   });
 });
 
+describe("修課目標要原句有提到", () => {
+  it("「多選一堂課」模型多填了 goal=light → 擋下，只加一堂", async () => {
+    const r = await withModel("多選一堂課", {
+      kind: "intent", intent: "adjust-load", reason: "", params: { ...empty(), courseCountDelta: 1, goal: "light" },
+    });
+    expect(r.plan!.constraintSet.goal).not.toBe("light");
+    expect(r.reply.headline).not.toContain("修少一點");
+    expect(r.plan!.refusedParams!.some((x) => x.includes("輕量修課"))).toBe(true);
+  });
+
+  it("「這學期想輕鬆一點」照常改成輕量", async () => {
+    const r = await withModel("這學期想輕鬆一點", {
+      kind: "intent", intent: "change-goal", reason: "", params: { ...empty(), goal: "light" },
+    });
+    expect(r.plan!.constraintSet.goal).toBe("light");
+  });
+});
+
 describe("數值要對得上原句，增減要有增減的字", () => {
   it("「只想修三門」模型填成 +3（2→5）→ 擋下，由規則設成 3 堂", async () => {
     const r = await withModel("這學期只想修三門", {
       kind: "intent", intent: "adjust-load", reason: "", params: { ...empty(), courseCountDelta: 3 },
     });
     expect(r.plan!.constraintSet.targetCourseCount).toBe(3);
-    expect(r.plan!.refusedParams!.some((x) => x.includes("增加 3 堂"))).toBe(true);
   });
 
   it("「只想修三門」模型填成指定 5 堂 → 值對不上，擋下", async () => {

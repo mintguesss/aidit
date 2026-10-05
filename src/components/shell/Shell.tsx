@@ -67,6 +67,8 @@ export function Shell({
                 { href: "/privacy", label: "資料與隱私" },
                 { href: "/scenario", label: "情境試算" },
                 { href: "/trace", label: "執行紀錄" },
+                // 內部作業：規則包的人工校對與鎖版。系統沒有登入前任何人都進得去（TODO E2）
+                { href: "/review", label: "規則校對" },
               ]}
             />
           </Suspense>

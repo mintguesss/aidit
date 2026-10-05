@@ -12,7 +12,7 @@ export default async function ReviewIndex() {
     <>
       <header className="topbar">
         <div className="topbar-in">
-          <span className="brand-mark">Aidit</span>
+          <a href="/" className="brand-mark" title="回到系統首頁">Aidit</a>
           <span className="brand-sub">規則包人工校對（內部作業）</span>
         </div>
       </header>

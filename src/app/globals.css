@@ -688,11 +688,14 @@ a.btn-primary:hover{color:#fff}
 .tt-p .hm{display:block;font-family:var(--mono);font-size:9.5px;color:var(--text-3);margin-top:2px}
 .tt-empty{height:52px}
 
-.tt-cell{padding:0}
-.tt-in{display:block;padding:7px 9px;height:100%;background:var(--ink);color:#fff}
-.tt-cell.reserved .tt-in{background:var(--surface-2);color:var(--text-2)}
+/* 顏色塗在格子（td）上，不塗在內層：合併格（rowSpan）裡內層的 height:100% 不會生效，
+   以前方塊只長到文字的高度，跨兩節的課看起來只佔一節半 */
+.tt-cell{padding:0;background:var(--ink);color:#fff}
+.tt-cell.reserved{background:var(--surface-2);color:var(--text-2)}
+.tt-cell:has(a.tt-link:hover){background:var(--ink-2)}
+.tt-in{display:block;padding:7px 9px;color:inherit}
 a.tt-link{text-decoration:none}
-a.tt-link:hover{background:var(--ink-2);text-decoration:none}
+a.tt-link:hover{text-decoration:none}
 .tt-name{display:block;font-size:13px;font-weight:700;line-height:1.45}
 .tt-sub{display:block;font-size:10.5px;line-height:1.6;margin-top:2px;opacity:.8}
 .tt-code{font-family:var(--mono);font-size:10px}

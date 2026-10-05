@@ -141,6 +141,8 @@ export type Offering = {
   generalDomain?: string;
   /** 本系必修規劃給哪個年級。排課不會把高年級的必修排給低年級 */
   forGrade?: number;
+  /** 選別。有填就依學生的規則包判斷可採計類別（見 lib/offerings 的 categoriesFor） */
+  selectType?: SelectType;
   prerequisites: Prerequisite[];
   /**
    * 修課人數上限與已選人數。**可能未知**：系上課表沒有這兩個數字，只有教務處系統有。

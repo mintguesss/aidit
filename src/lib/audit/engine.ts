@@ -185,7 +185,8 @@ const isListed = (cat: RuleCategory) => cat.match.type === "courseList" || cat.m
 const isExclusive = (cat: RuleCategory, pack: RulePack) =>
   isListed(cat) || pack.overflowPolicy[cat.id]?.countsToTotal === false;
 
-function eligibleCategories(c: CourseRecord, pack: RulePack): string[] {
+/** 一筆修課可以算進哪些類別。排課時也用它判斷開課資料算哪一類（lib/offerings 的 categoriesFor） */
+export function eligibleCategories(c: CourseRecord, pack: RulePack): string[] {
   const listed = pack.categories.filter((cat) => isExclusive(cat, pack) && matches(cat, c, pack));
   if (listed.length > 0) return listed.map((cat) => cat.id);
   return pack.categories.filter((cat) => matches(cat, c, pack)).map((cat) => cat.id);

@@ -7,6 +7,7 @@ import { auditCredits, type AuditInput } from "@/lib/audit/engine";
 import { verifyAll, type VerifyReport } from "@/lib/verify/citation";
 import { loadCorpus } from "@/lib/rules/loader";
 import { offeringsFor } from "@/lib/offerings";
+import type { RulePack } from "@/lib/rules/schema";
 import { solveWithRelaxation, type SolveContext } from "@/lib/solver/schedule";
 import { scanMany } from "@/lib/safety/scan";
 
@@ -47,9 +48,9 @@ export function collectCitations(audit: AuditResult): Citation[] {
 }
 
 /** course.search —— 查自建開課資料庫 */
-export function courseSearch(year: number, term: Term, categories: string[], school: string): Offering[] {
+export function courseSearch(year: number, term: Term, categories: string[], school: string, pack?: RulePack): Offering[] {
   const wanted = new Set(categories);
-  return offeringsFor(year, term, school).filter((o) => o.category.some((c) => wanted.has(c)));
+  return offeringsFor(year, term, school, pack).filter((o) => o.category.some((c) => wanted.has(c)));
 }
 
 /** schedule.solve —— backtracking，不經 LLM */

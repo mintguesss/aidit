@@ -83,7 +83,7 @@ export async function POST(req: Request) {
 
   const [year, t] = parseTerm(audit.nextTerm);
   const ctx: SolveContext = {
-    offerings: offeringsFor(year, t, schoolOf(record.student)),
+    offerings: offeringsFor(year, t, schoolOf(record.student), pack),
     requirements,
     passedCodes: new Set(
       record.courses

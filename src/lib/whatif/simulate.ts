@@ -379,7 +379,7 @@ function buildSolveContext(
   // 試算可能跨好幾個學期，每個學期用它自己的學年算上下限
   const limits = termLimitsFor(pack, record.student, `${year}-${term}`);
   return {
-    offerings: offeringsFor(year, term, schoolOf(record.student)),
+    offerings: offeringsFor(year, term, schoolOf(record.student), pack),
     requirements,
     passedCodes: new Set(
       record.courses

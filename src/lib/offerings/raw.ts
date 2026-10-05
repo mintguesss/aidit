@@ -22,6 +22,11 @@ export type RawOffering = {
   college: string;
   category: string[];
   generalDomain?: string;
+  /**
+   * 選別（必修／選修／通識）。有填的話，可採計類別在排課時依學生的規則包判斷（lib/offerings 的
+   * categoriesFor），category 欄位只是轉換當時的參考。合成資料沒填，照用 category
+   */
+  selectType?: "required" | "elective" | "general";
   /** 本系必修規劃給哪個年級（輔大開課班級「資管二甲」→ 2）。選修、通識不填 */
   forGrade?: number;
   /** 結構化先修欄位（多數學校沒有，因此多半為空） */

@@ -9,6 +9,9 @@ export default defineConfig({
     environment: "node",
     include: ["tests/**/*.test.ts"],
     reporters: ["default"],
+    // 校對紀錄、排課這類測試要連續寫檔或跑完整求解，整批平行跑時偶爾超過預設的 5 秒。
+    // 單獨跑都在 1 秒左右；放寬只是避免機器忙時誤報，真的卡住照樣會失敗
+    testTimeout: 20_000,
     /**
      * 測試一律走離線替身，不連任何外部服務。
      *

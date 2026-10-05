@@ -143,6 +143,14 @@ export type Offering = {
   forGrade?: number;
   /** 選別。有填就依學生的規則包判斷可採計類別（見 lib/offerings 的 categoriesFor） */
   selectType?: SelectType;
+  /** 學校大綱系統的編號（輔大：jonCouSn＋教師編號）。課綱頁打開時才去抓大綱（lib/offerings/outline.ts） */
+  outline?: { id: number; tchNo: string };
+  /** 上課教室 */
+  rooms?: string[];
+  /** 授課語言，如「中文」「全英文」 */
+  language?: string;
+  /** 課程標籤，如「全英-專業學科類」 */
+  tags?: string[];
   prerequisites: Prerequisite[];
   /**
    * 修課人數上限與已選人數。**可能未知**：系上課表沒有這兩個數字，只有教務處系統有。
@@ -405,6 +413,8 @@ export type AdjustmentOutcome = {
 
 export type PlanCourse = {
   code: string;
+  /** 哪一班（學校大綱系統的編號）。同一門課好幾班時，課綱頁靠它顯示課表上的那一班 */
+  section?: number;
   name: string;
   credits: number;
   slotText: string;

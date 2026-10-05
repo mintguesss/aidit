@@ -21,6 +21,7 @@ type Block = {
   key: string;
   name: string;
   code?: string;
+  section?: number;
   credits?: number;
   category?: string;
   /** 配色編號 1–6，與修業進度條的類別顏色一致 */
@@ -65,6 +66,7 @@ export function Timetable({
           key: c.code,
           name: c.name,
           code: c.code,
+          section: c.section,
           credits: c.credits,
           category: c.categoryLabel,
           color: colorOf(c.category),
@@ -206,7 +208,7 @@ function Cell({ b, search, time }: { b: Block; search: string; time: string }) {
   );
   if (b.kind === "reserved" || !b.code) return <div className="tt-in">{body}</div>;
   return (
-    <Link className="tt-in tt-link" href={`/syllabus/${b.code}${search}`}>
+    <Link className="tt-in tt-link" href={`/syllabus/${b.code}${search}${b.section ? `${search ? "&" : "?"}sec=${b.section}` : ""}`}>
       {body}
     </Link>
   );

@@ -192,7 +192,7 @@ function normalise(p: CoursePreferences): CoursePreferences {
     avoidEarly: Boolean(p.avoidEarly),
     avoidDays: days,
     maxCredits: clamp(p.maxCredits, 0, 30),
-    targetCourseCount: clamp(p.targetCourseCount, 0, 10),
+    targetCourseCount: clamp(p.targetCourseCount, 0, 30),
     preferCompactDays: Boolean(p.preferCompactDays),
     note: typeof p.note === "string" ? p.note.slice(0, 200) : undefined,
     extraGoals: normaliseGoals(p.extraGoals),

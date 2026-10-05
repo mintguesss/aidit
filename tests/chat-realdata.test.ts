@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { answerCourseInfo, answerPersonalAudit, categoryFromText } from "@/lib/chat/capabilities";
 import { allOfferings } from "@/lib/offerings";
-import { applyParams } from "@/lib/chat/apply";
+import { applyParams, sanitiseConstraintSet } from "@/lib/chat/apply";
 import { fillEmpty } from "@/lib/chat/route";
 import { ruleAskIntent } from "@/lib/chat/intent";
 import type { AuditResult, CategoryResult } from "@/lib/types";
@@ -148,5 +148,28 @@ describe("額外目標要原句有提到", () => {
 
   it("「我想加修輔系」照常加入", () => {
     expect(applyParams(set, set, p(["minor"]), "", "我想加修輔系").next.goals).toEqual(["minor"]);
+  });
+});
+
+describe("對話送回的條件不得無聲截斷", () => {
+  const fallback = {
+    avoidDays: [], avoidPeriods: [], avoidEarly: false, preferCompactDays: false, maxCredits: 25,
+    targetCourseCount: 3, goal: "balanced", goals: [], excludeCourses: [], pinCourses: [],
+  } as unknown as ConstraintSet;
+
+  it("排除第 11 門課時，前 10 門都還在", () => {
+    const codes = Array.from({ length: 11 }, (_, i) => `IM${String(4001 + i)}`);
+    const r = sanitiseConstraintSet({ ...fallback, excludeCourses: codes }, fallback);
+    expect(r.excludeCourses).toEqual(codes);
+  });
+
+  it("輔大整天不排（D0 到 E4 共 16 節）時，E4 不會被丟掉", () => {
+    const periods = Array.from({ length: 16 }, (_, i) => i);
+    const r = sanitiseConstraintSet({ ...fallback, avoidPeriods: [{ day: 1, periods }] }, fallback);
+    expect(r.avoidPeriods[0]!.periods).toEqual(periods);
+  });
+
+  it("期望堂數可以超過 10", () => {
+    expect(sanitiseConstraintSet({ ...fallback, targetCourseCount: 12 }, fallback).targetCourseCount).toBe(12);
   });
 });

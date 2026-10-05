@@ -223,7 +223,7 @@ export function ProfileForm({
                 <input
                   type="number"
                   min={0}
-                  max={10}
+                  max={30}
                   value={prefs.targetCourseCount ?? ""}
                   placeholder="不指定"
                   onChange={(e) =>

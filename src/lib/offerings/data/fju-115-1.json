@@ -6092,7 +6092,8 @@
       "dept-required"
     ],
     "capacity": 80,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 3
   },
   {
     "school": "fju",
@@ -6109,7 +6110,8 @@
       "dept-required"
     ],
     "capacity": 80,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 3
   },
   {
     "school": "fju",
@@ -6160,7 +6162,8 @@
       "dept-required"
     ],
     "capacity": 90,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 2
   },
   {
     "school": "fju",
@@ -6177,7 +6180,8 @@
       "dept-required"
     ],
     "capacity": 80,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 2
   },
   {
     "school": "fju",
@@ -6194,7 +6198,8 @@
       "dept-required"
     ],
     "capacity": 80,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 1
   },
   {
     "school": "fju",
@@ -6211,7 +6216,8 @@
       "dept-required"
     ],
     "capacity": 75,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 1
   },
   {
     "school": "fju",
@@ -6228,7 +6234,8 @@
       "dept-required"
     ],
     "capacity": 125,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 1
   },
   {
     "school": "fju",
@@ -6245,7 +6252,8 @@
       "dept-required"
     ],
     "capacity": 130,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 1
   },
   {
     "school": "fju",
@@ -6262,7 +6270,8 @@
       "dept-required"
     ],
     "capacity": 90,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 2
   },
   {
     "school": "fju",
@@ -6279,7 +6288,8 @@
       "dept-required"
     ],
     "capacity": 75,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 2
   },
   {
     "school": "fju",
@@ -6296,7 +6306,8 @@
       "dept-required"
     ],
     "capacity": 75,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 2
   },
   {
     "school": "fju",
@@ -6313,7 +6324,8 @@
       "dept-required"
     ],
     "capacity": 75,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 2
   },
   {
     "school": "fju",
@@ -6330,7 +6342,8 @@
       "dept-required"
     ],
     "capacity": 15,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 3
   },
   {
     "school": "fju",
@@ -6347,7 +6360,8 @@
       "dept-required"
     ],
     "capacity": 15,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 3
   },
   {
     "school": "fju",
@@ -6364,7 +6378,8 @@
       "dept-required"
     ],
     "capacity": 15,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 3
   },
   {
     "school": "fju",
@@ -6381,7 +6396,8 @@
       "dept-required"
     ],
     "capacity": 15,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 3
   },
   {
     "school": "fju",
@@ -6398,7 +6414,8 @@
       "dept-required"
     ],
     "capacity": 15,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 3
   },
   {
     "school": "fju",
@@ -6415,7 +6432,8 @@
       "dept-required"
     ],
     "capacity": 15,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 3
   },
   {
     "school": "fju",
@@ -6432,7 +6450,8 @@
       "dept-required"
     ],
     "capacity": 15,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 3
   },
   {
     "school": "fju",
@@ -6449,7 +6468,8 @@
       "dept-required"
     ],
     "capacity": 15,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 3
   },
   {
     "school": "fju",
@@ -6466,7 +6486,8 @@
       "dept-required"
     ],
     "capacity": 15,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 3
   },
   {
     "school": "fju",
@@ -6483,7 +6504,8 @@
       "dept-required"
     ],
     "capacity": 15,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 3
   },
   {
     "school": "fju",
@@ -6500,7 +6522,8 @@
       "dept-required"
     ],
     "capacity": 15,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 3
   },
   {
     "school": "fju",
@@ -6517,7 +6540,8 @@
       "dept-required"
     ],
     "capacity": 15,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 3
   },
   {
     "school": "fju",
@@ -6534,7 +6558,8 @@
       "dept-required"
     ],
     "capacity": 15,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 3
   },
   {
     "school": "fju",
@@ -6551,7 +6576,8 @@
       "dept-required"
     ],
     "capacity": 90,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 1
   },
   {
     "school": "fju",
@@ -6568,7 +6594,8 @@
       "dept-required"
     ],
     "capacity": 80,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 1
   },
   {
     "school": "fju",
@@ -6619,7 +6646,8 @@
       "dept-required"
     ],
     "capacity": 70,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 2
   },
   {
     "school": "fju",
@@ -6636,7 +6664,8 @@
       "dept-required"
     ],
     "capacity": 70,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 2
   },
   {
     "school": "fju",
@@ -6687,7 +6716,8 @@
       "dept-required"
     ],
     "capacity": 70,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 1
   },
   {
     "school": "fju",
@@ -6704,7 +6734,8 @@
       "dept-required"
     ],
     "capacity": 85,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 1
   },
   {
     "school": "fju",
@@ -6738,7 +6769,8 @@
       "dept-required"
     ],
     "capacity": 65,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 2
   },
   {
     "school": "fju",
@@ -6755,7 +6787,8 @@
       "dept-required"
     ],
     "capacity": 65,
-    "fetchedAt": "2026-10-02T01:21:30+08:00"
+    "fetchedAt": "2026-10-02T01:21:30+08:00",
+    "forGrade": 2
   },
   {
     "school": "fju",

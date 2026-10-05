@@ -237,3 +237,76 @@ describe("畢業條件自行勾選", () => {
     expect(a.verdict.detail).toContain("自行勾選");
   });
 });
+
+describe("各個時間點的示範學生（同一份成績單截到不同學期）", async () => {
+  const { solve, requirementsFrom, constraintsFrom, reservedFrom } = await import("@/lib/solver/schedule");
+  const { takenCourseCodes, continuingCourseCodes } = await import("@/lib/solver/taken");
+  const { termLimitsFor } = await import("@/lib/rules/term-limits");
+  const { preferencesOf } = await import("@/lib/chat/apply");
+
+  type Id = "fju-im-111-year1-fall" | "fju-im-111-year1" | "fju-im-111-year3";
+  function plan(id: Id, cur: string, next: string) {
+    const rec = fixture(id).record;
+    const a = auditCredits({ record: rec, pack, traceId: "t", currentTerm: cur, nextTerm: next });
+    expect(a.countable + a.inProgress + a.unmet).toBe(a.minCredits);
+    const prefs = preferencesOf(rec.preferences);
+    const limits = termLimitsFor(pack, rec.student, next);
+    const [y, t] = next.split("-").map(Number) as [number, 1 | 2];
+    const r = solve({
+      offerings: offeringsFor(y, t, "fju"),
+      requirements: requirementsFrom(a),
+      passedCodes: new Set(rec.courses.map((c) => c.code)),
+      takenCodes: takenCourseCodes(rec.courses, pack),
+      continueCodes: continuingCourseCodes(rec.courses, pack),
+      admissionYear: rec.student.admissionYear,
+      reserved: reservedFrom(rec.plannedCommitments),
+      preferences: prefs,
+      constraints: constraintsFrom(prefs, limits),
+      termLabel: next,
+      termMinCredits: limits.minCredits,
+      termMaxCredits: limits.maxCredits,
+    });
+    expect(r.ok).toBe(true);
+    return { a, limits, names: r.ok ? r.plans[0]!.courses.map((c) => c.name) : [], codes: r.ok ? r.plans[0]!.courses.map((c) => c.code) : [] };
+  }
+
+  it("大一上結束：已修 22（111-1 全部），還缺 106", () => {
+    const { a } = plan("fju-im-111-year1-fall", "111-1", "111-2");
+    expect(a.countable).toBe(22);
+    expect(a.unmet).toBe(106);
+  });
+
+  it("大一上結束 → 111-2：學年課的下半（國文、英文、微積分、會計學）與大一下必修都排進來，不排大二的統計學", () => {
+    const { names, codes } = plan("fju-im-111-year1-fall", "111-1", "111-2");
+    for (const n of ["國文", "外國語文(中級英文)", "微積分", "會計學", "進階程式設計"]) expect(names, n).toContain(n);
+    expect(codes).not.toContain("02222");
+  });
+
+  it("大一結束：已修 39，國防兩學期 → 通過", () => {
+    const { a } = plan("fju-im-111-year1", "111-2", "112-1");
+    expect(a.countable).toBe(39);
+    expect(a.graduationChecks.find((g) => g.id === "defense-education")!.status).toBe("satisfied");
+  });
+
+  it("大一結束 → 112-1：大二上必修（統計學、經濟學、資料庫管理、WEB 程式設計）排進來，微積分不再排", () => {
+    const { names, codes } = plan("fju-im-111-year1", "111-2", "112-1");
+    for (const n of ["統計學", "經濟學", "資料庫管理"]) expect(names, n).toContain(n);
+    expect(codes).not.toContain("02390");
+  });
+
+  it("大三結束：已修 118，院系必修 64 全到，還缺專業倫理 2、通識 2、選修 6", () => {
+    const { a } = plan("fju-im-111-year3", "113-2", "114-1");
+    expect(a.countable).toBe(118);
+    const cat = (id: string) => a.categories.find((c) => c.id === id)!;
+    expect(cat("dept-required").unmet).toBe(0);
+    expect(cat("holistic-core").unmet).toBe(2);
+    expect(cat("general").unmet).toBe(2);
+    expect(cat("free-elective").unmet).toBe(6);
+  });
+
+  it("大三結束 → 114-1：用大四的學分上下限（9／32），專業倫理排進來", () => {
+    const { limits, names } = plan("fju-im-111-year3", "113-2", "114-1");
+    expect(limits).toEqual({ minCredits: 9, maxCredits: 32 });
+    expect(names).toContain("專業倫理-企業倫理");
+  });
+});

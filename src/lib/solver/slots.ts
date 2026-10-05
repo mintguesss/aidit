@@ -98,14 +98,19 @@ export function parseSlots(raw: string): SlotParse {
     const chunk = part.trim();
     if (chunk === "") continue;
 
+    // 單雙週：「二 D2(單)」。標記拿掉再解析節次，這一段的時段都帶上週別
+    const weekMark = /\((單|雙)\)/.exec(chunk);
+    const weeks = weekMark ? (weekMark[1] === "單" ? "odd" : "even") : undefined;
+    const body = weekMark ? chunk.replace(weekMark[0], " ").trim() : chunk;
+
     SEGMENT_RE.lastIndex = 0;
-    const covered = new Array<boolean>(chunk.length).fill(false);
+    const covered = new Array<boolean>(body.length).fill(false);
     let m: RegExpExecArray | null;
-    while ((m = SEGMENT_RE.exec(chunk)) !== null) {
+    while ((m = SEGMENT_RE.exec(body)) !== null) {
       const day = DAY_MAP[m[1]!.toLowerCase()];
       const periods = parsePeriods(m[2]!);
       if (day === undefined || periods === null) continue;
-      slots.push({ day, periods });
+      slots.push(weeks ? { day, periods, weeks } : { day, periods });
       for (let i = m.index; i < m.index + m[0]!.length; i++) covered[i] = true;
       matched = true;
     }
@@ -113,7 +118,7 @@ export function parseSlots(raw: string): SlotParse {
     // 未被任何 segment 覆蓋的字元只允許是空白或分隔符號。
     // 有殘餘就代表我們只看懂了一半 —— 寧可整筆標為未知，也不輸出片段時段，
     // 因為片段時段會讓衝堂判定「看起來有做」卻漏掉真正的衝突。
-    const residue = [...chunk].filter((_, i) => !covered[i]).join("").replace(/[ ,\-]/g, "");
+    const residue = [...body].filter((_, i) => !covered[i]).join("").replace(/[ ,\-]/g, "");
     if (residue !== "") return { slots: [], unknown: true, raw };
   }
 
@@ -121,17 +126,19 @@ export function parseSlots(raw: string): SlotParse {
   return { slots: mergeSlots(slots), unknown: false, raw };
 }
 
-/** 同一天的多個區段合併，方便衝堂判定 */
+/** 同一天、同週別的多個區段合併，方便衝堂判定（每週、單週、雙週分開放） */
 function mergeSlots(slots: TimeSlot[]): TimeSlot[] {
-  const byDay = new Map<number, Set<number>>();
+  const WEEK_RANK = { all: 0, odd: 1, even: 2 } as const;
+  const byKey = new Map<string, { day: TimeSlot["day"]; weeks?: "odd" | "even"; set: Set<number> }>();
   for (const s of slots) {
-    const set = byDay.get(s.day) ?? new Set<number>();
-    for (const p of s.periods) set.add(p);
-    byDay.set(s.day, set);
+    const key = `${s.day}:${s.weeks ?? "all"}`;
+    const e = byKey.get(key) ?? { day: s.day, ...(s.weeks ? { weeks: s.weeks } : {}), set: new Set<number>() };
+    for (const p of s.periods) e.set.add(p);
+    byKey.set(key, e);
   }
-  return [...byDay.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([day, set]) => ({ day: day as TimeSlot["day"], periods: [...set].sort((x, y) => x - y) }));
+  return [...byKey.values()]
+    .sort((a, b) => a.day - b.day || WEEK_RANK[a.weeks ?? "all"] - WEEK_RANK[b.weeks ?? "all"])
+    .map(({ day, weeks, set }) => ({ day, periods: [...set].sort((x, y) => x - y), ...(weeks ? { weeks } : {}) }));
 }
 
 // -------------------------------------------------------------- 衝堂判定
@@ -140,6 +147,8 @@ export function clashes(a: TimeSlot[], b: TimeSlot[]): boolean {
   for (const x of a) {
     for (const y of b) {
       if (x.day !== y.day) continue;
+      // 一個只上單週、一個只上雙週：同一節也不會碰到
+      if (x.weeks && y.weeks && x.weeks !== y.weeks) continue;
       if (x.periods.some((p) => y.periods.includes(p))) return true;
     }
   }
@@ -167,7 +176,7 @@ export function formatSlots(slots: TimeSlot[], unknown = false, label: (p: numbe
         contiguous && ps.length > 1
           ? `${label(ps[0]!)}-${label(ps[ps.length - 1]!)}`
           : ps.map(label).join(",");
-      return `${DAY_LABEL[s.day]} ${body}`;
+      return `${DAY_LABEL[s.day]} ${body}${s.weeks ? (s.weeks === "odd" ? "（單週）" : "（雙週）") : ""}`;
     })
     .join(" / ");
 }

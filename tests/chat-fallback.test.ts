@@ -321,3 +321,29 @@ describe("模型呼叫失敗時退回規則，不讓整輪失敗", () => {
     ).rejects.toBeInstanceOf(LlmBudgetExceeded);
   });
 });
+
+describe("「他校事務」要有別的學校才算（TODO G3）", () => {
+  const asOtherInstitution = { kind: "forbidden", topic: "other-institution" } as const;
+
+  it("「今天天氣如何」模型套了他校事務 → 改成一般的超出範圍，照樣不回答", async () => {
+    vi.mocked(parseAskIntent).mockResolvedValueOnce(asOtherInstitution as AskIntentResult);
+    const r = await askTurn([{ role: "user", content: "今天天氣如何" }], base, new LlmBudget(LIMITS.llmCallsPerTurn));
+    expect(r.tools).toContain("rule.other-institution");
+    expect(r.reply.kind).toBe("超出範圍");
+    expect(r.reply.headline).not.toContain("他校");
+  });
+
+  it("真的問別校：模型與規則一致，照舊以他校事務拒絕", async () => {
+    vi.mocked(parseAskIntent).mockResolvedValueOnce(asOtherInstitution as AskIntentResult);
+    const r = await askTurn([{ role: "user", content: "台大的畢業門檻是多少" }], base, new LlmBudget(LIMITS.llmCallsPerTurn));
+    expect(r.tools).not.toContain("rule.other-institution");
+  });
+
+  it("輔大學生問「輔大」：規則不當成他校（自己學校的稱呼先換成本校）", async () => {
+    const { ruleAskIntent } = await import("@/lib/chat/intent");
+    const { withoutOwnSchool } = await import("@/lib/schools");
+    expect(ruleAskIntent(withoutOwnSchool("輔大的畢業門檻是多少", "fju")).kind).not.toBe("forbidden");
+    // 合成資料的學生問輔大，仍是他校
+    expect(ruleAskIntent(withoutOwnSchool("輔大的畢業門檻是多少", "demo"))).toMatchObject({ kind: "forbidden", topic: "other-institution" });
+  });
+});

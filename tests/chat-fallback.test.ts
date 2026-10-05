@@ -103,7 +103,7 @@ describe("模型編出來的時段要擋下", () => {
     const set = r.plan!.constraintSet;
     expect(set.avoidPeriods.some((a) => a.day === 1 && a.periods.includes(5))).toBe(false);
     // 規則補上的是原句說的早上
-    expect(set.avoidPeriods).toContainEqual({ day: 1, periods: [1, 2, 3, 4] });
+    expect(set.avoidPeriods).toContainEqual({ day: 1, periods: [0, 1, 2, 3, 4] });
   });
 });
 

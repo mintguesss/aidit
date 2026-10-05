@@ -97,9 +97,11 @@ describe("對話裡的節次說法依學校", async () => {
     expect(describeSet({ ...base, avoidEarly: true }, periodNamesFor("fju"))).toContain("不排早八（D0、D1）");
   });
 
-  it("輔大的早上是 D1–D4、下午是 DN–D8", () => {
+  it("輔大的早上含特早節：D0–D4（TODO H7）；下午是 DN–D8", () => {
     const fju = periodNamesFor("fju");
-    expect(describeSet({ ...base, avoidPeriods: weekdays([1, 2, 3, 4]) }, fju)).toContain("不排早上的課（D1–D4）");
+    expect(describeSet({ ...base, avoidPeriods: weekdays([0, 1, 2, 3, 4]) }, fju)).toContain("不排早上的課（D0–D4）");
+    // 加入特早節之前存下的設定（1–4）仍認得是「早上」
+    expect(describeSet({ ...base, avoidPeriods: weekdays([1, 2, 3, 4]) }, fju)).toContain("不排早上的課（D0–D4）");
     expect(describeSet({ ...base, avoidPeriods: weekdays([5, 6, 7, 8, 9]) }, fju)).toContain("不排下午的課（DN–D8）");
   });
 

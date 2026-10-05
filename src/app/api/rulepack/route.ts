@@ -3,6 +3,7 @@ import { inspectUploadedPack } from "@/lib/rules/inspect";
 import { supabaseClient, supabaseConfigured } from "@/lib/store/supabase";
 import { putUpload } from "@/lib/review/uploads";
 import { contentHash } from "@/lib/util/identity";
+import { isPdf } from "@/lib/util/file-type";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,6 +49,11 @@ export async function POST(req: Request) {
   }
 
   if (name.endsWith(".pdf")) {
+    // 只看副檔名不夠（TODO E4）：PDF 檔頭一定是「%PDF-」。改了副檔名的別種檔案在這裡擋下，
+    // 不會被存起來、也不會送去抽取
+    if (!isPdf(buf)) {
+      return NextResponse.json({ error: "這個檔案不是 PDF（檔案內容與副檔名不符）。" }, { status: 415 });
+    }
     // 收件即留存檔案指紋，之後校對頁才對得上是哪一份
     const hash = contentHash(buf.toString("base64")).slice(0, 12);
     const safe = file.name.replace(/[^\w.\-]/g, "_").slice(0, 60);

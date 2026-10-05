@@ -389,6 +389,7 @@ function buildSolveContext(
     takenCodes: takenCourseCodes(record.courses, pack),
     continueCodes: continuingCourseCodes(record.courses, pack),
     admissionYear: record.student.admissionYear,
+    studentDept: record.student.dept,
     reserved: reservedFrom(record.plannedCommitments),
     // 提前畢業的試算以「最快畢業」為目標，覆寫學生平時的選課傾向 ——
     // 使用者問的就是「拚一點有沒有可能」，用輕量傾向去算會答錯方向

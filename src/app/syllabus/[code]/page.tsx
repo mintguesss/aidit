@@ -31,7 +31,7 @@ export default async function SyllabusPage({
   const audit = session.outcome.ok ? session.outcome.audit : null;
   const pack = session.outcome.ok ? session.outcome.state.pack : undefined;
 
-  const o = pickOffering(code, sp.sec, audit?.student.school ?? undefined, audit?.nextTerm);
+  const o = pickOffering(code, sp.sec, audit?.student.school ?? undefined, audit?.nextTerm, audit?.student.dept);
   const outline = o ? await fetchOutline(o) : null;
   const catName = new Map((audit?.categories ?? []).map((c) => [c.id, c.name]));
   const categories = o ? (pack ? categoriesFor(o, pack) : o.category).map((id) => catName.get(id) ?? id) : [];
@@ -170,7 +170,13 @@ function fmt(iso: string): string {
  * 找課表上那一班：有帶班級編號（sec）就用它；沒有就找學生下學期、自己學校的那門課，
  * 最後才退回任何一班。以前直接取「第一個同課號的」，微積分這種好幾班、好幾學期的課會顯示錯的那一班
  */
-function pickOffering(code: string, sec: string | undefined, school: string | undefined, nextTerm: string | undefined): Offering | undefined {
+function pickOffering(
+  code: string,
+  sec: string | undefined,
+  school: string | undefined,
+  nextTerm: string | undefined,
+  dept?: string,
+): Offering | undefined {
   const same = allOfferings().filter((x) => x.code.toUpperCase() === code.toUpperCase());
   if (sec) {
     const hit = same.find((x) => String(x.outline?.id) === sec);
@@ -178,6 +184,8 @@ function pickOffering(code: string, sec: string | undefined, school: string | un
   }
   const [y, t] = (nextTerm ?? "").split("-").map(Number);
   return (
+    // 有本系保留班的課（人生哲學、大學入門）先找本系的班，別系的班學生選不到
+    same.find((x) => x.school === school && x.year === y && x.term === t && x.dept === dept) ??
     same.find((x) => x.school === school && x.year === y && x.term === t) ??
     same.find((x) => x.school === school) ??
     same[0]

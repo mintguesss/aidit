@@ -56,6 +56,7 @@ export function buildContext(
     takenCodes: takenCourseCodes(record.courses, pack),
     continueCodes: continuingCourseCodes(record.courses, pack),
     admissionYear: record.student.admissionYear,
+    studentDept: record.student.dept,
     reserved: reservedFrom(record.plannedCommitments),
     preferences: {
       goal: set.goal,

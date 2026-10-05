@@ -57,6 +57,7 @@ export function PlanPanel({
   reserved,
   search,
   school,
+  categoryOrder,
 }: {
   fixture: string;
   term: string;
@@ -68,6 +69,8 @@ export function PlanPanel({
   search: string;
   /** 學校：週課表與匯出的節次名稱、鐘點依各校作息 */
   school?: string;
+  /** 規則包的類別順序：週課表的配色跟修業進度條一致 */
+  categoryOrder?: string[];
 }) {
   const [state, setState] = useState<State>(initial);
   const [view, setView] = useState<"grid" | "list">("grid");
@@ -159,7 +162,13 @@ export function PlanPanel({
             </div>
 
             {view === "grid" ? (
-              <Timetable courses={plan.courses} reserved={reservedSlots} search={search} school={school} />
+              <Timetable
+                courses={plan.courses}
+                reserved={reservedSlots}
+                search={search}
+                school={school}
+                categoryOrder={categoryOrder}
+              />
             ) : null}
 
             {view === "list" ? (

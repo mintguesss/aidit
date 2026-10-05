@@ -115,3 +115,30 @@ describe("對話裡的節次說法依學校", async () => {
     expect(s).toContain("空出星期三 D5、D6");
   });
 });
+
+describe("單雙週（TODO H8；教務處節次說明：S 單週、D 雙週）", async () => {
+  const { clashes, formatSlots } = await import("@/lib/solver/slots");
+
+  it("輔大資料庫管理：每週 D3-D4、雙週 D1-D2、單週 D2", () => {
+    const r = parseSlots("二 D3,D4 / 二 D1,D2(雙) / 二 D2(單)");
+    expect(r.unknown).toBe(false);
+    expect(r.slots).toEqual([
+      { day: 2, periods: [3, 4] },
+      { day: 2, periods: [2], weeks: "odd" },
+      { day: 2, periods: [1, 2], weeks: "even" },
+    ]);
+  });
+
+  it("一個單週、一個雙週：同一節也不衝堂", () => {
+    expect(clashes(parseSlots("二 D2(單)").slots, parseSlots("二 D2(雙)").slots)).toBe(false);
+  });
+
+  it("單週對每週、單週對單週：照樣衝堂（偏嚴不漏擋）", () => {
+    expect(clashes(parseSlots("二 D2(單)").slots, parseSlots("二 D2").slots)).toBe(true);
+    expect(clashes(parseSlots("二 D2(單)").slots, parseSlots("二 D2(單)").slots)).toBe(true);
+  });
+
+  it("寫回文字時標出週別", () => {
+    expect(formatSlots(parseSlots("二 D2(單)").slots)).toBe("二 2（單週）");
+  });
+});

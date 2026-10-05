@@ -106,7 +106,12 @@ export type ProviderKind = "mock" | "upload" | "session" | "api";
 
 // ---------------------------------------------------------------- 開課
 
-export type TimeSlot = { day: 1 | 2 | 3 | 4 | 5 | 6 | 7; periods: number[] };
+export type TimeSlot = {
+  day: 1 | 2 | 3 | 4 | 5 | 6 | 7;
+  periods: number[];
+  /** 只在單週或雙週上課（輔大代號 S／D）。沒填就是每週。單週與雙週的課不衝堂 */
+  weeks?: "odd" | "even";
+};
 
 export type PrerequisiteConfidence = "explicit" | "extracted" | "unknown";
 

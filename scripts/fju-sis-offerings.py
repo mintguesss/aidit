@@ -13,7 +13,7 @@
 - 其他（別系必修、0 學分的體育與軍訓、規則包沒列的必修）不收，列在輸出訊息裡
 
 修課人數只有上限（totNum），沒有已選人數 —— 未知不是 0，enrolled 不填。
-單雙週（sda = S／D）照每週上課處理：衝堂判定偏嚴、不會漏擋（TODO H8）。
+單雙週（sda = S／D）寫進時段文字，單週與雙週的課不算衝堂（TODO H8）。
 """
 
 import json
@@ -40,7 +40,9 @@ def slot_text(row: dict) -> str:
         day, section = s["couWek"].strip(), s["section"].strip()
         if not day or not section:
             continue
-        parts.append(f"{DAY.get(day, day)} {section}")
+        # 單雙週（教務處節次說明：S 單週、D 雙週），寫成「二 D2(單)」，lib/solver/slots.ts 解析
+        weeks = {"S": "(單)", "D": "(雙)"}.get(s["sda"].strip(), "")
+        parts.append(f"{DAY.get(day, day)} {section}{weeks}")
     # 沒有固定上課時間（專題、實習）—— 不是「時段未知」，是本來就沒排
     return " / ".join(parts) if parts else "時間另訂"
 
@@ -130,7 +132,7 @@ def main():
     out_rows.sort(key=lambda x: (x["dept"], x["code"], x["slotText"]))
     Path(out).write_text(json.dumps(out_rows, ensure_ascii=False, indent=2) + "\n", encoding="utf8")
     print(f"寫入 {len(out_rows)} 班（{len({r['code'] for r in out_rows})} 門課）→ {out}")
-    print(f"單雙週：{dict(sda)}（S／D 照每週處理）")
+    print(f"單雙週：{dict(sda)}（S 單週、D 雙週）")
     print(f"未收 {sum(skipped.values())} 班：")
     for k, n in skipped.most_common(25):
         print(f"  {k} ×{n}")

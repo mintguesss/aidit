@@ -9,27 +9,62 @@ import type { Plan } from "@/lib/types";
  * 「匯出」正是「不儲存」的那個替代方案：要留存的人自己留一份。
  *
  * **時間資料的可信度**：節次鐘點依學校（lib/offerings/period-scheme.ts）—— 輔大照教務處原文，
- * 合成資料是合成的；下方的學期起訖目前一律是合成資料。
+ * 合成資料是合成的；學期起訖見 TERM_DATES（輔大 115 學年度照行事曆，其他學期推估並標明）。
  * 匯出的檔案會把這件事寫進去 —— 一份看起來很真、時間卻是假的行事曆，
  * 比沒有行事曆更糟。真實開課資料進來時兩者都必須一併更新。
  */
 
-/** 學期起訖。與 PERIOD_TABLE 同樣是合成資料，真實行事曆進來時要換掉。 */
+export type TermDates = { start: string; end: string; source: string };
+
+/**
+ * 學期起訖：每週上課的第一天到最後一天（含學期考試週）。課表匯出（ICS）的重複規則吃這張表。
+ *
+ * 輔大：有公告的學期用秘書室行事曆原文；沒有的依同一套規律推估，並在來源寫「推估」。
+ *   115 學年度行事曆（秘書室，2026-04-17 公布）：
+ *     上學期 2026-09-14（一）開始上課，學期考試到 2027-01-02（六）；之後兩週彈性多元學習週，沒有固定課
+ *     下學期 2027-02-22（一）開始上課，學期考試到 2027-06-12（六）
+ *   規律：上學期 9 月第二個週一、下學期 2 月第四個週一開始，上 16 週（含考試）。
+ *   113-1 的實際開學日 2024-09-09 也是 9 月第二個週一。
+ * 合成資料：上學期 9/1、下學期 2/15 起 18 週。
+ */
+const FJU_OFFICIAL: Record<string, { start: string; end: string }> = {
+  "115-1": { start: "2026-09-14", end: "2027-01-02" },
+  "115-2": { start: "2027-02-22", end: "2027-06-12" },
+};
+const FJU_SOURCE = "輔仁大學秘書室 115 學年度行事曆（2026-04-17 公布）";
+
 export const TERM_DATES = {
-  source: "合成資料（一般大學行事曆）",
-  asOf: "2026-09-10",
-  /** 上學期 9/1 起 18 週；下學期 2/15 起 18 週 */
-  of(term: string): { start: string; end: string } | null {
+  of(term: string, school = "demo"): TermDates | null {
     const m = /^(\d{3})-(\d)$/.exec(term);
     if (!m) return null;
     const half = Number(m[2]);
     if (half !== 1 && half !== 2) return null;
     // 民國轉西元；下學期跨年，115-2 的 2 月是西元 2027
     const year = Number(m[1]) + 1911 + (half === 2 ? 1 : 0);
+
+    if (school === "fju") {
+      const official = FJU_OFFICIAL[term];
+      if (official) return { ...official, source: FJU_SOURCE };
+      const start = nthMonday(year, half === 1 ? 9 : 2, half === 1 ? 2 : 4);
+      return {
+        start,
+        end: addDays(start, 16 * 7 - 2),
+        source: `推估：依${FJU_SOURCE}的規律（${term} 的行事曆未收錄）`,
+      };
+    }
+
     const start = half === 1 ? `${year}-09-01` : `${year}-02-15`;
-    return { start, end: addDays(start, 18 * 7 - 1) };
+    return { start, end: addDays(start, 18 * 7 - 1), source: "合成資料（一般大學行事曆）" };
   },
 } as const;
+
+/** 某年某月的第 n 個週一 */
+function nthMonday(year: number, month: number, n: number): string {
+  const d = new Date(Date.UTC(year, month - 1, 1));
+  while (d.getUTCDay() !== 1) d.setUTCDate(d.getUTCDate() + 1);
+  d.setUTCDate(d.getUTCDate() + (n - 1) * 7);
+  return d.toISOString().slice(0, 10);
+}
 
 function addDays(iso: string, n: number): string {
   const d = new Date(`${iso}T00:00:00Z`);
@@ -81,7 +116,7 @@ function csvCell(v: string): string {
  * 塞 VTIMEZONE，為了單一時區的課表不值得。
  */
 export function toIcs(plan: Plan, now = new Date(), scheme: PeriodScheme = periodScheme()): string {
-  const dates = TERM_DATES.of(plan.term);
+  const dates = TERM_DATES.of(plan.term, scheme.school);
   if (!dates) throw new Error(`無法解析學期代號 ${plan.term}`);
 
   const stamp = now.toISOString().replace(/[-:]/g, "").slice(0, 15) + "Z";
@@ -101,14 +136,16 @@ export function toIcs(plan: Plan, now = new Date(), scheme: PeriodScheme = perio
       const times = s.periods.map((p) => periodRow(scheme, p)).filter((t) => t !== undefined);
       if (times.length === 0) continue;
 
-      const day = firstDateOn(dates.start, s.day).replace(/-/g, "");
+      // 單週從第 1 週、雙週從第 2 週開始，每兩週一次（輔大節次說明：依校行事曆排定之單／雙週）
+      const first = firstDateOn(dates.start, s.day);
+      const day = (s.weeks === "even" ? addDays(first, 7) : first).replace(/-/g, "");
       lines.push(
         "BEGIN:VEVENT",
         `UID:${c.code}-${s.day}-${i}-${plan.term}@aidit`,
         `DTSTAMP:${stamp}`,
         `DTSTART:${day}T${times[0]!.start.replace(":", "")}00`,
         `DTEND:${day}T${times[times.length - 1]!.end.replace(":", "")}00`,
-        `RRULE:FREQ=WEEKLY;UNTIL=${until}`,
+        `RRULE:FREQ=WEEKLY;${s.weeks ? "INTERVAL=2;" : ""}UNTIL=${until}`,
         `SUMMARY:${icsText(`${c.name}（${c.code}）`)}`,
         `DESCRIPTION:${icsText(
           [
@@ -118,7 +155,7 @@ export function toIcs(plan: Plan, now = new Date(), scheme: PeriodScheme = perio
             `時段：${c.slotText}`,
             "",
             `節次時間來源：${scheme.source}（${scheme.asOf}）`,
-            `學期起訖來源：${TERM_DATES.source}（${TERM_DATES.asOf}）`,
+            `學期起訖來源：${dates.source}`,
             "本檔為選課建議，非選課結果；實際開課時間以校方公告為準。",
           ].filter(Boolean).join("\n"),
         )}`,

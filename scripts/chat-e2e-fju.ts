@@ -122,7 +122,8 @@ for (const fx of ["fju-im-111-year2", "fju-im-111-year3", "fju-im-111-year1"]) {
   }
   // 開課資訊：拿推薦課表裡的課，時間、老師、名額要跟開課資料一致
   for (const c of (gtPlan?.courses ?? []).filter((x) => byCode.get(x.code)?.rawSlotText).slice(0, 3)) {
-    const o = byCode.get(c.code)!;
+    // 同一課號有很多班，要用課表上那一班（byCode 只留最後一班，人生哲學會拿到別系的班）
+    const o = offerings.find((x) => x.code === c.code && x.rawSlotText === c.slotText) ?? byCode.get(c.code)!;
     const [r] = await chat(fx, "ask", [`${o.name}什麼時候上課？`]);
     const t = text(r);
     // 回覆把連續節次寫成區間（D7-E0），所以比對星期、第一節與最後一節，且要在同一個班的那一行

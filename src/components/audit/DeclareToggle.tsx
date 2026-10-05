@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { Spinner } from "@/components/shell/Spinner";
 
 /**
  * 畢業條件的「我已通過」勾選框。
@@ -23,6 +24,8 @@ export function DeclareToggle({
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
+  // 存好之後頁面要重算審查；重算完之前維持轉圈，不然看起來像沒反應
+  const [refreshing, startRefresh] = useTransition();
   const [error, setError] = useState<string | null>(null);
   // 點了立刻打勾，不等伺服器重算完；失敗再恢復
   const [on, setOn] = useState(checked);
@@ -46,7 +49,7 @@ export function DeclareToggle({
       if (!res.ok) {
         setOn(!passed);
         setError(((await res.json()) as { error?: string }).error ?? "儲存失敗。");
-      } else router.refresh();
+      } else startRefresh(() => router.refresh());
     } finally {
       setBusy(false);
     }
@@ -54,8 +57,9 @@ export function DeclareToggle({
 
   return (
     <label className="declare" style={{ display: "inline-flex", gap: 6, alignItems: "center", fontSize: 13 }}>
-      <input type="checkbox" checked={on} disabled={busy} onChange={(e) => void toggle(e.target.checked)} />
+      <input type="checkbox" checked={on} disabled={busy || refreshing} onChange={(e) => void toggle(e.target.checked)} />
       我已通過
+      {busy || refreshing ? <Spinner label="重新計算中…" size={12} /> : null}
       {error ? <span style={{ color: "var(--unmet)" }}>{error}</span> : null}
     </label>
   );

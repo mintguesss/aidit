@@ -30,13 +30,13 @@ const fmtTime = (iso: string) =>
 
 const docHref = (url: string, page?: number) => `${encodeURI(url)}${page ? `#page=${page}` : ""}`;
 
-/** 版面模式抽出的語料有大段補齊空白，顯示時壓成兩格，比較好讀（高亮的範圍不變） */
-const squash = (s: string) => s.replace(/[ 	]{3,}/g, "  ");
+/** 版面模式抽出的語料有大段補齊空白與空行，顯示時壓掉，比較好讀（高亮的範圍不變） */
+const squash = (s: string) => s.replace(/[ \t]{3,}/g, "  ").replace(/\n[ \t]*(?:\n[ \t]*)+/g, "\n");
 
-const STATE_STYLE: Record<ReviewDecision["status"], { bg: string; line: string; fg: string; badge: string }> = {
-  approved: { bg: "var(--ok-bg)", line: "var(--ok)", fg: "var(--ok)", badge: "✓ 已通過" },
-  corrected: { bg: "var(--hold-bg)", line: "var(--hold)", fg: "var(--hold)", badge: "需要修正" },
-  rejected: { bg: "var(--unmet-bg)", line: "var(--unmet)", fg: "var(--unmet)", badge: "已退回" },
+const BADGE: Record<ReviewDecision["status"], string> = {
+  approved: "✓ 已通過",
+  corrected: "需要修正",
+  rejected: "已退回",
 };
 
 export function ReviewBoard({ view }: { view: DraftView }) {
@@ -77,12 +77,9 @@ export function ReviewBoard({ view }: { view: DraftView }) {
   };
   const shown = onlyOpen ? view.items.filter((i) => byItem.get(i.id)?.status !== "approved") : view.items;
 
-  const decide = async (itemId: string, status: ReviewDecision["status"], note?: string) => {
-    if (!reviewer.trim()) {
-      setMessage("請先在上方填寫你的姓名或代號 —— 每一筆校對都要記下是誰做的。");
-      window.scrollTo({ top: 0, behavior: "smooth" });
-      return;
-    }
+  /** 寫入一筆校對。失敗時回傳原因，由那一項的卡片自己顯示（訊息放在頁首，按的人看不到） */
+  const decide = async (itemId: string, status: ReviewDecision["status"], note?: string): Promise<string | null> => {
+    if (!reviewer.trim()) return "請先在頁面最上方填寫你的姓名或代號 —— 每一筆校對都要記下是誰做的。";
     setBusy(true);
     try {
       const res = await fetch("/api/review", {
@@ -94,12 +91,12 @@ export function ReviewBoard({ view }: { view: DraftView }) {
           decision: { itemId, status, note, reviewer: reviewer.trim() },
         }),
       });
-      const data = (await res.json()) as { record?: { decisions: ReviewDecision[] }; error?: string };
-      if (!res.ok) setMessage(data.error ?? "寫入失敗。");
-      else {
-        setDecisions(data.record!.decisions);
-        setMessage(null);
-      }
+      const data = (await res.json().catch(() => ({}))) as { record?: { decisions: ReviewDecision[] }; error?: string };
+      if (!res.ok || !data.record) return data.error ?? `寫入失敗（${res.status}），請稍後再試。`;
+      setDecisions(data.record.decisions);
+      return null;
+    } catch {
+      return "連不上伺服器，請檢查網路後再試。";
     } finally {
       setBusy(false);
     }
@@ -117,8 +114,10 @@ export function ReviewBoard({ view }: { view: DraftView }) {
         headers: reviewHeaders(password),
         body: JSON.stringify({ action: "lock", packId: view.packId, reviewer: reviewer.trim() }),
       });
-      const data = (await res.json()) as { path?: string; error?: string };
-      setMessage(res.ok ? `已鎖版，系統從現在起會使用這份規則（${data.path}）。` : (data.error ?? "鎖版失敗。"));
+      const data = (await res.json().catch(() => ({}))) as { path?: string; error?: string };
+      setMessage(res.ok ? `已鎖版，系統從現在起會使用這份規則（${data.path}）。` : (data.error ?? `鎖版失敗（${res.status}）。`));
+    } catch {
+      setMessage("連不上伺服器，請檢查網路後再試。");
     } finally {
       setBusy(false);
     }
@@ -187,7 +186,7 @@ export function ReviewBoard({ view }: { view: DraftView }) {
             </div>
           ) : null}
 
-          <div className="askform" style={{ maxWidth: 560 }}>
+          <div className="rv-who">
             <input
               type="text"
               placeholder="你的姓名或代號（必填）"
@@ -247,7 +246,7 @@ export function ReviewBoard({ view }: { view: DraftView }) {
         </div>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 14, marginTop: 18 }}>
+      <div className="rv-list">
         {shown.map((item) => (
           <ItemCard
             key={item.id}
@@ -276,7 +275,7 @@ function ItemCard({
   index: number;
   decision?: ReviewDecision;
   disabled: boolean;
-  onDecide: (itemId: string, status: ReviewDecision["status"], note?: string) => Promise<void>;
+  onDecide: (itemId: string, status: ReviewDecision["status"], note?: string) => Promise<string | null>;
   edit: {
     docs: Doc[];
     packId: string;
@@ -287,51 +286,32 @@ function ItemCard({
   };
 }) {
   const [editing, setEditing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const state = d?.status;
+  const act = async (status: ReviewDecision["status"], note?: string) => {
+    setError(null);
+    setError(await onDecide(item.id, status, note));
+  };
   const noteOnly = () => {
     const note = window.prompt("哪裡不對？正確的應該是什麼？（會留言給維護的人）");
     if (note) {
       setEditing(false);
-      void onDecide(item.id, "corrected", note);
+      void act("corrected", note);
     }
   };
   const lastEdit = item.edits.at(-1);
-  const look = state ? STATE_STYLE[state] : null;
   return (
-    <div
-      className="hold"
-      style={{
-        borderLeftColor: look?.line ?? "var(--line)",
-        borderLeftWidth: 5,
-        background: look?.bg,
-      }}
-    >
-      <h4 style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <span>
-          {index}.　{item.label}
-        </span>
-        {look ? (
-          <span
-            style={{
-              fontSize: 13,
-              fontWeight: 700,
-              color: "#fff",
-              background: look.fg,
-              borderRadius: 999,
-              padding: "2px 10px",
-            }}
-          >
-            {look.badge}
-          </span>
-        ) : (
-          <span style={{ fontSize: 13, fontWeight: 400, color: "var(--text-3)" }}>還沒看</span>
-        )}
-      </h4>
-      <div className="bd">
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }} className="rev-grid">
+    <article className={`rv-card${state ? ` is-${state}` : ""}`}>
+      <header className="rv-hd">
+        <span className="rv-n">{index}</span>
+        <h3>{item.label}</h3>
+        {state ? <span className="rv-badge">{BADGE[state]}</span> : <span className="rv-badge is-open">還沒看</span>}
+      </header>
+      <div className="rv-bd">
+        <div className="rv-grid">
           <div>
-            <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 4 }}>系統的理解</div>
-            <div className="srcbox" style={{ marginTop: 0, borderLeftColor: "var(--ink-2)", whiteSpace: "normal" }}>
+            <div className="rv-lb">系統的理解</div>
+            <div className="rv-box">
               {item.extracted}
               {item.details?.length ? (
                 <ul style={{ margin: "6px 0 0", paddingLeft: 20 }}>
@@ -341,21 +321,20 @@ function ItemCard({
                 </ul>
               ) : null}
             </div>
-            <div style={{ fontSize: 13, marginTop: 8 }}>
-              <b>請確認：</b>
-              {item.question}
+            <div className="rv-ask">
+              <b>請確認</b>　{item.question}
             </div>
           </div>
           <div>
-            <div style={{ fontSize: 12, color: "var(--text-3)", marginBottom: 4 }}>
+            <div className="rv-lb">
               原文{item.docTitle ? `：${item.docTitle}` : ""}
               {item.locator ? `　${item.locator}` : ""}
             </div>
-            <div className="srcbox" style={{ marginTop: 0 }}>
+            <div className="rv-box is-src">
               {item.context ? (
                 <>
                   {squash(item.context.before)}
-                  <mark style={{ background: "#FCE9A6", padding: "0 2px" }}>{squash(item.context.match)}</mark>
+                  <mark className="rv-mark">{squash(item.context.match)}</mark>
                   {squash(item.context.after)}
                 </>
               ) : item.quote ? (
@@ -369,7 +348,7 @@ function ItemCard({
               )}
             </div>
             {item.docUrl ? (
-              <div style={{ fontSize: 13, marginTop: 8 }}>
+              <div className="rv-link">
                 <a href={docHref(item.docUrl, item.page)} target="_blank" rel="noreferrer">
                   開啟原始文件{item.page ? `（第 ${item.page} 頁）` : ""}
                 </a>
@@ -378,12 +357,12 @@ function ItemCard({
           </div>
         </div>
         {item.note ? (
-          <div className="note" style={{ marginTop: 12, borderLeft: "4px solid var(--ink-2)" }}>
+          <div className="rv-extra">
             <b>補充說明</b>　{item.note}
           </div>
         ) : null}
         {item.edits.length ? (
-          <div className="note" style={{ marginTop: 12 }}>
+          <div className="rv-extra">
             <b>修改紀錄</b>
             <ul style={{ margin: "4px 0 0", paddingLeft: 20 }}>
               {item.edits.map((e) => (
@@ -409,29 +388,29 @@ function ItemCard({
           />
         ) : null}
         {d ? (
-          <div className="meta">
+          <div className="rv-meta">
             <div>
-              <b>校對人</b>　{d.reviewer}
+              校對人　{d.reviewer}
               {state === "approved" && lastEdit && lastEdit.by === d.reviewer ? (
                 <span style={{ color: "var(--text-3)", marginLeft: 8 }}>（改的人和按通過的人是同一位）</span>
               ) : null}
             </div>
             <div>
-              <b>時間</b>　{fmtTime(d.decidedAt)}
+              {fmtTime(d.decidedAt)}
             </div>
             {d.note ? (
               <div>
-                <b>備註</b>　{d.note}
+                備註　{d.note}
               </div>
             ) : null}
           </div>
         ) : null}
       </div>
-      <div className="act">
+      <footer className="rv-act">
         <button
           className="btn btn-primary"
           disabled={disabled || state === "approved"}
-          onClick={() => void onDecide(item.id, "approved")}
+          onClick={() => void act("approved")}
           style={state === "approved" ? { background: "var(--ok)", borderColor: "var(--ok)", opacity: 1 } : undefined}
         >
           {state === "approved" ? "✓ 已通過" : "通過"}
@@ -448,12 +427,17 @@ function ItemCard({
           disabled={disabled}
           onClick={() => {
             const note = window.prompt("為什麼這一項不該存在？");
-            if (note) void onDecide(item.id, "rejected", note);
+            if (note) void act("rejected", note);
           }}
         >
           退回
         </button>
-      </div>
-    </div>
+        {error ? (
+          <span className="rv-err" role="alert">
+            {error}
+          </span>
+        ) : null}
+      </footer>
+    </article>
   );
 }

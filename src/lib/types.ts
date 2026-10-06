@@ -22,6 +22,8 @@ export type Student = {
   minors?: string[];
   doubleMajors?: string[];
   certPrograms?: string[];
+  /** 本系的甲／乙班（輔大必修分甲乙班上課）。不知道就不填，排課會讓整份課表在同一班 */
+  classSection?: "甲" | "乙";
   /** 顯示用遮蔽字串，如 "4114·····"。不得為真實學號 */
   maskedId?: string;
   displayName?: string;
@@ -145,6 +147,8 @@ export type Offering = {
   selectType?: SelectType;
   /** 學校大綱系統的編號（輔大：jonCouSn＋教師編號）。課綱頁打開時才去抓大綱（lib/offerings/outline.ts） */
   outline?: { id: number; tchNo: string };
+  /** 開課班級（輔大 avaDptCNa），如「資管二甲」「CT-管理學院」「資管系專倫」。見 lib/offerings/class-group.ts */
+  classGroup?: string;
   /** 上課教室 */
   rooms?: string[];
   /** 授課語言，如「中文」「全英文」 */

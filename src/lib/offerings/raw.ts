@@ -29,6 +29,8 @@ export type RawOffering = {
   selectType?: "required" | "elective" | "general";
   /** 學校大綱系統的編號（輔大：jonCouSn＋教師編號）。課綱頁打開時才去抓大綱（lib/offerings/outline.ts） */
   outline?: { id: number; tchNo: string };
+  /** 開課班級（輔大 avaDptCNa），如「資管二甲」「CT-管理學院」「資管系專倫」。見 lib/offerings/class-group.ts */
+  classGroup?: string;
   /** 上課教室 */
   rooms?: string[];
   /** 授課語言，如「中文」「全英文」 */

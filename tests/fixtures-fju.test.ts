@@ -243,6 +243,7 @@ describe("各個時間點的示範學生（同一份成績單截到不同學期�
   const { takenCourseCodes, continuingCourseCodes } = await import("@/lib/solver/taken");
   const { termLimitsFor } = await import("@/lib/rules/term-limits");
   const { preferencesOf } = await import("@/lib/chat/apply");
+  const { classProfileOf } = await import("@/lib/offerings/class-group");
 
   type Id = "fju-im-111-year1-fall" | "fju-im-111-year1" | "fju-im-111-year3";
   function plan(id: Id, cur: string, next: string, over: { avoidEarly?: boolean } = {}) {
@@ -253,13 +254,14 @@ describe("各個時間點的示範學生（同一份成績單截到不同學期�
     const limits = termLimitsFor(pack, rec.student, next);
     const [y, t] = next.split("-").map(Number) as [number, 1 | 2];
     const r = solve({
-      offerings: offeringsFor(y, t, "fju"),
+      offerings: offeringsFor(y, t, "fju", pack),
       requirements: requirementsFrom(a),
       passedCodes: new Set(rec.courses.map((c) => c.code)),
       takenCodes: takenCourseCodes(rec.courses, pack),
       continueCodes: continuingCourseCodes(rec.courses, pack),
       admissionYear: rec.student.admissionYear,
       studentDept: rec.student.dept,
+      classProfile: classProfileOf(rec.student, pack.college),
       reserved: reservedFrom(rec.plannedCommitments),
       preferences: prefs,
       constraints: constraintsFrom(prefs, limits),
@@ -268,7 +270,16 @@ describe("各個時間點的示範學生（同一份成績單截到不同學期�
       termMaxCredits: limits.maxCredits,
     });
     expect(r.ok).toBe(true);
-    return { a, limits, names: r.ok ? r.plans[0]!.courses.map((c) => c.name) : [], codes: r.ok ? r.plans[0]!.courses.map((c) => c.code) : [], courses: r.ok ? r.plans[0]!.courses : [] };
+    const offs = offeringsFor(y, t, "fju");
+    const courses = r.ok ? r.plans[0]!.courses : [];
+    // 課表上每一門是哪一班（開課班級）
+    const groups = courses.map((c) => offs.find((o) => o.code === c.code && o.outline?.id === c.section)?.classGroup);
+    return {
+      a, limits, courses, groups,
+      names: courses.map((c) => c.name),
+      codes: courses.map((c) => c.code),
+      warnings: r.ok ? r.plans[0]!.warnings : [],
+    };
   }
 
   it("大一上結束：已修 22（111-1 全部），還缺 106", () => {
@@ -319,9 +330,25 @@ describe("各個時間點的示範學生（同一份成績單截到不同學期�
     expect(cat("free-elective").unmet).toBe(6);
   });
 
-  it("大三結束 → 114-1：用大四的學分上下限（9／32），專業倫理排進來", () => {
-    const { limits, names } = plan("fju-im-111-year3", "113-2", "114-1");
+  it("大三結束 → 114-1：用大四的學分上下限（9／32）；專業倫理-企業倫理這學期只開給企管、會計、金融國企 → 不排，課表上說明（TODO C7）", () => {
+    const { limits, names, warnings } = plan("fju-im-111-year3", "113-2", "114-1");
     expect(limits).toEqual({ minCredits: 9, maxCredits: 32 });
-    expect(names).toContain("專業倫理-企業倫理");
+    expect(names).not.toContain("專業倫理-企業倫理");
+    expect(warnings.some((w) => w.includes("全人教育核心課程") && w.includes("沒有你能修的班"))).toBe(true);
+  });
+
+  it("開課班級（TODO C7）：本系課在同一班，國文外文是管理學院的班，人生哲學是資管的班", () => {
+    for (const [id, cur, next] of [
+      ["fju-im-111-year1-fall", "111-1", "111-2"],
+      ["fju-im-111-year1", "111-2", "112-1"],
+    ] as const) {
+      const { names, groups } = plan(id, cur, next);
+      const letters = new Set(groups.map((g) => /^資管[一二三四]([甲乙])$/.exec(g ?? "")?.[1]).filter(Boolean));
+      expect(letters.size, `${id} ${groups.join(",")}`).toBeLessThanOrEqual(1);
+      names.forEach((n, i) => {
+        if (n === "國文" || n.startsWith("外國語文(中級")) expect(groups[i], n).toMatch(/管理學院/);
+        if (n === "人生哲學") expect(groups[i]).toBe("資管系人哲");
+      });
+    }
   });
 });

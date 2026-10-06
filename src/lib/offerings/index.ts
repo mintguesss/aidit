@@ -48,6 +48,7 @@ export function normalizeOffering(raw: RawOffering): Offering {
     ...(raw.selectType ? { selectType: raw.selectType } : {}),
     ...(raw.outline ? { outline: raw.outline } : {}),
     ...(raw.rooms ? { rooms: raw.rooms } : {}),
+    ...(raw.classGroup ? { classGroup: raw.classGroup } : {}),
     ...(raw.language ? { language: raw.language } : {}),
     ...(raw.tags ? { tags: raw.tags } : {}),
     prerequisites: toPrerequisites(raw),

@@ -18,6 +18,7 @@ import type { OptionalPreferences } from "@/lib/ui/prefs";
 import { termLimitsFor } from "@/lib/rules/term-limits";
 import { schoolOf } from "@/lib/schools";
 import { continuingCourseCodes, takenCourseCodes } from "@/lib/solver/taken";
+import { classProfileOf } from "@/lib/offerings/class-group";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -93,7 +94,7 @@ export async function POST(req: Request) {
     takenCodes: takenCourseCodes(record.courses, pack),
     continueCodes: continuingCourseCodes(record.courses, pack),
     admissionYear: record.student.admissionYear,
-    studentDept: record.student.dept,
+    studentDept: record.student.dept, classProfile: classProfileOf(record.student, pack.college),
     reserved: reservedFrom(record.plannedCommitments),
     preferences,
     constraints,

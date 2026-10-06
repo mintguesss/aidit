@@ -155,15 +155,36 @@ describe("候選過濾", () => {
 });
 
 describe("無解與放寬", () => {
-  it("無解時回報 Infeasibility 而非空清單，並說明哪兩個條件在打架", async () => {
+  it("被自己的條件擋掉（每天都要空出來）：不是「學校沒開」—— 第一版課表照 §5 放寬並記下，或回報無解附建議", async () => {
+    const { result } = await solveWith({ avoidDays: [1, 2, 3, 4, 5, 6, 7] });
+    if (result.ok) {
+      expect(result.relaxations.length).toBeGreaterThan(0);
+      expect(result.plans[0]!.warnings.some((w) => w.includes("沒有你能修的班"))).toBe(false);
+    } else {
+      expect(result.infeasibilities[0]!.suggestion).toBeTruthy();
+    }
+  });
+
+  it("某一類這學期學校沒開：其他照排，課表上說明這一類這學期排不到（不是整份無解）", async () => {
     const { result } = await solveWith(
       {},
       { offerings: offeringsFor(115, 1).filter((o) => o.generalDomain !== "自然科技") },
     );
-    expect(result.ok).toBe(false);
-    if (result.ok) return;
-    expect(result.infeasibilities.length).toBeGreaterThan(0);
-    expect(result.infeasibilities[0]!.suggestion).toBeTruthy();
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.plans[0]!.warnings.some((w) => w.includes("自然科技") && w.includes("沒有你能修的班"))).toBe(true);
+  });
+
+  it("某一類被「空出某天」擋掉：照規格回報衝突讓使用者決定，不能說成學校沒開", async () => {
+    const all = offeringsFor(115, 1);
+    const nat = all.filter((o) => o.generalDomain === "自然科技");
+    const days = [...new Set(nat.flatMap((o) => o.slots.map((s) => s.day)))];
+    const { result } = await solveWith({ avoidDays: days });
+    if (result.ok) {
+      expect(result.plans[0]!.warnings.some((w) => w.includes("沒有你能修的班"))).toBe(false);
+    } else {
+      expect(result.infeasibilities.length).toBeGreaterThan(0);
+    }
   });
 
   it("使用者設定的學分上限太緊時自動放寬，並把放寬內容記下來", async () => {

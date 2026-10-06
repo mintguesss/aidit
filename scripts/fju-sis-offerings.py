@@ -124,6 +124,9 @@ def main():
                 row["generalDomain"] = domain
             # 課綱頁要用的：學校大綱系統的編號（打開課綱頁時才去抓大綱）、教室、授課語言、課程標籤
             row["outline"] = {"id": r["jonCouSn"], "tchNo": r["tchNo"]}
+            # 開課班級：甲乙班、依學院指定的國文外文、開給某一系的全人課（TODO C7）
+            if (r.get("avaDptCNa") or "").strip():
+                row["classGroup"] = r["avaDptCNa"].strip()
             rooms = sorted({s["romNO"].strip() for s in r["seqList"] if (s.get("romNO") or "").strip()})
             if rooms:
                 row["rooms"] = rooms

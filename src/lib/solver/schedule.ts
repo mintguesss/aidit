@@ -15,6 +15,7 @@ import type {
 } from "@/lib/types";
 import { clashes, formatSlots, isEarlyMorning, parseSlots } from "./slots";
 import { cmp } from "@/lib/util/text";
+import { classAllows, sectionLetter, type ClassProfile } from "@/lib/offerings/class-group";
 
 /**
  * 選課組合求解（docs/BACKEND.md §5）。
@@ -125,6 +126,8 @@ type Candidate = {
   slotUnknownNote?: boolean;
   /** 使用者指定一定要留的課，任何解都必須包含 */
   pinned: boolean;
+  /** 本系甲乙班的哪一班（開課班級「資管二甲」→ 甲）；不分班的課沒有 */
+  classSection?: "甲" | "乙";
   /** 這學期該修的課（學年課的下半、規劃在這個年級的本系必修），要優先排 */
   continues: boolean;
 };
@@ -156,6 +159,8 @@ export type SolveContext = {
   admissionYear?: number;
   /** 學生的系所代號（與開課資料的 dept 同一套）。同一門課有本系保留的班時，只排本系的班 */
   studentDept?: string;
+  /** 學生的系、學院、甲乙班：依開課班級判斷能修哪幾班（lib/offerings/class-group.ts，TODO C7） */
+  classProfile?: ClassProfile;
   reserved: { label: string; slots: TimeSlot[] }[];
   constraints: Constraints;
   termLabel: string;
@@ -267,6 +272,8 @@ function filterCandidates(ctx: SolveContext): {
 
     // 別系的班不是「排除」：這門課本系的班照常是候選，所以不列在排除清單
     if (ownDeptCodes.has(o.code) && o.dept !== ctx.studentDept) continue;
+    // 開課班級：別系專屬的全人課、別的學院的國文外文、另一個甲乙班 —— 學生選不到，不當候選（同上，不列排除）
+    if (ctx.classProfile && !classAllows(o.classGroup, ctx.classProfile).ok) continue;
 
     // 0. 使用者明講不要的課
     if (excluded.has(o.code)) {
@@ -344,6 +351,7 @@ function filterCandidates(ctx: SolveContext): {
       prereqWarning: soft?.sourceText,
       slotUnknownNote: o.slotsUnknown,
       pinned: pinned.has(o.code),
+      classSection: ctx.classProfile ? sectionLetter(o.classGroup, ctx.classProfile) : undefined,
       // 「這學期該修的課」：學年課的下半，以及規劃在這個年級（或更早、還沒修）的本系必修
       continues:
         (ctx.continueCodes?.has(o.code) ?? false) ||
@@ -510,6 +518,7 @@ function reassignSections(
       }
       for (const c of options[i]!) {
         if (pick.some((p) => !p.offering.slotsUnknown && !c.offering.slotsUnknown && clashes(p.offering.slots, c.offering.slots))) continue;
+        if (c.classSection && pick.some((p) => p.classSection && p.classSection !== c.classSection)) continue;
         pick.push(c);
         walk(i + 1);
         pick.pop();
@@ -776,8 +785,32 @@ function attemptSolve(
   ctx = { ...ctx, continueOffered: new Set([...candidates, ...fillers].filter((c) => c.continues).map((c) => c.offering.code)) };
   const excluded = summarize(exclusions, ctx.offerings.length);
 
-  // 2. 任一 unmet 類別的候選集為空 → 立即回報 infeasible，附原因
+  // 2. 某一類這學期沒有學生能修的班（沒開、或只開給別系，例如輔大專業倫理-企業倫理上學期只開給企管、會計…）：
+  //    跳過這一類照排其他的，課表上說明。以前直接整份回報無解 —— 其他能排的課也不給，
+  //    C7 前因為會排到別系的班（學生選不到）才沒露出來。所有類別都沒有能修的班才是真的無解
   const empty = ctx.requirements.filter((r) => !candidates.some((c) => c.satisfies.includes(r.id)));
+  // 但被學生自己的條件擋掉的（空出某天、不要某門課、與已登記時段衝突…）不能跳過 ——
+  // 那是條件互相衝突，要照 §1.4 回報並讓使用者決定放寬哪一個，不是「學校沒開」
+  const BY_USER: ExclusionReason["step"][] = ["excluded-by-user", "avoid-day", "avoid-period", "clash-reserved", "no-seat", "prerequisite"];
+  const blockedByUser = (r: Requirement) => {
+    const codes = new Set(ctx.offerings.filter((o) => meets(o, r)).map((o) => o.code));
+    return exclusions.some((e) => codes.has(e.code) && BY_USER.includes(e.step));
+  };
+  const unavailable = empty.filter((r) => !blockedByUser(r));
+  if (unavailable.length > 0 && unavailable.length === empty.length && empty.length < ctx.requirements.length) {
+    const rest = attemptSolve(
+      { ...ctx, requirements: ctx.requirements.filter((r) => !empty.includes(r)) },
+      preset,
+      relaxations,
+      allowPartial,
+    );
+    if (!rest.ok) return rest;
+    const notes = empty.map(
+      (r) => `「${r.shortLabel}」${ctx.termLabel} 沒有你能修的班（沒有開課，或只開給別系），這學期先不排，請留意下學期的開課。`,
+    );
+    for (const p of rest.plans) p.warnings = [...notes, ...p.warnings];
+    return rest;
+  }
   if (empty.length > 0) {
     return {
       ok: false,
@@ -874,6 +907,18 @@ function attemptSolve(
   let nodes = 0;
   let truncated = false;
 
+  // 分支定界用（TODO G7）：從第 i 個候選往後，還拿得到哪些「該修的課」、最多還能補多少特定缺口
+  const isSpecific = (c: Candidate) =>
+    [...c.creditIdx, ...c.domainIdx].some((k) => !ctx.requirements[k]!.catchAll || isSub(ctx.requirements[k]!));
+  const contAfter: Set<string>[] = new Array(sorted.length + 1);
+  const specificAfter = new Array<number>(sorted.length + 1).fill(0);
+  contAfter[sorted.length] = new Set();
+  for (let k = sorted.length - 1; k >= 0; k--) {
+    const c = sorted[k]!;
+    contAfter[k] = c.continues ? new Set([...contAfter[k + 1]!, c.offering.code]) : contAfter[k + 1]!;
+    specificAfter[k] = specificAfter[k + 1]! + (isSpecific(c) ? c.offering.credits : 0);
+  }
+
   const dfs = (i: number, credits: number): void => {
     if (truncated) return;
     if (++nodes > NODE_LIMIT) {
@@ -932,6 +977,19 @@ function attemptSolve(
     // 以學分計的領域需求：一門通識同時補通識學分和該領域，最多能減掉兩倍學分
     if (parts.total > gainFactor * suffix[i]! + DOMAIN_WEIGHT * ctx.requirements.length) return;
 
+    // 分支定界（TODO G7）：這條路最樂觀的結果都比已找到的差，就不必再往下。
+    // 最樂觀＝後面還拿得到的「該修的課」全部接上、能補特定缺口的課全部加上（且每學分都算兩倍）。
+    // 只剪「嚴格比較差」的分支，平手的照留 —— 結果與不剪相同，只是同樣的節點上限能看得更遠。
+    // 以前輔大每一次排課都撞到 30 萬個節點的上限，大二的課表因此多跑一天、大三少排一門
+    if (bestKey[0] !== Infinity) {
+      const lbMissed = continueOffered.filter(
+        (code) => !sel.some((c) => c.offering.code === code) && !contAfter[i]!.has(code),
+      ).length;
+      if (lbMissed > bestKey[0]) return;
+      const lbSpecific = Math.max(0, parts.specific - gainFactor * specificAfter[i]! - DOMAIN_WEIGHT * ctx.requirements.length);
+      if (lbMissed === bestKey[0] && lbSpecific > bestKey[1]) return;
+    }
+
     for (let j = i; j < sorted.length; j++) {
       const c = sorted[j]!;
       // 剪枝：已選學分 > maxCredits
@@ -939,6 +997,8 @@ function attemptSolve(
       // 同一門課分好幾班（輔大的微積分有甲、乙兩班，同一個課號、不同時段），
       // 一份課表只能選其中一班。合成資料沒有多班的課，這條以前從沒被觸發過
       if (sel.some((s) => s.offering.code === c.offering.code)) continue;
+      // 不知道學生是甲班還是乙班時，同一份課表的本系課要在同一班（不會統計學甲班、經濟學乙班）
+      if (c.classSection && sel.some((s) => s.classSection && s.classSection !== c.classSection)) continue;
       if (sel.some((s) => !s.offering.slotsUnknown && !c.offering.slotsUnknown && clashes(s.offering.slots, c.offering.slots))) {
         continue;
       }

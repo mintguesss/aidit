@@ -14,6 +14,7 @@ import type { ConstraintSet } from "./types";
 import { termLimitsFor } from "@/lib/rules/term-limits";
 import { schoolOf } from "@/lib/schools";
 import { continuingCourseCodes, takenCourseCodes } from "@/lib/solver/taken";
+import { classProfileOf } from "@/lib/offerings/class-group";
 
 /**
  * A 介面的一輪（docs/CONVERSATION.md §1.3、§1.4）。
@@ -56,7 +57,7 @@ export function buildContext(
     takenCodes: takenCourseCodes(record.courses, pack),
     continueCodes: continuingCourseCodes(record.courses, pack),
     admissionYear: record.student.admissionYear,
-    studentDept: record.student.dept,
+    studentDept: record.student.dept, classProfile: classProfileOf(record.student, pack.college),
     reserved: reservedFrom(record.plannedCommitments),
     preferences: {
       goal: set.goal,

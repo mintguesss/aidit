@@ -21,6 +21,7 @@ import { loadRulePacks } from "@/lib/rules/loader";
 import { termLimitsFor } from "@/lib/rules/term-limits";
 import { schoolOf } from "@/lib/schools";
 import { continuingCourseCodes, takenCourseCodes } from "@/lib/solver/taken";
+import { classProfileOf } from "@/lib/offerings/class-group";
 
 /**
  * 情境試算的確定性推算（docs/SPEC.md §12 步驟 3）。
@@ -389,7 +390,7 @@ function buildSolveContext(
     takenCodes: takenCourseCodes(record.courses, pack),
     continueCodes: continuingCourseCodes(record.courses, pack),
     admissionYear: record.student.admissionYear,
-    studentDept: record.student.dept,
+    studentDept: record.student.dept, classProfile: classProfileOf(record.student, pack.college),
     reserved: reservedFrom(record.plannedCommitments),
     // 提前畢業的試算以「最快畢業」為目標，覆寫學生平時的選課傾向 ——
     // 使用者問的就是「拚一點有沒有可能」，用輕量傾向去算會答錯方向

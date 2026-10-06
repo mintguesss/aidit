@@ -12,6 +12,7 @@ import {
 import { preferencesOf } from "@/lib/chat/apply";
 import { termLimitsFor } from "@/lib/rules/term-limits";
 import { continuingCourseCodes, takenCourseCodes } from "@/lib/solver/taken";
+import { classProfileOf } from "@/lib/offerings/class-group";
 
 /**
  * 步驟 8：選課組合求解。
@@ -43,7 +44,7 @@ export const solveScheduleStep: Step = {
       takenCodes: takenCourseCodes(state.record!.courses, state.pack!),
       continueCodes: continuingCourseCodes(state.record!.courses, state.pack!),
       admissionYear: state.record!.student.admissionYear,
-      studentDept: state.record!.student.dept,
+      studentDept: state.record!.student.dept, classProfile: classProfileOf(state.record!.student, state.pack!.college),
       reserved: reservedFrom(state.record!.plannedCommitments),
       preferences,
       constraints: constraintsFrom(preferences, limits),

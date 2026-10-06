@@ -32,13 +32,16 @@ export function middleware(req: NextRequest) {
   // 全體合計的上限：自架（next start 直接對外）時 x-forwarded-for 是用戶端自己送的，
   // Next 只在沒有這個標頭時才補上真實位址，每次換一個假 IP 就能繞過單一 IP 的限制。
   // middleware 拿不到連線的真實位址，所以加一道不看 IP 的總量上限（單一 IP 的 4 倍），
-  // 偽造標頭最多也只能用到這個量
+  // 偽造標頭最多也只能用到這個量。
+  // Vercel 上不用（TODO E13）：x-forwarded-for 由平台覆寫、偽造不了，而全體上限會讓
+  // 同一個執行個體上的不同使用者互相擋（60 個人同時用就全部 429）
+  const globalCap = process.env.VERCEL !== "1";
   const allKey = `${rule.prefix}:*`;
-  const all = (hits.get(allKey) ?? []).filter((t) => now - t < WINDOW_MS);
+  const all = globalCap ? (hits.get(allKey) ?? []).filter((t) => now - t < WINDOW_MS) : [];
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || req.headers.get("x-real-ip") || "local";
   const key = `${rule.prefix}:${ip}`;
   const recent = (hits.get(key) ?? []).filter((t) => now - t < WINDOW_MS);
-  const blockedBy = recent.length >= rule.max ? recent : all.length >= rule.max * 4 ? all : null;
+  const blockedBy = recent.length >= rule.max ? recent : globalCap && all.length >= rule.max * 4 ? all : null;
   if (blockedBy) {
     const retry = Math.ceil((WINDOW_MS - (now - blockedBy[0]!)) / 1000);
     return NextResponse.json(
@@ -48,8 +51,10 @@ export function middleware(req: NextRequest) {
   }
   recent.push(now);
   hits.set(key, recent);
-  all.push(now);
-  hits.set(allKey, all);
+  if (globalCap) {
+    all.push(now);
+    hits.set(allKey, all);
+  }
 
   // 不讓表無限長大：偶爾清掉一分鐘內沒動靜的
   if (hits.size > 5000) for (const [k, v] of hits) if (now - v[v.length - 1]! >= WINDOW_MS) hits.delete(k);

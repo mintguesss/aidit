@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { saveDecision, lockPack, editItem, type ReviewDecision } from "@/lib/review/store";
 import { EditError } from "@/lib/review/edit";
+import { checkReviewPassword, REVIEW_PASSWORD_HEADER } from "@/lib/review/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,10 +23,13 @@ type Body =
 /**
  * 人工校對的寫入端點。
  *
- * 這是內部作業頁面，不對外開放；正式部署須置於內部網段或加上身分驗證。
+ * 寫入要校對密碼（lib/review/auth.ts）：校對能鎖規則包版本，不能誰都能寫。
  * 校對紀錄（誰、何時、通過或修正）會保留下來作為資料品質的證據。
  */
 export async function POST(req: Request) {
+  const auth = checkReviewPassword(req.headers.get(REVIEW_PASSWORD_HEADER));
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
   const body = (await req.json().catch(() => null)) as Body | null;
   if (!body?.packId) return NextResponse.json({ error: "缺少 packId。" }, { status: 400 });
 

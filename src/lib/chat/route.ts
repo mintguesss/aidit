@@ -327,7 +327,10 @@ function undoImpossible(
 function unsupportedAsks(raw: string): string[] {
   const t = raw.replace(/\s/g, "");
   const out: string[] = [];
-  if (/(\d+|[一二兩三四五六七八九十])學分的課/.test(t)) out.push("目前還不能指定每門課要幾學分，這部分沒有套用。");
+  // 「只修三學分的課」說的是整份課表每一門 —— 現在只支援「新加的那門幾學分」（TODO G1）
+  if (/只(?:想)?(?:修|選|上)(\d+|[一二兩三四五六七八九十])學分的課|都要(\d+|[一二兩三四五六七八九十])學分/.test(t)) {
+    out.push("目前只能指定新加的那門課要幾學分，不能指定整份課表每門課的學分，這部分沒有套用。");
+  }
   return out;
 }
 

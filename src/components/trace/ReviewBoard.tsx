@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { DraftView, ReviewDecision, ReviewItem } from "@/lib/review/store";
 import { ReviewEditForm } from "./ReviewEditForm";
 import { Spinner } from "@/components/shell/Spinner";
+import { getReviewPassword, reviewHeaders, setReviewPassword } from "./review-password";
 
 /**
  * 逐條校對：系統的理解 vs. 原文。
@@ -40,6 +41,9 @@ const STATE_STYLE: Record<ReviewDecision["status"], { bg: string; line: string; 
 
 export function ReviewBoard({ view }: { view: DraftView }) {
   const [reviewer, setReviewer] = useState("");
+  const [password, setPassword] = useState("");
+  // 讀 sessionStorage 要等到瀏覽器端，避免伺服器與瀏覽器畫出來不一樣
+  useEffect(() => setPassword(getReviewPassword()), []);
   const [decisions, setDecisions] = useState<ReviewDecision[]>(view.record.decisions);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -83,7 +87,7 @@ export function ReviewBoard({ view }: { view: DraftView }) {
     try {
       const res = await fetch("/api/review", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: reviewHeaders(password),
         body: JSON.stringify({
           action: "decide",
           packId: view.packId,
@@ -110,7 +114,7 @@ export function ReviewBoard({ view }: { view: DraftView }) {
     try {
       const res = await fetch("/api/review", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: reviewHeaders(password),
         body: JSON.stringify({ action: "lock", packId: view.packId, reviewer: reviewer.trim() }),
       });
       const data = (await res.json()) as { path?: string; error?: string };
@@ -191,6 +195,17 @@ export function ReviewBoard({ view }: { view: DraftView }) {
               value={reviewer}
               onChange={(e) => setReviewer(e.target.value)}
             />
+            <input
+              type="password"
+              placeholder="校對密碼"
+              aria-label="校對密碼"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setReviewPassword(e.target.value);
+              }}
+            />
             <button
               className="btn btn-primary"
               disabled={busy || locked || approved !== total}
@@ -241,7 +256,7 @@ export function ReviewBoard({ view }: { view: DraftView }) {
             decision={byItem.get(item.id)}
             disabled={busy || locked}
             onDecide={decide}
-            edit={{ docs: allDocs, packId: view.packId, draftHash: view.draftHash, reviewer, free: freeFor(item) }}
+            edit={{ docs: allDocs, packId: view.packId, draftHash: view.draftHash, reviewer, password, free: freeFor(item) }}
           />
         ))}
       </div>
@@ -267,6 +282,7 @@ function ItemCard({
     packId: string;
     draftHash: string;
     reviewer: string;
+    password: string;
     free: { name: string; credits: number; othersExcludingThis: number; minCredits: number } | null;
   };
 }) {
@@ -386,6 +402,7 @@ function ItemCard({
             packId={edit.packId}
             draftHash={edit.draftHash}
             reviewer={edit.reviewer}
+            password={edit.password}
             freeCategory={edit.free}
             onCancel={() => setEditing(false)}
             onNoteOnly={noteOnly}

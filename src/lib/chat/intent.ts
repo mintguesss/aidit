@@ -84,6 +84,10 @@ const zPlanIntent = z.object({
       /** 課號或課名；程式會自行查開課資料轉成課號 */
       excludeCourses: z.array(z.string().max(40)).max(5),
       pinCourses: z.array(z.string().max(40)).max(5),
+      /** 「想修一堂 AI 相關的課」的主題（AI、程式、資安…）；沒提到填 null（TODO G2） */
+      addTopic: z.string().max(20).nullable().optional(),
+      /** 新加的那門課要幾學分（「多選一堂兩學分的課」填 2）；只限新加的課，沒提到填 null（TODO G1） */
+      newCourseCredits: z.number().int().min(1).max(6).nullable().optional(),
       reset: z.boolean(),
     })
     .nullable(),
@@ -139,7 +143,7 @@ const PLAN_SYSTEM = [
   "  adjust-time   調整時段（不要早八、不要早上、週五下午不要、把週五的課拿掉）",
   "  adjust-load   調整堂數或學分（輕鬆一點、多修一點、只修三門、15 學分以內）",
   "  swap-course   換掉某一門課",
-  "  pin-course    某一門課一定要留、加某一門課",
+  "  pin-course    某一門課一定要留、加某一門課、想修某個主題的課（AI 相關、程式相關）",
   "  change-goal   改變目標（提前畢業、加修輔系或學程），或重來、取消調整",
   "  explain       問為什麼選了某門課、為什麼沒有某門課",
   "  compare       再給我一版、跟上一版差在哪",
@@ -158,6 +162,9 @@ const PLAN_SYSTEM = [
   "   「盡量集中」→ preferCompactDays；說了天數（集中在一天、兩天就好）→ maxDays",
   "5. 重來、回到原本、取消剛剛的調整 → intent=change-goal、delta.reset=true。這不是 compare。",
   "6. reason 只描述「改了什麼條件」，不得描述課表會變成什麼樣子。",
+  "7. 想修某個主題的課（「我想修一堂 AI 相關的課」）→ intent=pin-course、delta.addTopic 填主題（如 \"AI\"），",
+  "   不要猜課名放進 pinCourses。說了新加的課要幾學分（「多選一堂兩學分的課」）→ delta.newCourseCredits 填 2，",
+  "   同時 courseCountDelta=1。學分數只限新加的那門，不是學期學分上限（那是 maxCredits）。",
 ].join("\n");
 
 export async function parsePlanIntent(
@@ -427,6 +434,8 @@ function emptyDelta() {
     goals: [] as ("early-graduation" | "minor" | "cert-program")[],
     excludeCourses: [] as string[],
     pinCourses: [] as string[],
+    addTopic: null as string | null,
+    newCourseCredits: null as number | null,
     reset: false,
   };
 }
@@ -525,6 +534,24 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
     d.courseCountDelta = more ? (numOf(more[1]) ?? 1) : 1;
     reasons.push(`堂數增加 ${d.courseCountDelta} 堂`);
   }
+  // 「我想修一堂 AI 相關的課」「加一門程式有關的課程」（TODO G2）
+  const topic = /([A-Za-z]{1,12}|[一-鿿]{1,6})(?:相關|有關)的?課/.exec(t);
+  if (topic) {
+    // 「想修一堂程式」→「程式」：取「修、堂、門、想、要…」之後的最後一段
+    const parts = topic[1]!.split(/[我想要修上選加排一堂門個些的]/).filter(Boolean);
+    d.addTopic = parts.at(-1) ?? topic[1]!;
+    reasons.push(`想修一門「${d.addTopic}」相關的課`);
+  }
+
+  // 「多選一堂兩學分的課」：只限新加的那門（TODO G1）
+  const perCourse = /(\d|[一二兩三四五六])學分的課/.exec(t);
+  if (perCourse) {
+    const n = numOf(perCourse[1]);
+    if (n !== null && n >= 1 && n <= 6) {
+      d.newCourseCredits = n;
+      reasons.push(`新加的課 ${n} 學分`);
+    }
+  }
   const exact = /(\d+|[一二兩三四五六])[堂門]課?就好|只(?:想)?修(\d+|[一二兩三四五六])[堂門]/.exec(t);
   if (exact) {
     const n = numOf(exact[1] ?? exact[2]);
@@ -597,7 +624,8 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
   }
   // 「加修心理學」的「修」是動詞不是課名的一部分，否則會去查「修心理學」而找不到
   const add = /(?:幫我)?加(?:修)?(?:一門|一堂)?([一-龥（）()A-Z0-9]{3,15})/.exec(t);
-  if (add) {
+  // 「加一門程式相關的課」是主題，不是課名（上面的 addTopic 已處理）
+  if (add && !d.addTopic) {
     d.pinCourses.push(add[1]!);
     reasons.push(`加入「${add[1]}」`);
   }
@@ -607,7 +635,7 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
   const intent: PlanIntent =
     d.excludeCourses.length > 0
       ? "swap-course"
-      : d.pinCourses.length > 0
+      : d.pinCourses.length > 0 || d.addTopic
         ? "pin-course"
         : d.goal !== null || d.goals.length > 0
           ? "change-goal"

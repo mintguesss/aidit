@@ -73,6 +73,10 @@ export type ConstraintSet = {
   maxDays?: number;
   excludeCourses: string[];
   pinCourses: string[];
+  /** 「想修一堂 AI 相關的課」：主題與下學期符合的課號（TODO G2） */
+  wantTopic?: { label: string; codes: string[] };
+  /** 「多選一堂兩學分的課」：新加的那門盡量是幾學分。偏好（TODO G1） */
+  newCourseCredits?: number;
   goals: PlanGoal[];
   note?: string;
 };

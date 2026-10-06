@@ -214,9 +214,15 @@ describe("模型多問一輪時，原句夠明確就直接做", () => {
   });
 
   it("課名查不到時保留模型的反問", async () => {
-    const r = await withModel("幫我加一堂AI相關的課程", { kind: "clarify", question: "想加哪一門？" });
+    const r = await withModel("幫我加一堂量子糾纏導論", { kind: "clarify", question: "想加哪一門？" });
     expect(r.clarifying).toBe(true);
     expect(r.reply.headline).toContain("想加哪一門");
+  });
+
+  it("「加一堂 AI 相關的課」用主題找課，不用再問哪一門（G2）", async () => {
+    const r = await withModel("幫我加一堂AI相關的課程", { kind: "clarify", question: "想加哪一門？" });
+    expect(r.clarifying).toBeFalsy();
+    expect(r.plan!.constraintSet.wantTopic?.label).toBe("AI");
   });
 });
 

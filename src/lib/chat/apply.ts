@@ -5,6 +5,7 @@ import type { ConstraintDelta, ConstraintSet } from "./types";
 import { BLOCK_CUE, DAY_WORDS, PART_WORDS, parseNum, type PlanParams } from "./intent";
 import { DEFAULT_SCHOOL } from "@/lib/schools";
 import { periodScheme, periodLabel } from "@/lib/offerings/period-scheme";
+import { topicCodes } from "./topics";
 
 /**
  * 約束集合的建立與套用（docs/CONVERSATION.md §1.1）。
@@ -184,6 +185,8 @@ export function toSolverConstraints(
     maxDays: c.maxDays,
     excludeCourses: c.excludeCourses,
     pinCourses: c.pinCourses,
+    ...(c.wantTopic ? { wantOneOf: c.wantTopic.codes, wantLabel: `${c.wantTopic.label} 相關` } : {}),
+    ...(c.newCourseCredits ? { newCourseCredits: c.newCourseCredits } : {}),
   };
 }
 
@@ -310,7 +313,16 @@ export function applyParams(
 ): ApplyResult {
   if (params.reset) {
     return {
-      next: { ...original, avoidDays: [...original.avoidDays], avoidPeriods: [], excludeCourses: [], pinCourses: [], goals: [] },
+      next: {
+        ...original,
+        avoidDays: [...original.avoidDays],
+        avoidPeriods: [],
+        excludeCourses: [],
+        pinCourses: [],
+        goals: [],
+        wantTopic: undefined,
+        newCourseCredits: undefined,
+      },
       delta: { reason: "重設為個人資料的原始設定" },
       unresolved: [],
       refusedParams: [],
@@ -509,6 +521,32 @@ export function applyParams(
   if (next.excludeCourses.length > 0) delta.excludeCourses = next.excludeCourses;
   if (next.pinCourses.length > 0) delta.pinCourses = next.pinCourses;
 
+  // 「想修一堂 AI 相關的課」（TODO G2）：主題轉成符合的課號，排課時至少排一門。
+  // 主題也要原句有：模型隨手填的不算
+  const topic = params.addTopic?.trim();
+  if (topic && (!raw || raw.toLowerCase().includes(topic.toLowerCase()))) {
+    const codes = topicCodes(offerings, topic);
+    if (codes.length === 0) unresolved.push(`${topic} 相關的課`);
+    else {
+      requested = true;
+      next.wantTopic = { label: topic, codes };
+      // 沒有另外說堂數：多排一門給它，不擠掉眼前課表上的課
+      if (params.courseCountTarget === null && (params.courseCountDelta ?? 0) === 0 && shownCount !== undefined) {
+        next.targetCourseCount = shownCount + 1;
+      }
+    }
+  }
+  // 「多選一堂兩學分的課」（TODO G1）：只限新加的那門，偏好。數字要對得上原句
+  const per = params.newCourseCredits;
+  if (per !== null && per !== undefined) {
+    if (!raw || numbersNear(raw, CREDIT_NEAR).includes(per)) {
+      requested = true;
+      next.newCourseCredits = per;
+    } else {
+      refusedParams.push(`新加的課 ${per} 學分（原句沒有這個學分數）`);
+    }
+  }
+
   return { next, delta, unresolved, refusedParams, requested };
 }
 
@@ -528,6 +566,8 @@ export function describeSet(c: ConstraintSet, names: PeriodNames = DEMO_PERIOD_N
   if (c.maxCredits !== undefined) out.push(`學期學分上限 ${c.maxCredits}`);
   for (const code of c.pinCourses) out.push(`保留 ${nameOf(code)}`);
   for (const code of c.excludeCourses) out.push(`排除 ${nameOf(code)}`);
+  if (c.wantTopic) out.push(`至少一門「${c.wantTopic.label}」相關的課`);
+  if (c.newCourseCredits) out.push(`新加的課盡量 ${c.newCourseCredits} 學分`);
   if (c.goals.includes("minor")) out.push("另有輔系需求（尚未收錄規定）");
   if (c.goals.includes("cert-program")) out.push("另有學程需求（尚未收錄規定）");
   return out;
@@ -602,6 +642,12 @@ export function describeDelta(
   for (const code of after.pinCourses.filter((c) => !before.pinCourses.includes(c))) {
     out.push(`保留 ${nameOf(code)}`);
   }
+  if (after.wantTopic && after.wantTopic.label !== before.wantTopic?.label) {
+    out.push(`加一門「${after.wantTopic.label}」相關的課`);
+  }
+  if (after.newCourseCredits && after.newCourseCredits !== before.newCourseCredits) {
+    out.push(`新加的課盡量 ${after.newCourseCredits} 學分`);
+  }
   for (const code of after.excludeCourses.filter((c) => !before.excludeCourses.includes(c))) {
     out.push(`排除 ${nameOf(code)}`);
   }
@@ -654,6 +700,16 @@ export function sanitiseConstraintSet(c: ConstraintSet, fallback: ConstraintSet)
     maxDays: num(c?.maxDays, 1, 6),
     excludeCourses: codes(c?.excludeCourses),
     pinCourses: codes(c?.pinCourses),
+    // 主題課：課號要合法、說法限長度；符合的課號可能多，上限放寬到 200
+    ...(c?.wantTopic && typeof c.wantTopic.label === "string" && Array.isArray(c.wantTopic.codes)
+      ? {
+          wantTopic: {
+            label: c.wantTopic.label.slice(0, 20),
+            codes: [...new Set(c.wantTopic.codes.filter(isCourseCode))].slice(0, 200),
+          },
+        }
+      : {}),
+    ...(num(c?.newCourseCredits, 1, 6) !== undefined ? { newCourseCredits: num(c?.newCourseCredits, 1, 6) } : {}),
     goals: Array.isArray(c?.goals)
       ? c.goals.filter((g): g is ConstraintSet["goals"][number] =>
           ["early-graduation", "minor", "cert-program"].includes(g as string),

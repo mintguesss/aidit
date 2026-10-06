@@ -602,10 +602,16 @@ describe("做不到的條件不套用，照實說明（「不能改就不應該�
     expect(r.reply.headline).not.toBe("已改為期望 3 堂課。");
   });
 
-  it("「兩學分的課」是那門課的學分，不是學期上限；表達不了就要講出來", async () => {
+  it("「兩學分的課」是新加那門課的學分，不是學期上限", async () => {
     const r = await plan("多選一堂兩學分的課");
     expect(r.plan!.constraintSet.maxCredits).not.toBe(2);
-    expect(`${r.reply.headline}${r.reply.detail ?? ""}`).toContain("不能指定每門課要幾學分");
+    expect(r.plan!.constraintSet.newCourseCredits).toBe(2);
+  });
+
+  it("「只修三學分的課」限制整份課表的每門課：做不到要講出來", async () => {
+    const r = await plan("我只修三學分的課");
+    expect(r.plan?.constraintSet.maxCredits).not.toBe(3);
+    expect(`${r.reply.headline}${r.reply.detail ?? ""}`).toContain("不能指定整份課表每門課的學分");
   });
 
   it("「把課集中在一天」已開啟盡量集中時 → 做不到，說明最少要幾天、是哪幾天", async () => {

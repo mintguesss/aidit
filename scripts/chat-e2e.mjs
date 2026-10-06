@@ -116,13 +116,13 @@ const CASES = [
       if (cs(r)?.targetCourseCount === 2 && r.plan && !r.plan.diff.unchanged) return true;
       return `沒說明做不到：${r.reply.headline} ${r.reply.detail ?? ""}`;
     } },
-  // 從畫面上的 3 堂加一；原本的課要保留；「兩學分」表達不了要講出來，且不得變成學分上限 2
+  // 從畫面上的 3 堂加一；原本的課要保留；「兩學分」是新加那門的學分，不得變成學分上限 2
   { g: "堂數學分", scope: "plan", turns: ["多選一堂兩學分的課"],
     check: (r) => {
       if (cs(r)?.maxCredits === 2) return "「兩學分」被當成學期上限";
       if (cs(r)?.targetCourseCount !== 4) return `堂數不是 4：${cs(r)?.targetCourseCount} ${r.reply.headline}`;
       if (r.plan?.diff.removed?.length) return `原本的課被換掉：${r.plan.diff.removed.join("、")}`;
-      if (!/不能指定每門課要幾學分/.test(r.reply.detail ?? "")) return "沒說明學分數這部分沒有套用";
+      if (cs(r)?.newCourseCredits !== 2) return `新加的課學分沒套用：${cs(r)?.newCourseCredits}`;
       return true;
     } },
   { g: "堂數學分", scope: "plan", turns: ["十二學分以內就好"],

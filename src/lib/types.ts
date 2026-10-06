@@ -361,6 +361,15 @@ export type Constraints = {
   excludeCourses?: string[];
   /** 使用者指定一定要留的課號 */
   pinCourses?: string[];
+  /**
+   * 「想修一堂 AI 相關的課」：至少要有一門出自這一組課號（TODO G2）。
+   * 優先度僅次於學年課的下半，高於一般的缺口
+   */
+  wantOneOf?: string[];
+  /** wantOneOf 的說法，如「AI 相關」，回覆與警告用 */
+  wantLabel?: string;
+  /** 「多選一堂兩學分的課」：新加的課（眼前課表上沒有的）盡量是這個學分數。偏好，不是硬限制（TODO G1） */
+  newCourseCredits?: number;
   /** 已排定、不可衝突的時段（如已登記之必修） */
   reserved?: { label: string; slots: TimeSlot[] }[];
 };

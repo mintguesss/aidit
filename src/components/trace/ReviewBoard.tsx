@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { DraftView, ReviewDecision, ReviewItem } from "@/lib/review/store";
 import { ReviewEditForm } from "./ReviewEditForm";
 import { Spinner } from "@/components/shell/Spinner";
-import { getReviewPassword, reviewHeaders, setReviewPassword } from "./review-password";
+import { getReviewPassword, getReviewer, reviewHeaders, setReviewPassword, setStoredReviewer } from "./review-password";
 
 /**
  * 逐條校對：系統的理解 vs. 原文。
@@ -42,8 +42,11 @@ const BADGE: Record<ReviewDecision["status"], string> = {
 export function ReviewBoard({ view }: { view: DraftView }) {
   const [reviewer, setReviewer] = useState("");
   const [password, setPassword] = useState("");
-  // 讀 sessionStorage 要等到瀏覽器端，避免伺服器與瀏覽器畫出來不一樣
-  useEffect(() => setPassword(getReviewPassword()), []);
+  // 讀 localStorage 要等到瀏覽器端，避免伺服器與瀏覽器畫出來不一樣
+  useEffect(() => {
+    setPassword(getReviewPassword());
+    setReviewer(getReviewer());
+  }, []);
   const [decisions, setDecisions] = useState<ReviewDecision[]>(view.record.decisions);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -192,7 +195,10 @@ export function ReviewBoard({ view }: { view: DraftView }) {
               placeholder="你的姓名或代號（必填）"
               aria-label="校對人"
               value={reviewer}
-              onChange={(e) => setReviewer(e.target.value)}
+              onChange={(e) => {
+                setReviewer(e.target.value);
+                setStoredReviewer(e.target.value);
+              }}
             />
             <input
               type="password"

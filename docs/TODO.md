@@ -21,15 +21,6 @@
 
 ## B. 儲存層
 
-- [ ] **B10　開課資料搬進資料庫**（程式已完成，**等 維護者 在 Supabase 執行 `0004_offerings.sql`**，
-      再用 `scripts/push-offerings.ts` 上傳各學期）
-      現在放在 repo（`src/lib/offerings/data/fju-*.json`），跟程式一起部署。搬進 Supabase 後，
-      每學期抓完直接上傳、網站馬上生效，repo 也不會每學期多 700 班。步驟：
-      1. 寫 `supabase/migrations/0004_offerings.sql`，**維護者 貼到 Supabase 後台 SQL Editor 執行**
-         （service role 金鑰沒有建表權限）
-      2. 上傳腳本：把 113-1、115-1、115-2 寫進去；之後「抓取 → 轉換 → 上傳」
-      3. 載入比照規則包：啟動時預載成記憶體（`offeringsFor` 是同步呼叫，到處在用），
-         沒設 Supabase 的環境（CI、離線）退回 repo 裡的檔案
 
 - [ ] **B7　校對頁接上「上傳的」原檔**
       公開文件已經接上：每一項附「開啟原始文件（第 N 頁）」，連到規則包 `documents[].url`。
@@ -177,6 +168,8 @@
 
 ## 已完成
 
+- [x] **B10　開課資料搬進資料庫**：`offerings` 表已建、六個學期已上傳，網站從資料庫讀；
+      新學期「抓取 → 轉換 → `scripts/push-offerings.ts`」即生效，不用重新部署
 - [x] **C7　開課資料要存「開課班級」（限修對象），排課只排學生選得到的班**（要重抓開課資料，原始快取在本機）
       現在開課資料只有開課單位（`dept`），沒有開課班級。學校原始資料每班都有 `avaDptCNa`（例如「資管二甲」），
       [fju-sis-offerings.py](../scripts/fju-sis-offerings.py) 只拿它判斷本系必修是大幾的課（`forGrade`），沒有存下來。

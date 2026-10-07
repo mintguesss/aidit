@@ -87,8 +87,8 @@ export function TraceTable({ trace }: { trace: Trace }) {
             : "（本次未攔截）"}
         </summary>
         <div className="bd">
-          網路公開討論一律視為不可信輸入，包成資料區塊後才交給下游，僅以資料形式呈現，
-          不參與學分判定，亦不得改變系統指令。
+          公告等外部文件送給模型判斷是否適用前，先檢查是否夾帶指令；命中的不交給模型，改轉人工確認。
+          外部文件只作為判斷依據的資料，不參與學分計算，也不能改變系統指令。
           {trace.blockedContent.map((b, i) => (
             <div className="blocked" key={i}>
               <div className="meta">

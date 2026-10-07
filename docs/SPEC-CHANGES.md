@@ -1364,6 +1364,22 @@
 
 ---
 
+### E65　拿掉課程公開討論檢索（SPEC §6 第 9、10 步、§9）
+
+- **原因**：`web.retrieve` 一直只用程式內建的合成貼文，從未真的檢索。對外說「會檢索網路討論」不實；
+  真的做要處理爬取規範與教師評價風險，使用者決定不做。
+- **改為**：審查流程 8 步。`safety.scan` 改用在**公告原文交給模型判斷之前**：命中指令樣式就不送模型、
+  該公告轉人工，trace 記下攔截。外部內容攔截面板的說明改為公告。
+- **同時補上真實公告**：輔大全人教育課程中心 114-1 公告拆成兩則判斷（114 起新架構／113 含前修永續素養領域）。
+  公告判定適用時，`Announcement.effect` 的規則缺口加進本次審查用的規則包（不改動已鎖版的規則包），
+  新觸發條件 `generalDomain`；排課時這類課不拿來湊任何類別（`heldForPlanning`）。
+  對話、排課、情境試算三個 API 改用審查時的規則包（`state.pack`），才看得到公告的影響。
+- **位置**：`src/lib/agent/runner.ts`、`steps/04-reconcile-conflicts.ts`、`tools/rule.ts` 的 `withAnnouncedEffects`、
+  `src/lib/rules/announcements.ts`、`corpus/fju-hec-1141.txt`、`src/lib/audit/engine.ts`、`src/lib/offerings/index.ts`、
+  `tests/fju-announcements.test.ts`
+
+---
+
 ## F. 規格要求的落實位置對照
 
 供答詢時快速定位。

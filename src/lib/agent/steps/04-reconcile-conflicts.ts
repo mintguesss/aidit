@@ -1,6 +1,7 @@
 import type { ToolCall } from "@/lib/types";
 import type { Step } from "./types";
-import { ruleReconcile, toConflictNotes, toDeptDefinedResolutions, withAnnouncedEffects } from "../tools";
+import { ruleReconcile, safetyScan, toConflictNotes, toDeptDefinedResolutions, withAnnouncedEffects } from "../tools";
+import { loadCorpus } from "@/lib/rules/loader";
 import { LlmBudgetExceeded } from "@/lib/llm/client";
 
 /**
@@ -20,7 +21,40 @@ export const reconcileConflictsStep: Step = {
     let held = 0;
     let offline = 0;
 
+    const corpus = loadCorpus();
     for (const conflict of state.conflicts) {
+      // 公告原文要送給模型判斷，先過注入檢查：公告可能是從網路抓的、或由維護者上傳的，都不是系統自己寫的。
+      // 命中就不送、不判斷，直接轉待確認
+      const ann = conflict.announcement;
+      const { data: scan, call: scanCall } = await trace.tool(
+        "safety.scan",
+        { announcement: ann.title },
+        async () => {
+          const r = safetyScan([{ text: corpus.get(ann.contentDocId) ?? "", sourceUrl: ann.url ?? ann.contentDocId }]);
+          return {
+            data: r,
+            status: r.blocked.length > 0 ? ("partial" as const) : ("ok" as const),
+            output: { blocked: r.blocked.length, patterns: r.blocked.map((b) => b.patternMatched) },
+          };
+        },
+      );
+      calls.push(scanCall);
+      if (scan.blocked.length > 0) {
+        trace.pushBlocked(scan.blocked);
+        held++;
+        state.reconciled.push({
+          conflict,
+          resolved: false,
+          appliesToStudent: null,
+          reason: "公告原文含疑似指令的文字，未交給模型判斷，請人工確認是否適用。",
+          citation: null,
+          mode: "offline",
+          costUsd: 0,
+          inputTokens: 0,
+          outputTokens: 0,
+        });
+        continue;
+      }
       try {
         const { data, call } = await trace.tool(
           "rule.reconcile",

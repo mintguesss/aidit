@@ -3,10 +3,10 @@ import type { BlockedContent } from "@/lib/types";
 /**
  * 外部內容注入檢查（docs/SPEC.md §9）。
  *
- * 網路討論一律視為不可信輸入：
+ * 外部文件（公告等，會交給模型判斷是否適用）一律視為不可信輸入：
  *   1. 包成資料區塊，永不進入指令通道
- *   2. 命中指令樣式即丟棄並記入 trace
- *   3. 不參與任何學分或採計判定，僅作為呈現資訊
+ *   2. 命中指令樣式即不交給模型、改轉人工，並記入 trace
+ *   3. 不參與任何學分計算
  */
 
 export type Pattern = { id: string; label: string; re: RegExp };

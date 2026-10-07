@@ -1187,3 +1187,8 @@ details.fset > *:last-child{margin-bottom:14px}
 .rv-who input{flex:1 1 200px;max-width:280px;font:inherit;font-size:14px;padding:8px 12px;
   border:1px solid var(--line-2,var(--line));border-radius:6px;background:var(--paper);color:var(--text)}
 .rv-who input:focus{outline:2px solid var(--ink-4);outline-offset:-1px;border-color:var(--ink-3)}
+
+/* ===================================================== 匿名展示模式（lib/anon.ts） */
+/* 換完字才顯示；萬一腳本失敗，2 秒後照樣顯示，不讓畫面一直空白 */
+html[data-anon]:not([data-anon-ready]) body{visibility:hidden;animation:anon-reveal 0s 2s forwards}
+@keyframes anon-reveal{to{visibility:visible}}

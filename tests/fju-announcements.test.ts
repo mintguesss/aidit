@@ -98,3 +98,16 @@ describe("公告原文夾帶指令", () => {
     }
   });
 });
+
+describe("第 4 步完整跑（含注入檢查）", () => {
+  it("真實公告不會被誤攔：兩則都判得出來（曾因「請自行上網加選」被誤判成要求代為選課）", async () => {
+    const { reconcileConflictsStep } = await import("@/lib/agent/steps/04-reconcile-conflicts");
+    const { TraceCollector } = await import("@/lib/agent/trace");
+    const trace = new TraceCollector("t");
+    const state = { conflicts: ruleConflict(pack), reconciled: [], pack, record: rec } as never;
+    await reconcileConflictsStep.run({ trace, state, budget: new LlmBudget() } as never);
+    const s = state as unknown as { reconciled: { resolved: boolean }[] };
+    expect(s.reconciled.map((r) => r.resolved)).toEqual([true, true]);
+    expect(trace.blockedContent).toEqual([]);
+  });
+});

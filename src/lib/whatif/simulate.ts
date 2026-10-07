@@ -16,7 +16,7 @@ import {
   solveWithRelaxation,
   type SolveContext,
 } from "@/lib/solver/schedule";
-import { offeringsFor, activeCourseCodes } from "@/lib/offerings";
+import { offeringsFor, activeCourseCodes, allOfferings } from "@/lib/offerings";
 import { loadRulePacks } from "@/lib/rules/loader";
 import { termLimitsFor } from "@/lib/rules/term-limits";
 import { schoolOf } from "@/lib/schools";
@@ -43,6 +43,8 @@ export function simulate(input: SimulateInput): WhatIfResult {
       return earlyGraduation(input, input.scenario.targetTerm);
     case "withdraw-course":
       return withdrawCourse(input, input.scenario.code);
+    case "take-course":
+      return takeCourse(input, input.scenario.course);
     case "add-minor":
       return anotherRuleSet(input, "輔系", input.scenario.dept);
     case "double-major":
@@ -209,6 +211,88 @@ function withdrawCourse(input: SimulateInput, key: string): WhatIfResult {
         : [],
     citations: citationsFor(audit, changed.length > 0 ? audit.categories.map((c) => c.id) : []),
     uncountedHolds: uncounted(audit),
+  };
+}
+
+// ------------------------------------------------------------ 修某一門課
+
+/**
+ * 下學期修某一門課會怎樣：把它當成修課中加進紀錄，重跑審查。
+ * 回報算進哪一類、各類未修學分怎麼變；採計方式不確定的（例：舊生修新領域的通識）
+ * 會落到待確認，要明講為什麼、該找誰，而不是假裝算得出來。
+ */
+function takeCourse(input: SimulateInput, key: string): WhatIfResult {
+  const { audit, record, pack } = input;
+  const school = schoolOf(record.student);
+  const [y, t] = audit.nextTerm.split("-").map(Number) as [number, 1 | 2];
+  const k = key.trim();
+  const pick = (list: ReturnType<typeof allOfferings>) =>
+    list.find((o) => o.code === k) ?? list.find((o) => o.name === k) ?? list.find((o) => o.name.includes(k));
+  const next = pick(offeringsFor(y, t, school, pack));
+  const any = next ?? pick([...allOfferings(school)].sort((a, b) => b.year - a.year || Number(b.term === 2) - Number(a.term === 2)));
+  if (!any) {
+    return {
+      headline: "開課資料中找不到這門課",
+      level: "infeasible",
+      detail: `開課資料中找不到「${k}」。請提供課號或完整課名。`,
+      alternatives: [],
+      citations: [],
+      uncountedHolds: uncounted(audit),
+    };
+  }
+  const taken = record.courses.find((c) => c.code === any.code && c.status === "passed");
+  const added: CourseRecord = {
+    code: any.code,
+    name: any.name,
+    credits: any.credits,
+    year: y,
+    term: t,
+    selectType: any.selectType ?? "elective",
+    score: null,
+    status: "in_progress",
+    offeringDept: any.dept,
+    ...(any.college ? { offeringCollege: any.college } : {}),
+    ...(any.generalDomain ? { generalDomain: any.generalDomain } : {}),
+  };
+  const after = auditCredits({
+    record: { ...record, courses: [...record.courses, added] },
+    pack,
+    traceId: `${audit.traceId}-whatif`,
+    currentTerm: audit.currentTerm,
+    nextTerm: audit.nextTerm,
+    activeCourseCodes: activeCourseCodes(),
+  });
+
+  const offeredNote = next ? "" : `${audit.nextTerm} 沒有開這門課，以下用最近一次開課（${any.year}-${any.term}）的資料試算。`;
+  const newHolds = after.holds.filter((h) => !audit.holds.some((x) => x.id === h.id));
+  const hold = newHolds.find((h) => `${h.title}${h.body}${h.impact}`.includes(any.name) || `${h.title}${h.body}`.includes(any.code));
+  if (hold) {
+    return {
+      headline: `修「${any.name}」採計方式要人工確認`,
+      level: "conditional",
+      detail: `${offeredNote}${hold.title}。${hold.body}`,
+      alternatives: [`向${hold.contact}確認這門課的採計方式後再選`, "改選採計方式確定的同類課程"],
+      citations: hold.citations,
+      uncountedHolds: uncounted(after),
+    };
+  }
+
+  const into = after.categories.find((c) => c.assignedCodes.includes(any.code) && !audit.categories.find((b) => b.id === c.id)?.assignedCodes.includes(any.code));
+  const changed = audit.categories
+    .map((c) => ({ name: c.name, before: c.unmet, after: after.categories.find((x) => x.id === c.id)!.unmet }))
+    .filter((x) => x.before !== x.after);
+  const reduced = audit.unmet - after.unmet;
+  return {
+    headline: reduced > 0 ? `修「${any.name}」可減少未修 ${reduced} 學分` : `修「${any.name}」不會減少未修學分`,
+    level: reduced > 0 ? "feasible" : "conditional",
+    detail:
+      offeredNote +
+      (taken ? `你已修過這門課（${taken.year}-${taken.term}），再修通常不重複採計。` : "") +
+      (into ? `會算進「${into.name}」。` : "沒有可以算進的類別，或該類已經修滿，只會算超修。") +
+      (changed.length > 0 ? changed.map((c) => `${c.name}未修 ${c.before} → ${c.after}`).join("、") + "。" : ""),
+    alternatives: [],
+    citations: citationsFor(after, into ? [into.id] : []),
+    uncountedHolds: uncounted(after),
   };
 }
 

@@ -44,6 +44,7 @@ const GROUPS: Group[] = [
     items: [
       { label: "提前一學期畢業", ask: "我想提前一學期畢業，有可能嗎？", ready: "ready", note: "" },
       { label: "停修某一門課", ask: "停修專題研究（二）", ready: "ready", note: "" },
+      { label: "下學期修某一門課", ask: "如果我下學期修生死學會怎樣？", ready: "ready", note: "算哪一類、採計方式確不確定" },
     ],
   },
   {

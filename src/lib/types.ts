@@ -491,6 +491,8 @@ export type Scenario =
   /** 畢業時程 */
   | { type: "early-graduation"; targetTerm: string }
   | { type: "withdraw-course"; code: string }
+  /** 下學期修某一門課：算哪一類、各類未修怎麼變、會不會落到待確認 */
+  | { type: "take-course"; course: string }
   /** 加修另一套規定 */
   | { type: "add-minor"; dept: string }
   | { type: "double-major"; dept: string }

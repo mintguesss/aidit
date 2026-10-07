@@ -18,6 +18,7 @@ const zIntent = z.object({
       type: z.enum([
         "early-graduation",
         "withdraw-course",
+        "take-course",
         "add-minor",
         "double-major",
         "add-cert-program",
@@ -30,7 +31,7 @@ const zIntent = z.object({
       dept: z.string().nullable(),
       /** add-cert-program 用：學程名稱 */
       program: z.string().nullable(),
-      /** withdraw-course 用：課號或課名 */
+      /** withdraw-course、take-course 用：課號或課名 */
       code: z.string().nullable(),
       /** grade-threshold 用：目標描述 */
       target: z.string().nullable(),
@@ -44,8 +45,8 @@ const zIntent = z.object({
 
 const SYSTEM = [
   "你是畢業審查系統的意圖解析元件，只負責把使用者的一句話對應到固定的情境類型。",
-  "可用的情境類型只有七種：early-graduation、withdraw-course、add-minor、double-major、"
-    + "add-cert-program、change-major、grade-threshold。",
+  "可用的情境類型只有八種：early-graduation、withdraw-course、take-course（下學期修某一門課會怎樣）、"
+    + "add-minor、double-major、add-cert-program、change-major、grade-threshold。",
   "輔系（add-minor）、雙主修（double-major）、轉系（change-major）是三件不同的事，不得互相代用。",
   "規則：",
   "1. 不得回答任何學分、畢業與否或課程建議 —— 那些由確定性程式計算。",
@@ -106,6 +107,8 @@ function toIntentResult(d: z.infer<typeof zIntent>, raw: string): IntentResult {
         return s.program ? { type: "add-cert-program", program: s.program } : null;
       case "withdraw-course":
         return s.code ? { type: "withdraw-course", code: s.code } : null;
+      case "take-course":
+        return s.code ? { type: "take-course", course: s.code } : null;
       case "grade-threshold":
         return { type: "grade-threshold", target: s.target ?? raw };
     }
@@ -124,6 +127,7 @@ const MISSING_PARAM: Record<string, string> = {
   "change-major": "請問想轉到哪一個學系？",
   "add-cert-program": "請問想加修哪一個學分學程？",
   "withdraw-course": "請問想停修哪一門課？可提供課號或完整課名。",
+  "take-course": "請問想修哪一門課？可提供課號或完整課名。",
   "grade-threshold": "請問想比較的成績門檻是什麼？",
 };
 
@@ -197,6 +201,17 @@ function offlineIntent(raw: string, nextTerm: string): z.infer<typeof zIntent> {
       kind: key ? "scenario" : "clarify",
       scenario: key ? { ...empty, type: "withdraw-course", code: key } : null,
       question: key ? null : MISSING_PARAM["withdraw-course"]!,
+      message: null,
+    };
+  }
+  // 「如果我修生死學會怎樣」「下學期選 00245 算哪一類」—— 停修已在上面先比對，不會混
+  const take = /(?:如果|要是|假如)?(?:我)?(?:下學期)?(?:去)?(?:修|選|加選|上)了?([一-龥A-Za-z（）()一二三四五六\-]{2,20}?)(?:這門課|這堂課|的話|會怎樣|會怎麼樣|算哪一?類|算什麼|可以算|能算|$|[，,。？?])/.exec(t);
+  if (take && /如果|要是|假如|會怎|算哪|算什麼|可以算|能算/.test(t)) {
+    const key = findCourseCode(t) ?? take[1]!.replace(/^(一門|一堂)/, "");
+    return {
+      kind: key ? "scenario" : "clarify",
+      scenario: key ? { ...empty, type: "take-course", code: key } : null,
+      question: key ? null : MISSING_PARAM["take-course"]!,
       message: null,
     };
   }

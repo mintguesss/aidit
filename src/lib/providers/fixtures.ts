@@ -1,5 +1,6 @@
 import type { CoursePreferences, CourseRecord, StudentRecord, Student, Term } from "@/lib/types";
 import { FJU_FIXTURES } from "./fixtures-fju";
+import { FJU_PHY_FIXTURES } from "./fixtures-fju-phy";
 
 /**
  * 合成學籍與修課資料。
@@ -191,7 +192,8 @@ export type FixtureId =
   | "cross-college"
   | "domain-unmet-credits-ok"
   | "no-enrollment-data"
-  | (typeof FJU_FIXTURES)[number]["id"];
+  | (typeof FJU_FIXTURES)[number]["id"]
+  | (typeof FJU_PHY_FIXTURES)[number]["id"];
 
 export type Fixture = {
   id: FixtureId;
@@ -372,6 +374,7 @@ export const FIXTURES: Fixture[] = [
   },
   // 輔大資管 111：真實規則＋真實修課紀錄（只有課名、學分、學期），見 fixtures-fju.ts
   ...FJU_FIXTURES,
+  ...FJU_PHY_FIXTURES,
 ];
 
 export function fixture(id: FixtureId): Fixture {

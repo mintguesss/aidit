@@ -97,6 +97,7 @@ const ANNOUNCEMENT_CORPUS: [string, string][] = [
   ["ann-ge-114", "ann-ge-114.txt"],
   ["ann-eng-cert", "ann-eng-cert.txt"],
   ["fju-hec-1141", "fju-hec-1141.txt"],
+  ["fju-phy-oe-plan-113", "fju-phy-oe-plan-113.txt"],
 ];
 
 export type ResolveOutcome =
@@ -136,6 +137,8 @@ export function resolveRulePack(student: Student, transfer?: TransferApproval): 
     (p) =>
       p.school === schoolOf(student) &&
       p.dept === student.dept &&
+      // 同系不同組是不同的規定：組別要一致（都沒填也算一致）
+      (p.group ?? null) === (student.group ?? null) &&
       p.admissionYear === student.admissionYear &&
       p.program === student.program,
   );
@@ -143,7 +146,7 @@ export function resolveRulePack(student: Student, transfer?: TransferApproval): 
     return {
       ok: false,
       reason: "pack_not_found",
-      detail: `尚未支援此系所／學年度：${student.dept} ${student.admissionYear} 學年度（${student.program === "day" ? "日" : "夜"}）。`,
+      detail: `尚未支援此系所／學年度：${student.dept}${student.group ? ` ${student.group}` : ""} ${student.admissionYear} 學年度（${student.program === "day" ? "日" : "夜"}）。`,
     };
   }
   if (pack.provenance === "draft") {

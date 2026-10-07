@@ -270,6 +270,9 @@ function filterCandidates(ctx: SolveContext): {
     ctx.studentDept ? ctx.offerings.filter((o) => o.dept === ctx.studentDept).map((o) => o.code) : [],
   );
 
+  // 沒給學生系所（合成資料的舊呼叫端）時維持舊行為：年級標記一律適用
+  const ownDept = (o: Offering) => !ctx.studentDept || o.dept === ctx.studentDept;
+
   for (const o of [...ctx.offerings].sort((a, b) => cmp(a.code, b.code))) {
     const drop = (step: ExclusionReason["step"], reason: string) =>
       exclusions.push({ reason, code: o.code, name: o.name, step });
@@ -293,7 +296,7 @@ function filterCandidates(ctx: SolveContext): {
 
     // 0.6 規劃表排在更高年級的本系必修，不排給低年級（大一不會被排到大二的統計學）。
     // 選修、通識沒有年級限制
-    if (studyYear !== undefined && o.forGrade !== undefined && o.forGrade > studyYear) {
+    if (studyYear !== undefined && o.forGrade !== undefined && o.forGrade > studyYear && ownDept(o)) {
       drop("later-grade", `規劃表排在大${"一二三四"[o.forGrade - 1] ?? o.forGrade}`);
       continue;
     }
@@ -358,9 +361,11 @@ function filterCandidates(ctx: SolveContext): {
       classSection: ctx.classProfile ? sectionLetter(o.classGroup, ctx.classProfile) : undefined,
       ...(ctx.constraints.wantOneOf?.includes(o.code) ? { wanted: true } : {}),
       // 「這學期該修的課」：學年課的下半，以及規劃在這個年級（或更早、還沒修）的本系必修
+      // 年級只對本系的必修有意義：開課資料有好幾個系之後（輔大資管＋物理），
+      // 不檢查系所的話物理系大四會被要求修資管大一到大四的必修
       continues:
         (ctx.continueCodes?.has(o.code) ?? false) ||
-        (studyYear !== undefined && o.forGrade !== undefined && o.forGrade <= studyYear),
+        (studyYear !== undefined && o.forGrade !== undefined && o.forGrade <= studyYear && ownDept(o)),
     };
     if (satisfies.length > 0 || c.pinned || c.wanted) candidates.push(c);
     else fillers.push(c);
@@ -846,7 +851,22 @@ function attemptSolve(
   // 使用者指定一定要留的課：任何解都必須包含。
   // 指定了卻不在候選集裡，代表它被前面某個過濾步驟擋掉了 —— 那是無解，而且要說得出是哪一步。
   const wantPinned = new Set(ctx.constraints.pinCourses ?? []);
-  const pinnedCandidates = candidates.filter((c) => c.pinned);
+  // 每門指定的課只放一班（非早八優先）。以前同一門課的每一班都進了課表 —— 輔大書報討論開 4 班，
+  // 指定之後課表上就有 4 門書報討論。哪一班最好由搜尋後的重新挑班決定（reassignSections）
+  const pinnedCandidates: Candidate[] = [];
+  {
+    const byCode = new Map<string, Candidate[]>();
+    for (const c of candidates.filter((x) => x.pinned).sort((x, y) => Number(x.early) - Number(y.early))) {
+      byCode.set(c.offering.code, [...(byCode.get(c.offering.code) ?? []), c]);
+    }
+    // 依序挑跟已挑的不衝堂的那一班；每一班都衝才照實挑第一班，交給下面的衝堂檢查回報
+    for (const group of byCode.values()) {
+      const fits = (c: Candidate) =>
+        c.offering.slotsUnknown ||
+        pinnedCandidates.every((p) => p.offering.slotsUnknown || !clashes(p.offering.slots, c.offering.slots));
+      pinnedCandidates.push(group.find(fits) ?? group[0]!);
+    }
+  }
   const missingPinned = [...wantPinned].filter((code) => !pinnedCandidates.some((c) => c.offering.code === code));
   if (missingPinned.length > 0) {
     return {

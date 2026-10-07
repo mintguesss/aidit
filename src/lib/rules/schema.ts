@@ -28,7 +28,16 @@ export const zDocument = z.object({
 
 const zMatch = z.discriminatedUnion("type", [
   /** 指定科目表：課號完全比對（含舊課號對照） */
-  z.object({ type: z.literal("courseList"), codes: z.array(z.string()).min(1) }),
+  z.object({
+    type: z.literal("courseList"),
+    codes: z.array(z.string()).min(1),
+    /**
+     * 不排他：修滿這一類之後多修的，可以改算進其他類別（通常是選修）。
+     * 輔大物理系光電組的「群組必修至少 3 學分」：從一串課裡挑，多修的不該白修。
+     * 沒設就排他（列在科目表上的課只能算這一類）
+     */
+    shared: z.boolean().optional(),
+  }),
   /**
    * 指定科目表，但規劃表**只列課名、沒有課號** —— 例如輔大的國文、外國語文是分組上課，
    * 各組課號不同，規劃表上只寫「國文」。比對時去掉空白後完全相等，不做模糊比對：
@@ -182,6 +191,11 @@ const zGraduationCheck = z.object({
   citation: zCitation,
   contact: z.string().min(1),
   searchedSources: z.array(z.string()).default([]),
+  /**
+   * rule = deptDefined 判斷不了時，待確認事項寫的原因。沒填就用「規劃表記載各系自訂」的制式說法 ——
+   * 但不是每一則都是那種情況（輔大物理系是兩份文件寫的不一樣），原因寫錯等於誤導學生去問錯的事
+   */
+  holdDetail: z.string().min(1).optional(),
 });
 export type RuleGraduationCheck = z.infer<typeof zGraduationCheck>;
 
@@ -201,6 +215,8 @@ export const zRulePack = z
     /** 學校代號（lib/schools.ts）。未填為 "demo"，即合成資料 */
     school: z.string().min(1).default("demo"),
     dept: z.string().min(1),
+    /** 組別（見 Student.group）。沒分組的系不填 */
+    group: z.string().min(1).optional(),
     admissionYear: z.number().int(),
     program: z.enum(["day", "night"]),
     version: z.string().min(1),

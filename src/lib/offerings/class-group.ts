@@ -22,12 +22,16 @@ export type ClassProfile = {
 };
 
 /** 系所代號 → 開課班級用的簡稱；學院代號 → 全名（輔大） */
-const DEPT_LABEL: Record<string, string> = { IM: "資管" };
-const COLLEGE_NAME: Record<string, string> = { MGT: "管理學院" };
+// 有分組的系用「系所:組別」：輔大光電物理組的班寫「光電三」、保留班寫「光電物理人哲」
+const DEPT_LABEL: Record<string, string> = { IM: "資管", "PH:光電物理組": "光電" };
+const COLLEGE_NAME: Record<string, string> = { MGT: "管理學院", SCI: "理工學院" };
 
-export function classProfileOf(student: { dept: string; classSection?: "甲" | "乙" }, college?: string): ClassProfile {
+export function classProfileOf(
+  student: { dept: string; group?: string; classSection?: "甲" | "乙" },
+  college?: string,
+): ClassProfile {
   return {
-    deptLabel: DEPT_LABEL[student.dept],
+    deptLabel: DEPT_LABEL[student.group ? `${student.dept}:${student.group}` : student.dept],
     college: college ? COLLEGE_NAME[college] : undefined,
     ...(student.classSection ? { section: student.classSection } : {}),
   };
@@ -52,7 +56,10 @@ export function classAllows(classGroup: string | undefined, profile: ClassProfil
   if (reserved) {
     if (!profile.deptLabel) return { ok: true };
     const who = reserved[1]!.replace(/[系組]$/, "");
-    return who === profile.deptLabel ? { ok: true } : { ok: false, reason: `開給${reserved[1]}的班` };
+    // 「光電物理人哲」對簡稱「光電」：保留班常寫全名，簡稱是開頭
+    return who === profile.deptLabel || who.startsWith(profile.deptLabel)
+      ? { ok: true }
+      : { ok: false, reason: `開給${reserved[1]}的班` };
   }
 
   // 國文、外國語文依學院指定：「CT-管理學院」「FT-理工學院」

@@ -13,6 +13,11 @@ export type Student = {
   /** 學校代號（lib/schools.ts）。未填為 "demo"，即合成資料 */
   school?: string;
   dept: string;
+  /**
+   * 組別。同系不同組的畢業規定不同（輔大物理系的物理組、光電物理組必修學分不一樣），
+   * 規則包要同系、同組才對得上。沒分組的系不填
+   */
+  group?: string;
   /** 學籍入學學年 —— 畢業條件綁定此欄 */
   admissionYear: number;
   /** 實際入學學年（轉系／轉學時與上者不同） */

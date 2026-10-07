@@ -11816,33 +11816,6 @@
     "selectType": "required",
     "year": 115,
     "term": 1,
-    "teacher": "張敏娟",
-    "slotText": "三 D7,D8",
-    "dept": "IT",
-    "college": "FJU",
-    "category": [
-      "holistic-core"
-    ],
-    "capacity": 62,
-    "fetchedAt": "2026-10-02T01:21:30+08:00",
-    "outline": {
-      "id": 745363,
-      "tchNo": "068190"
-    },
-    "classGroup": "物理電物入門",
-    "rooms": [
-      "LH108"
-    ],
-    "language": "中文"
-  },
-  {
-    "school": "fju",
-    "code": "00155",
-    "name": "大學入門",
-    "credits": 2,
-    "selectType": "required",
-    "year": 115,
-    "term": 1,
     "teacher": "安吉恩",
     "slotText": "三 D7,D8",
     "dept": "IT",
@@ -11886,33 +11859,6 @@
     "classGroup": "應數組入門",
     "rooms": [
       "MA307"
-    ],
-    "language": "中文"
-  },
-  {
-    "school": "fju",
-    "code": "00155",
-    "name": "大學入門",
-    "credits": 2,
-    "selectType": "required",
-    "year": 115,
-    "term": 1,
-    "teacher": "王律堯",
-    "slotText": "三 D7,D8",
-    "dept": "IT",
-    "college": "FJU",
-    "category": [
-      "holistic-core"
-    ],
-    "capacity": 66,
-    "fetchedAt": "2026-10-02T01:21:30+08:00",
-    "outline": {
-      "id": 745382,
-      "tchNo": "089948"
-    },
-    "classGroup": "光電物理入門",
-    "rooms": [
-      "ES308"
     ],
     "language": "中文"
   },
@@ -14312,33 +14258,6 @@
     "selectType": "required",
     "year": 115,
     "term": 1,
-    "teacher": "池雅慧",
-    "slotText": "二 D7,D8",
-    "dept": "LT",
-    "college": "FJU",
-    "category": [
-      "holistic-core"
-    ],
-    "capacity": 60,
-    "fetchedAt": "2026-10-02T01:21:30+08:00",
-    "outline": {
-      "id": 745475,
-      "tchNo": "143181"
-    },
-    "classGroup": "物理電物人哲",
-    "rooms": [
-      "ES308"
-    ],
-    "language": "中文"
-  },
-  {
-    "school": "fju",
-    "code": "00007",
-    "name": "人生哲學",
-    "credits": 2,
-    "selectType": "required",
-    "year": 115,
-    "term": 1,
     "teacher": "張勻翔",
     "slotText": "二 D7,D8",
     "dept": "LT",
@@ -14409,33 +14328,6 @@
     "classGroup": "公衛系人哲",
     "rooms": [
       "MD169"
-    ],
-    "language": "中文"
-  },
-  {
-    "school": "fju",
-    "code": "00007",
-    "name": "人生哲學",
-    "credits": 2,
-    "selectType": "required",
-    "year": 115,
-    "term": 1,
-    "teacher": "范家榮",
-    "slotText": "二 D8,E0",
-    "dept": "LT",
-    "college": "FJU",
-    "category": [
-      "holistic-core"
-    ],
-    "capacity": 60,
-    "fetchedAt": "2026-10-02T01:21:30+08:00",
-    "outline": {
-      "id": 745494,
-      "tchNo": "069047"
-    },
-    "classGroup": "光電物理人哲",
-    "rooms": [
-      "ES407"
     ],
     "language": "中文"
   },
@@ -16639,6 +16531,1383 @@
   },
   {
     "school": "fju",
+    "code": "00007",
+    "name": "人生哲學",
+    "credits": 2,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "池雅慧",
+    "slotText": "二 D7,D8",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "holistic-core"
+    ],
+    "capacity": 60,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 745475,
+      "tchNo": "143181"
+    },
+    "classGroup": "物理電物人哲",
+    "rooms": [
+      "ES308"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "00007",
+    "name": "人生哲學",
+    "credits": 2,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "范家榮",
+    "slotText": "二 D8,E0",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "holistic-core"
+    ],
+    "capacity": 60,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 745494,
+      "tchNo": "069047"
+    },
+    "classGroup": "光電物理人哲",
+    "rooms": [
+      "ES407"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "00155",
+    "name": "大學入門",
+    "credits": 2,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "張敏娟",
+    "slotText": "三 D7,D8",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "holistic-core"
+    ],
+    "capacity": 62,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 745363,
+      "tchNo": "068190"
+    },
+    "classGroup": "物理電物入門",
+    "rooms": [
+      "LH108"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "00155",
+    "name": "大學入門",
+    "credits": 2,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "王律堯",
+    "slotText": "三 D7,D8",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "holistic-core"
+    ],
+    "capacity": 66,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 745382,
+      "tchNo": "089948"
+    },
+    "classGroup": "光電物理入門",
+    "rooms": [
+      "ES308"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "01404",
+    "name": "光學",
+    "credits": 3,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "陳慧琪",
+    "slotText": "三 D2,D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 100,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743562,
+      "tchNo": "064783"
+    },
+    "classGroup": "光電三",
+    "rooms": [
+      "LH108"
+    ],
+    "language": "中文",
+    "forGrade": 3
+  },
+  {
+    "school": "fju",
+    "code": "01947",
+    "name": "書報討論",
+    "credits": 2,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "方德貴",
+    "slotText": "一 D5,D6",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 20,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743544,
+      "tchNo": "051420"
+    },
+    "classGroup": "物理四",
+    "rooms": [
+      "PH118"
+    ],
+    "language": "中文",
+    "forGrade": 4
+  },
+  {
+    "school": "fju",
+    "code": "01947",
+    "name": "書報討論",
+    "credits": 2,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "林更青",
+    "slotText": "二 D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 23,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743545,
+      "tchNo": "049423"
+    },
+    "classGroup": "物理四",
+    "rooms": [
+      "PH118"
+    ],
+    "language": "中文",
+    "forGrade": 4
+  },
+  {
+    "school": "fju",
+    "code": "01947",
+    "name": "書報討論",
+    "credits": 2,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "林更青",
+    "slotText": "五 D1,D2",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 24,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743576,
+      "tchNo": "049423"
+    },
+    "classGroup": "光電四",
+    "rooms": [
+      "PH116"
+    ],
+    "language": "中文",
+    "forGrade": 4
+  },
+  {
+    "school": "fju",
+    "code": "01947",
+    "name": "書報討論",
+    "credits": 2,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "項維巍",
+    "slotText": "四 D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 20,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743577,
+      "tchNo": "069179"
+    },
+    "classGroup": "光電四",
+    "rooms": [
+      "PH118"
+    ],
+    "language": "中文",
+    "forGrade": 4
+  },
+  {
+    "school": "fju",
+    "code": "02287",
+    "name": "普通物理實驗",
+    "credits": 1,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "劉建楠",
+    "slotText": "一 D2,D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 70,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743547,
+      "tchNo": "056443"
+    },
+    "classGroup": "光電一",
+    "rooms": [
+      "PH201"
+    ],
+    "language": "中文",
+    "forGrade": 1
+  },
+  {
+    "school": "fju",
+    "code": "02287",
+    "name": "普通物理實驗",
+    "credits": 1,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "項維巍",
+    "slotText": "三 D2,D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 60,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 742816,
+      "tchNo": "069179"
+    },
+    "classGroup": "物理電物一",
+    "rooms": [
+      "PH201"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "02391",
+    "name": "微積分（一）",
+    "credits": 3,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "孫永信",
+    "slotText": "一 D6,D7,D8",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 100,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 742817,
+      "tchNo": "089957"
+    },
+    "classGroup": "物理電物一",
+    "rooms": [
+      "LH108"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "02391",
+    "name": "微積分（一）",
+    "credits": 3,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "謝智明",
+    "slotText": "四 D2,D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 65,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743548,
+      "tchNo": "087685"
+    },
+    "classGroup": "光電一",
+    "rooms": [
+      "ES407"
+    ],
+    "language": "中文",
+    "forGrade": 1
+  },
+  {
+    "school": "fju",
+    "code": "02532",
+    "name": "電子學(一)",
+    "credits": 3,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "項維巍",
+    "slotText": "一 D3,D4,D5",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 72,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743553,
+      "tchNo": "069179"
+    },
+    "classGroup": "光電二",
+    "rooms": [
+      "LH108"
+    ],
+    "language": "中文",
+    "forGrade": 2
+  },
+  {
+    "school": "fju",
+    "code": "02532",
+    "name": "電子學(一)",
+    "credits": 3,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "張敏娟",
+    "slotText": "二 D2,D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 70,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 742822,
+      "tchNo": "068190"
+    },
+    "classGroup": "物理電物二",
+    "rooms": [
+      "PH116"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "04903",
+    "name": "專題研究（三）",
+    "credits": 1,
+    "selectType": "elective",
+    "year": 115,
+    "term": 1,
+    "teacher": "邱劭斌",
+    "slotText": "時間另訂",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 60,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 754447,
+      "tchNo": "159959"
+    },
+    "classGroup": "物理電物三",
+    "rooms": [
+      "不需要教室"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "04903",
+    "name": "專題研究（三）",
+    "credits": 1,
+    "selectType": "elective",
+    "year": 115,
+    "term": 1,
+    "teacher": "孫永信",
+    "slotText": "時間另訂",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 60,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 754448,
+      "tchNo": "089957"
+    },
+    "classGroup": "物理電物三",
+    "rooms": [
+      "不需要教室"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "04903",
+    "name": "專題研究（三）",
+    "credits": 1,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "江嘉雯",
+    "slotText": "時間另訂",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 50,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 754215,
+      "tchNo": "166092"
+    },
+    "classGroup": "光電三",
+    "rooms": [
+      "不需要教室"
+    ],
+    "language": "中文",
+    "forGrade": 3
+  },
+  {
+    "school": "fju",
+    "code": "04903",
+    "name": "專題研究（三）",
+    "credits": 1,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "項維巍",
+    "slotText": "時間另訂",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 50,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 754216,
+      "tchNo": "069179"
+    },
+    "classGroup": "光電三",
+    "rooms": [
+      "不需要教室"
+    ],
+    "language": "中文",
+    "forGrade": 3
+  },
+  {
+    "school": "fju",
+    "code": "06523",
+    "name": "真空鍍膜技術",
+    "credits": 2,
+    "selectType": "elective",
+    "year": 115,
+    "term": 1,
+    "teacher": "徐進成",
+    "slotText": "時間另訂",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 31,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743566,
+      "tchNo": "054326"
+    },
+    "classGroup": "光電三",
+    "rooms": [
+      "不需要教室"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "09201",
+    "name": "電磁學(一)",
+    "credits": 3,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "吳至原",
+    "slotText": "二 D2,D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 61,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743555,
+      "tchNo": "016287"
+    },
+    "classGroup": "光電二",
+    "rooms": [
+      "ES408"
+    ],
+    "language": "中文",
+    "forGrade": 2
+  },
+  {
+    "school": "fju",
+    "code": "09201",
+    "name": "電磁學(一)",
+    "credits": 3,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "孫永信",
+    "slotText": "五 D5,D6,D7",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 120,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 742824,
+      "tchNo": "089957"
+    },
+    "classGroup": "物理電物二",
+    "rooms": [
+      "LH108"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "14561",
+    "name": "普通物理(一)",
+    "credits": 3,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "項維巍",
+    "slotText": "二 D3,D4 / 四 D5,D6",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 70,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 742819,
+      "tchNo": "069179"
+    },
+    "classGroup": "物理電物一",
+    "rooms": [
+      "ES407",
+      "LH108"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "14561",
+    "name": "普通物理(一)",
+    "credits": 3,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "劉建楠",
+    "slotText": "二 D3,D4 / 四 D5,D6",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 70,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743550,
+      "tchNo": "056443"
+    },
+    "classGroup": "光電一",
+    "rooms": [
+      "ES407",
+      "LH108"
+    ],
+    "language": "中文",
+    "forGrade": 1
+  },
+  {
+    "school": "fju",
+    "code": "15373",
+    "name": "相對論",
+    "credits": 3,
+    "selectType": "elective",
+    "year": 115,
+    "term": 1,
+    "teacher": "方德貴",
+    "slotText": "五 D5,D6,D7",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 60,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 754227,
+      "tchNo": "051420"
+    },
+    "classGroup": "物理電物三",
+    "rooms": [
+      "PH118"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "18609",
+    "name": "固態物理導論",
+    "credits": 3,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "吳至原",
+    "slotText": "一 D2,D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 60,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 754204,
+      "tchNo": "016287"
+    },
+    "classGroup": "物理電物三",
+    "rooms": [
+      "ES407"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "19814",
+    "name": "專題演講(一)",
+    "credits": 1,
+    "selectType": "elective",
+    "year": 115,
+    "term": 1,
+    "teacher": "邱劭斌",
+    "slotText": "五 D4,DN",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 80,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743568,
+      "tchNo": "159959"
+    },
+    "classGroup": "光電三",
+    "rooms": [
+      "LH108"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "21639",
+    "name": "量子物理(一)",
+    "credits": 3,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "劉建楠",
+    "slotText": "二 D5,D6 / 四 D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 60,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 754207,
+      "tchNo": "056443"
+    },
+    "classGroup": "物理電物三",
+    "rooms": [
+      "PH116"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "21639",
+    "name": "量子物理(一)",
+    "credits": 3,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "吳至原",
+    "slotText": "四 D2,D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 61,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743569,
+      "tchNo": "016287"
+    },
+    "classGroup": "光電三",
+    "rooms": [
+      "ES408"
+    ],
+    "language": "中文",
+    "forGrade": 3
+  },
+  {
+    "school": "fju",
+    "code": "30277",
+    "name": "電子學實驗(一)",
+    "credits": 2,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "張敏娟",
+    "slotText": "一 DN,D5,D6,D7",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 30,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 742825,
+      "tchNo": "068190"
+    },
+    "classGroup": "物理電物二",
+    "rooms": [
+      "PH303"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "30277",
+    "name": "電子學實驗(一)",
+    "credits": 2,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "謝智明",
+    "slotText": "二 DN,D5,D6,D7",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 30,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743557,
+      "tchNo": "087685"
+    },
+    "classGroup": "光電二",
+    "rooms": [
+      "PH303"
+    ],
+    "language": "中文",
+    "forGrade": 2
+  },
+  {
+    "school": "fju",
+    "code": "30277",
+    "name": "電子學實驗(一)",
+    "credits": 2,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "謝智明",
+    "slotText": "五 D1,D2,D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 30,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743558,
+      "tchNo": "087685"
+    },
+    "classGroup": "光電二",
+    "rooms": [
+      "PH303"
+    ],
+    "language": "中文",
+    "forGrade": 2
+  },
+  {
+    "school": "fju",
+    "code": "30277",
+    "name": "電子學實驗(一)",
+    "credits": 2,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "張敏娟",
+    "slotText": "四 DN,D5,D6,D7",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 30,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 742826,
+      "tchNo": "068190"
+    },
+    "classGroup": "物理電物二",
+    "rooms": [
+      "PH303"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "30403",
+    "name": "普通物理(三)",
+    "credits": 3,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "方德貴",
+    "slotText": "三 D2,D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 75,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 742827,
+      "tchNo": "051420"
+    },
+    "classGroup": "物理電物二",
+    "rooms": [
+      "ES308"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "30403",
+    "name": "普通物理(三)",
+    "credits": 3,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "林更青",
+    "slotText": "四 D2,D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 77,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743559,
+      "tchNo": "049423"
+    },
+    "classGroup": "光電二",
+    "rooms": [
+      "ES308"
+    ],
+    "language": "中文",
+    "forGrade": 2
+  },
+  {
+    "school": "fju",
+    "code": "30611",
+    "name": "物理英文",
+    "credits": 2,
+    "selectType": "elective",
+    "year": 115,
+    "term": 1,
+    "teacher": "孫永信",
+    "slotText": "三 D7,D8",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 52,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743570,
+      "tchNo": "089957"
+    },
+    "classGroup": "光電三",
+    "rooms": [
+      "PH116"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "31366",
+    "name": "電磁學(三)",
+    "credits": 3,
+    "selectType": "elective",
+    "year": 115,
+    "term": 1,
+    "teacher": "梁君致",
+    "slotText": "四 D5,D6,D7",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 60,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 754208,
+      "tchNo": "054335"
+    },
+    "classGroup": "物理電物三",
+    "rooms": [
+      "PH116"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "31379",
+    "name": "實驗物理(三)",
+    "credits": 2,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "吳至原",
+    "slotText": "二 DN,D5,D6,D7",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 30,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743571,
+      "tchNo": "016287"
+    },
+    "classGroup": "光電三",
+    "rooms": [
+      "SEB103"
+    ],
+    "language": "中文",
+    "forGrade": 3
+  },
+  {
+    "school": "fju",
+    "code": "31379",
+    "name": "實驗物理(三)",
+    "credits": 2,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "吳至原",
+    "slotText": "四 DN,D5,D6,D7",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 30,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743572,
+      "tchNo": "016287"
+    },
+    "classGroup": "光電三",
+    "rooms": [
+      "SEB103"
+    ],
+    "language": "中文",
+    "forGrade": 3
+  },
+  {
+    "school": "fju",
+    "code": "32197",
+    "name": "普通化學(一)",
+    "credits": 2,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "黃炳綜",
+    "slotText": "一 D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 70,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 742820,
+      "tchNo": "073802"
+    },
+    "classGroup": "物理電物一",
+    "rooms": [
+      "ES408"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "32197",
+    "name": "普通化學(一)",
+    "credits": 2,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "何美霖",
+    "slotText": "三 D1,D2",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 67,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743551,
+      "tchNo": "157382"
+    },
+    "classGroup": "光電一",
+    "rooms": [
+      "ES406"
+    ],
+    "language": "中文",
+    "forGrade": 1
+  },
+  {
+    "school": "fju",
+    "code": "32411",
+    "name": "應用數學(一)",
+    "credits": 3,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "謝智明",
+    "slotText": "三 D2,D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 65,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743561,
+      "tchNo": "087685"
+    },
+    "classGroup": "光電二",
+    "rooms": [
+      "ES407"
+    ],
+    "language": "中文",
+    "forGrade": 2
+  },
+  {
+    "school": "fju",
+    "code": "32411",
+    "name": "應用數學(一)",
+    "credits": 3,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "梁君致",
+    "slotText": "二 D5,D6 / 四 D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 70,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 742828,
+      "tchNo": "054335"
+    },
+    "classGroup": "物理電物二",
+    "rooms": [
+      "ES308",
+      "LH108"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "32413",
+    "name": "普通化學實驗(一)",
+    "credits": 1,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "何美霖",
+    "slotText": "二 D5,D6,D7",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 67,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743552,
+      "tchNo": "157382"
+    },
+    "classGroup": "光電一",
+    "rooms": [
+      "SE304"
+    ],
+    "language": "中文",
+    "forGrade": 1
+  },
+  {
+    "school": "fju",
+    "code": "32413",
+    "name": "普通化學實驗(一)",
+    "credits": 1,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "黃炳綜",
+    "slotText": "四 D2,D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 60,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 742821,
+      "tchNo": "073802"
+    },
+    "classGroup": "物理電物一",
+    "rooms": [
+      "SE304"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "34588",
+    "name": "半導體產業概論",
+    "credits": 2,
+    "selectType": "elective",
+    "year": 115,
+    "term": 1,
+    "teacher": "邱劭斌",
+    "slotText": "五 D5,D6",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 60,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 754444,
+      "tchNo": "159959"
+    },
+    "classGroup": "物理電物三",
+    "rooms": [
+      "PH116"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "36084",
+    "name": "數位光學影像處理",
+    "credits": 3,
+    "selectType": "elective",
+    "year": 115,
+    "term": 1,
+    "teacher": "陳慧琪",
+    "slotText": "五 D3,D4,DN",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 16,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743574,
+      "tchNo": "064783"
+    },
+    "classGroup": "光電三",
+    "rooms": [
+      "PH118"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "36937",
+    "name": "半導體物理導論",
+    "credits": 3,
+    "selectType": "required",
+    "year": 115,
+    "term": 1,
+    "teacher": "邱劭斌",
+    "slotText": "三 D2,D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 60,
+    "fetchedAt": "2026-10-08T06:58:00+08:00",
+    "outline": {
+      "id": 754205,
+      "tchNo": "159959"
+    },
+    "classGroup": "物理電物三",
+    "rooms": [
+      "ES408"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "37174",
+    "name": "光學設計軟體ZEMAX",
+    "credits": 2,
+    "selectType": "elective",
+    "year": 115,
+    "term": 1,
+    "teacher": "陳慧琪",
+    "slotText": "一 D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 24,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 743575,
+      "tchNo": "064783"
+    },
+    "classGroup": "光電三",
+    "rooms": [
+      "PH118"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "38124",
+    "name": "醫學影像物理導論",
+    "credits": 2,
+    "selectType": "elective",
+    "year": 115,
+    "term": 1,
+    "teacher": "江嘉雯",
+    "slotText": "五 D3,D4",
+    "dept": "PH",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 60,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 754244,
+      "tchNo": "166092"
+    },
+    "classGroup": "光電三",
+    "rooms": [
+      "PH116"
+    ],
+    "language": "全英文",
+    "tags": [
+      "全英-專業學科類"
+    ]
+  },
+  {
+    "school": "fju",
     "code": "00193",
     "name": "人文學概論",
     "credits": 2,
@@ -17828,6 +19097,114 @@
     "classGroup": "全人教育課程中心",
     "rooms": [
       "LA202"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "02898",
+    "name": "臨床醫學概論",
+    "credits": 3,
+    "selectType": "elective",
+    "year": 115,
+    "term": 1,
+    "teacher": "劉文勝",
+    "slotText": "二 D7,D8,E0",
+    "dept": "SG",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 30,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 745636,
+      "tchNo": "133960"
+    },
+    "classGroup": "理工學院",
+    "rooms": [
+      "ES704"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "21195",
+    "name": "基礎人體醫學概論",
+    "credits": 3,
+    "selectType": "elective",
+    "year": 115,
+    "term": 1,
+    "teacher": "吳傳頌",
+    "slotText": "二 D7,D8,E0",
+    "dept": "SG",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 30,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 745637,
+      "tchNo": "130187"
+    },
+    "classGroup": "理工學院",
+    "rooms": [
+      "ES817"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "36106",
+    "name": "永續與創新創業",
+    "credits": 2,
+    "selectType": "elective",
+    "year": 115,
+    "term": 1,
+    "teacher": "林呈欣",
+    "slotText": "一 D8,E0",
+    "dept": "SG",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 30,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 745639,
+      "tchNo": "158525"
+    },
+    "classGroup": "理工學院",
+    "rooms": [
+      "ES106"
+    ],
+    "language": "中文"
+  },
+  {
+    "school": "fju",
+    "code": "37662",
+    "name": "品牌行銷創新應用",
+    "credits": 2,
+    "selectType": "elective",
+    "year": 115,
+    "term": 1,
+    "teacher": "洪言之",
+    "slotText": "五 D7,D8",
+    "dept": "SG",
+    "college": "SCI",
+    "category": [
+      "free-elective"
+    ],
+    "capacity": 30,
+    "fetchedAt": "2026-10-08T06:52:27+08:00",
+    "outline": {
+      "id": 745640,
+      "tchNo": "148490"
+    },
+    "classGroup": "理工學院",
+    "rooms": [
+      "ES107"
     ],
     "language": "中文"
   },

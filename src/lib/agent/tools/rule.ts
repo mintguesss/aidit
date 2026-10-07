@@ -33,6 +33,8 @@ export type Conflict = {
 export function ruleConflict(pack: RulePack): Conflict[] {
   const out: Conflict[] = [];
   for (const ann of announcementsFor(pack.school)) {
+    if (ann.dept && ann.dept !== pack.dept) continue;
+    if (ann.group && ann.group !== pack.group) continue;
     for (const target of ann.targets) {
       const cat = pack.categories.find((c) => c.id === target);
       const chk = pack.graduationChecks.find((g) => g.id === target);

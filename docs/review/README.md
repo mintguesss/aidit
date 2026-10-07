@@ -6,6 +6,8 @@
 |---|---|
 | [fju-im-111.md](fju-im-111.md) | 輔大資管 111 規則包的**校對清單與回覆紀錄**：哪些地方需要人判斷、回覆了什麼、草稿怎麼改 |
 | [fju-im-111.draft.json](fju-im-111.draft.json) | 規則包草稿（v0.3）。`npx tsx scripts/push-draft.ts` 上傳後在 `/review/fju-im-111` 逐項校對 |
+| [fju-phoe-112.md](fju-phoe-112.md) | 輔大物理系光電物理組 112 規則包的**校對清單**（第二個真實系所） |
+| [fju-phoe-112.draft.json](fju-phoe-112.draft.json) | 規則包草稿（v0.1），在 `/review/fju-phoe-112` 校對 |
 | [fju-offerings-115-2.json](fju-offerings-115-2.json) | 輔大資管 115-2 系上課表的抽取結果與問題清單（`scripts/fju-timetable.py` 產生） |
 
 **誰在校對**：維護者。校對進行中，改草稿前先講。

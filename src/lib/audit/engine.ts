@@ -173,7 +173,8 @@ function matches(cat: RuleCategory, c: CourseRecord, pack: RulePack): boolean {
  * 否則每一門必修都會同時符合 anyPassed（自由選修），把搜尋空間毫無意義地撐大。
  * courseNames 是同一種東西（科目表上的課，只是沒有課號），同樣具排他性。
  */
-const isListed = (cat: RuleCategory) => cat.match.type === "courseList" || cat.match.type === "courseNames";
+const isListed = (cat: RuleCategory) =>
+  (cat.match.type === "courseList" && !cat.match.shared) || cat.match.type === "courseNames";
 
 /**
  * 超修不計入畢業學分的類別（overflowPolicy.countsToTotal = false）同樣具排他性。
@@ -209,7 +210,9 @@ function triggerHits(
       const code = effectiveCode(c);
       if (c.equivalentOf) return false;
       // 以課名列在科目表上的課同樣算「有對照」，否則每一筆分組上課的國文都會被當成停開課號
-      const inList = pack.categories.some((cat) => isListed(cat) && matches(cat, c, pack));
+      const inList = pack.categories.some(
+        (cat) => (cat.match.type === "courseList" || cat.match.type === "courseNames") && matches(cat, c, pack),
+      );
       return !inList && !activeCodes.has(code);
     }
     case "generalDomain":
@@ -631,6 +634,7 @@ function buildHolds(
       title: `${g.name}檢定標準查無適用本學年度之明文`,
       body:
         r?.detail ??
+        (g.holdDetail ? `${g.holdDetail}已檢索 ${(g.searchedSources.length > 0 ? g.searchedSources : ["系網公告"]).join("、")}。` : undefined) ??
         `課程規劃表就${g.name}記載「各系自訂」。已檢索 ${(g.searchedSources.length > 0 ? g.searchedSources : ["系網公告"]).join("、")}，` +
           `所得公告未載明適用之入學學年，無法確認是否適用本案。`,
       citations: [toCitation(g.citation, pack), ...(r?.citations ?? [])],

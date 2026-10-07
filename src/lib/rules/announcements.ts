@@ -26,6 +26,12 @@ export type Announcement = {
   school: string;
   /** 本公告所影響的規則包類別或畢業條件 id */
   targets: string[];
+  /**
+   * 只適用某一系（某一組）的公告。類別 id 各系共用（大家都有 dept-required），
+   * 不限定的話物理系的科目表改版會套到資管學生身上。全校公告不填
+   */
+  dept?: string;
+  group?: string;
   contentDocId: string;
   /** 適用對象那一句在原文的位置；同一份公告拆成好幾則判斷時各自不同 */
   locator?: string;
@@ -111,6 +117,21 @@ export const ANNOUNCEMENTS: Announcement[] = [
         affects: "undetermined",
       },
     },
+  },
+  {
+    id: "fju-phoe-113-plan",
+    title: "113 學年度起入學光電物理組必修科目表（取消普化二、普化實驗二）",
+    url: "https://www.phy.fju.edu.tw/wp-content/uploads/2026/06/自113起入學光電物理組必修科目表取消普化二-普化實驗二-113.4.25教務會議通過取消軍訓.pdf",
+    publishedAt: "2024-04-25",
+    appliesToRaw: "輔仁大學 113學年度 學士班 必修科目表",
+    appliesToYears: yearsFrom(113),
+    scope: "dept",
+    targets: ["dept-required"],
+    school: "fju",
+    dept: "PH",
+    group: "光電物理組",
+    contentDocId: "fju-phy-oe-plan-113",
+    locator: "第 1 頁 標題",
   },
 ];
 

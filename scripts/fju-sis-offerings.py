@@ -9,8 +9,9 @@
 - 課號列在某一類的課號清單 → 那一類
 - 課名符合某一類的課名規則（完全相同或開頭相同，見 lib/courses/names.ts）→ 那一類
 - 通識單位（PT／NT／ST／DT）開的課 → 通識，並記下領域
-- 資管系開的選修 → 系專選、其他選修（扣掉規則包排除的課名）
-- 其他（別系必修、0 學分的體育與軍訓、規則包沒列的必修）不收，列在輸出訊息裡
+- 本系（規則包的系所）開的選修 → 系專選、其他選修（扣掉規則包排除的課名）
+- 有收錄的系所（DEPT_UNITS）開的其他課 → 照收，類別留空，網站排課時依學生的規則包判斷
+- 其他（0 學分的體育與軍訓等）不收，列在輸出訊息裡
 
 修課人數只有上限（totNum），沒有已選人數 —— 未知不是 0，enrolled 不填。
 單雙週（sda = S／D）寫進時段文字，單週與雙週的課不算衝堂（TODO H8）。
@@ -27,7 +28,15 @@ DAY = {"1": "一", "2": "二", "3": "三", "4": "四", "5": "五", "6": "六", "
 # 通識單位 → 規則包的領域名稱（PT／NT／ST 對應 111 規劃表的三大領域；DT 永續素養是之後新增的）
 GENERAL_UNITS = {"PT": "人文與藝術", "NT": "自然與科技", "ST": "社會科學", "DT": "永續素養"}
 
-DEPT = "74"  # 資訊管理學系
+# 開課單位 → （系所代碼, 學院代碼）。系所代碼要與規則包的 minDeptCredits.dept、修課紀錄的 offeringDept 一致。
+# 物理學系分三個組開課（物理組 55、光電物理組 56、電子物理組 1R），本系專業選修三組都算
+DEPT_UNITS = {
+    "74": ("IM", "MGT"),   # 資訊管理學系
+    "55": ("PH", "SCI"),   # 物理學系物理組
+    "56": ("PH", "SCI"),   # 物理學系光電物理組
+    "1R": ("PH", "SCI"),   # 物理學系電子物理組
+    "SG": ("SG", "SCI"),   # 理工學院（院開課，如微積分-英）
+}
 
 
 def norm(s: str) -> str:
@@ -96,8 +105,13 @@ def main():
                 category = [by_name(name)]
             elif unit in GENERAL_UNITS and general_cat:
                 category, domain = [general_cat], GENERAL_UNITS[unit]
-            elif unit == DEPT and r["reqSel"] == "S":
+            elif unit in DEPT_UNITS and DEPT_UNITS[unit][0] == pack["dept"] and r["reqSel"] == "S":
                 category = [c for c in elective_cats if not (c == major and norm(name) in excluded)]
+            elif unit in DEPT_UNITS and DEPT_UNITS[unit][0] != pack["dept"] and r["credit"] > 0:
+                # 別系（對轉換用的規則包而言）開的課：一樣收進來，網站排課時依學生自己的規則包判斷類別。
+                # 規則包本系沒列的必修、0 學分的導師時間照舊不收
+                # 與網站即時判斷一致（lib/offerings 的 categoriesFor）：別系的課對這份規則包只算承接類別
+                category = [c["id"] for c in pack["categories"] if c["match"]["type"] == "anyPassed"]
             else:
                 skipped[f"{unit} {name}（{r['reqSelAbr']}，{r['credit']:g} 學分）"] += 1
                 continue
@@ -114,8 +128,8 @@ def main():
                 "term": ht,
                 "teacher": r["tchCNa"] or "未定",
                 "slotText": slot_text(r),
-                "dept": "IM" if unit == DEPT else unit,
-                "college": pack["college"] if unit == DEPT else "FJU",
+                "dept": DEPT_UNITS[unit][0] if unit in DEPT_UNITS else unit,
+                "college": DEPT_UNITS[unit][1] if unit in DEPT_UNITS else "FJU",
                 "category": category,
                 "capacity": r["totNum"] or None,
                 "fetchedAt": fetched,
@@ -137,8 +151,8 @@ def main():
                 row["tags"] = tags
             # 本系必修規劃給哪個年級（開課班級「資管二甲」→ 2）。排課不會把大二的必修排給大一，
             # 學年課也不會只排到下半（大一上排到「統計學」下學期那一半）
-            grade = re.match(r"資管([一二三四])", r.get("avaDptCNa") or "")
-            if unit == DEPT and r["reqSel"] == "R" and grade:
+            grade = re.match(r"(?:資管|光電|物理|電物)([一二三四])", r.get("avaDptCNa") or "")
+            if unit in DEPT_UNITS and r["reqSel"] == "R" and grade:
                 row["forGrade"] = "一二三四".index(grade.group(1)) + 1
             if row["capacity"] is None:
                 del row["capacity"]

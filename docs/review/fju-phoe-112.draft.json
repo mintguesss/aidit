@@ -1,0 +1,429 @@
+{
+  "id": "fju-phoe-112",
+  "school": "fju",
+  "dept": "PH",
+  "group": "光電物理組",
+  "admissionYear": 112,
+  "program": "day",
+  "version": "0.1",
+  "approvedAt": "2026-10-08",
+  "provenance": "draft",
+  "approvedBy": null,
+  "minCredits": 128,
+  "minCreditsCitation": {
+    "docId": "fju-phy-rules-108",
+    "locator": "第 2 頁 第二條（七）",
+    "quote": "專業必修課程及選修課程五者之學分數，至少 128學分"
+  },
+  "college": "SCI",
+  "documents": [
+    {
+      "id": "fju-phy-rules-108",
+      "title": "輔仁大學物理學系修業規則（自 108 學年度入學生適用；113.4.25 修正，取消歷史領域）",
+      "url": "https://www.phy.fju.edu.tw/wp-content/uploads/2024/08/自108學年度入學生適用物理學系修業規則113.4.25取消歷史領域公告.pdf",
+      "corpusFile": "fju-phy-rules-108.txt"
+    },
+    {
+      "id": "fju-phy-oe-plan-110",
+      "title": "輔仁大學物理系必修科目表（適 110～112 入學，光電物理組）",
+      "url": "https://www.phy.fju.edu.tw/wp-content/uploads/2024/08/必修科目表適110112入學-光電物理組公告.pdf",
+      "corpusFile": "fju-phy-oe-plan-110.txt"
+    },
+    {
+      "id": "fju-course-selection",
+      "title": "輔仁大學學生選課辦法",
+      "url": "http://docs.academic.fju.edu.tw/edulaw/學生選課辦法.pdf",
+      "corpusFile": "fju-course-selection.txt"
+    }
+  ],
+  "categories": [
+    {
+      "id": "holistic-core",
+      "name": "全人教育核心課程",
+      "shortName": "全人核心",
+      "credits": 8,
+      "order": 1,
+      "match": {
+        "type": "courseList",
+        "codes": [
+          "00155",
+          "00007",
+          "08199"
+        ]
+      },
+      "subRules": [],
+      "ambiguities": [],
+      "citation": {
+        "docId": "fju-phy-rules-108",
+        "locator": "第 1 頁 第二條（二）",
+        "quote": "修滿全人教育核心課程，包括大學入門、人生哲學、專業倫理及體育等共8學分"
+      }
+    },
+    {
+      "id": "basic-skills",
+      "name": "基本能力課程",
+      "shortName": "基本能力",
+      "credits": 12,
+      "order": 2,
+      "match": {
+        "type": "courseNames",
+        "names": [
+          "國文"
+        ],
+        "prefixes": [
+          "外國語文"
+        ]
+      },
+      "subRules": [],
+      "ambiguities": [],
+      "citation": {
+        "docId": "fju-phy-rules-108",
+        "locator": "第 1 頁 第二條（三）",
+        "quote": "修滿基本能力課程 12學分"
+      }
+    },
+    {
+      "id": "general",
+      "name": "通識涵養課程",
+      "shortName": "通識涵養",
+      "credits": 12,
+      "order": 3,
+      "match": {
+        "type": "selectType",
+        "value": "general"
+      },
+      "subRules": [
+        {
+          "type": "domainCoverage",
+          "id": "general-domains",
+          "name": "三大通識領域",
+          "domains": [
+            "人文與藝術",
+            "自然與科技",
+            "社會科學"
+          ],
+          "minPerDomain": 1,
+          "minCreditsPerDomain": 4,
+          "citation": {
+            "docId": "fju-phy-rules-108",
+            "locator": "第 1 頁 第二條（四）",
+            "quote": "包括人文與藝術通識領域 4 學分、自然與科技通識領域 4學分及社會科學通識領域 4學分"
+          }
+        }
+      ],
+      "ambiguities": [],
+      "citation": {
+        "docId": "fju-phy-rules-108",
+        "locator": "第 1 頁 第二條（四）",
+        "quote": "修滿通識涵養課程 12 學分"
+      }
+    },
+    {
+      "id": "dept-required",
+      "name": "院系必修課程",
+      "shortName": "院系必修",
+      "credits": 69,
+      "order": 4,
+      "match": {
+        "type": "courseList",
+        "codes": [
+          "02391",
+          "02392",
+          "20538",
+          "14561",
+          "14562",
+          "18630",
+          "09201",
+          "10428",
+          "02532",
+          "02533",
+          "32411",
+          "32412",
+          "32197",
+          "17841",
+          "02287",
+          "32413",
+          "32414",
+          "30403",
+          "01751",
+          "02766",
+          "30277",
+          "31379",
+          "21639",
+          "01404",
+          "31414",
+          "01403",
+          "14150",
+          "01947"
+        ]
+      },
+      "subRules": [],
+      "ambiguities": [],
+      "citation": {
+        "docId": "fju-phy-oe-plan-110",
+        "locator": "第 2 頁 學分統計",
+        "quote": "必修  69"
+      }
+    },
+    {
+      "id": "group-required",
+      "name": "群組必修",
+      "shortName": "群組必修",
+      "credits": 3,
+      "order": 5,
+      "match": {
+        "type": "courseList",
+        "codes": [
+          "04880",
+          "04655",
+          "04903",
+          "04692",
+          "18607",
+          "31367",
+          "31366",
+          "31445",
+          "22672",
+          "18155"
+        ],
+        "shared": true
+      },
+      "subRules": [],
+      "ambiguities": [],
+      "citation": {
+        "docId": "fju-phy-oe-plan-110",
+        "locator": "第 2 頁 群組必修備註",
+        "quote": "群組必修至少3學分"
+      }
+    },
+    {
+      "id": "free-elective",
+      "name": "選修課程",
+      "shortName": "選修",
+      "credits": 24,
+      "order": 6,
+      "match": {
+        "type": "anyPassed"
+      },
+      "subRules": [
+        {
+          "type": "minDeptCredits",
+          "id": "dept-elective-13",
+          "name": "本系專業選修",
+          "dept": "PH",
+          "minCredits": 13,
+          "citation": {
+            "docId": "fju-phy-rules-108",
+            "locator": "第 2 頁 第二條（六）",
+            "quote": "光電組選修課程 24學分中包含本系專業選修課程 13學分"
+          }
+        }
+      ],
+      "ambiguities": [],
+      "citation": {
+        "docId": "fju-phy-rules-108",
+        "locator": "第 2 頁 第二條（六）",
+        "quote": "光電組選修課程 24學分中包含本系專業選修課程 13學分"
+      }
+    }
+  ],
+  "overflowPolicy": {
+    "holistic-core": {
+      "countsToTotal": false,
+      "transferable": false,
+      "citation": {
+        "docId": "fju-phy-rules-108",
+        "locator": "第 2 頁 第二條（七）",
+        "quote": "畢業學分數為全人教育核心課程、基本能力課程、通識涵養課程"
+      }
+    },
+    "basic-skills": {
+      "countsToTotal": false,
+      "transferable": false,
+      "citation": {
+        "docId": "fju-phy-rules-108",
+        "locator": "第 2 頁 第二條（七）",
+        "quote": "畢業學分數為全人教育核心課程、基本能力課程、通識涵養課程"
+      }
+    },
+    "general": {
+      "countsToTotal": false,
+      "transferable": false,
+      "citation": {
+        "docId": "fju-phy-rules-108",
+        "locator": "第 2 頁 第二條（七）",
+        "quote": "畢業學分數為全人教育核心課程、基本能力課程、通識涵養課程"
+      }
+    },
+    "free-elective": {
+      "countsToTotal": true,
+      "transferable": false,
+      "citation": {
+        "docId": "fju-phy-rules-108",
+        "locator": "第 2 頁 第二條（七）",
+        "quote": "畢業學分數為全人教育核心課程、基本能力課程、通識涵養課程"
+      }
+    }
+  },
+  "graduationChecks": [
+    {
+      "id": "pe",
+      "name": "體育（四學期）",
+      "rule": "evidence",
+      "contact": "物理學系辦公室",
+      "searchedSources": [],
+      "citation": {
+        "docId": "fju-phy-rules-108",
+        "locator": "第 1 頁 第二條（二）",
+        "quote": "專業倫理及體育等共"
+      },
+      "category": "holistic-core"
+    },
+    {
+      "id": "info-test",
+      "name": "資訊基本能力檢定（資訊素養）",
+      "rule": "evidence",
+      "contact": "物理學系辦公室",
+      "searchedSources": [],
+      "citation": {
+        "docId": "fju-phy-oe-plan-110",
+        "locator": "第 1 頁 基本能力課程",
+        "quote": "資訊素養"
+      }
+    },
+    {
+      "id": "history-culture",
+      "name": "通識「歷史與文化」學群 2 學分",
+      "rule": "deptDefined",
+      "contact": "物理學系辦公室",
+      "searchedSources": [
+        "物理系必修科目表（適 110～112 入學）備註",
+        "物理學系修業規則（113.4.25 修正版）第二條（四）"
+      ],
+      "citation": {
+        "docId": "fju-phy-oe-plan-110",
+        "locator": "第 1 頁 通識涵養課程備註",
+        "quote": "「歷史與文化」納入通識涵養課程"
+      },
+      "category": "general",
+      "holdDetail": "兩份文件寫的不一樣：必修科目表（適 110～112 入學）寫「歷史與文化」學群至少修 2 學分；修業規則 113.4.25 修正版的標題註明「取消歷史領域」，條文沒有提到歷史，也沒寫 112 學年入學生適不適用。"
+    },
+    {
+      "id": "defense-education",
+      "name": "全民國防教育軍事訓練",
+      "rule": "passedCourse",
+      "contact": "物理學系辦公室",
+      "searchedSources": [],
+      "citation": {
+        "docId": "fju-phy-oe-plan-110",
+        "locator": "第 1 頁 校訂必修（0 學分）",
+        "quote": "全民國防教育軍事訓練"
+      },
+      "courseNames": [
+        "全民國防教育軍事訓練"
+      ],
+      "minTerms": 2
+    },
+    {
+      "id": "advisor-time",
+      "name": "導師時間",
+      "rule": "evidence",
+      "contact": "物理學系辦公室",
+      "searchedSources": [],
+      "citation": {
+        "docId": "fju-phy-oe-plan-110",
+        "locator": "第 1 頁 校訂必修（0 學分）",
+        "quote": "導師時間"
+      }
+    }
+  ],
+  "yearLongCourses": [
+    "00007",
+    "00001",
+    "02287",
+    "20538"
+  ],
+  "termLimits": {
+    "maxCredits": 25,
+    "minCredits": 12,
+    "byStudyYear": [
+      {
+        "fromYear": 4,
+        "minCredits": 9,
+        "maxCredits": 32
+      }
+    ],
+    "citations": [
+      {
+        "docId": "fju-course-selection",
+        "locator": "第十一條（下限）",
+        "quote": "第一、二、三學年每學期至少須修習十二學分，第四學年每學期至少須修習九學分"
+      },
+      {
+        "docId": "fju-course-selection",
+        "locator": "第十一條（上限）",
+        "quote": "學士班學生每學期修習學分數上限為二十五學分"
+      },
+      {
+        "docId": "fju-course-selection",
+        "locator": "第十一條（應屆畢業生超修）",
+        "quote": "應屆畢業生及具就學役男身分者，得超修至三十二學分"
+      }
+    ]
+  },
+  "_draft": {
+    "extractedAt": "2026-10-08T00:00:00",
+    "extractedBy": "Claude（依兩份文字型 PDF 手動抽取，未經 scripts/extract-rulepack.ts）",
+    "reviewNotes": "docs/review/fju-phoe-112.md",
+    "revision": "v0.1：初版",
+    "courseTitles": {
+      "00155": "大學入門",
+      "00007": "人生哲學",
+      "08199": "專業倫理-科技倫理",
+      "02391": "微積分(一)",
+      "02392": "微積分(二)",
+      "20538": "微積分-英",
+      "14561": "普通物理(一)",
+      "14562": "普通物理(二)",
+      "18630": "程式設計(一)",
+      "09201": "電磁學(一)",
+      "10428": "電磁學(二)",
+      "02532": "電子學(一)",
+      "02533": "電子學(二)",
+      "32411": "應用數學(一)",
+      "32412": "應用數學(二)",
+      "32197": "普通化學(一)",
+      "17841": "普通化學(二)",
+      "02287": "普通物理實驗",
+      "32413": "普通化學實驗(一)",
+      "32414": "普通化學實驗(二)",
+      "30403": "普通物理(三)",
+      "01751": "近代物理",
+      "02766": "線性代數",
+      "30277": "電子學實驗(一)",
+      "31379": "實驗物理(三)",
+      "21639": "量子物理(一)",
+      "01404": "光學",
+      "31414": "幾何光學與光學設計",
+      "01403": "光電子學",
+      "14150": "光電實驗",
+      "01947": "書報討論",
+      "04880": "專題研究(一)",
+      "04655": "專題研究(二)",
+      "04903": "專題研究(三)",
+      "04692": "專題研究(四)",
+      "18607": "理論力學(一)",
+      "31367": "電子學實驗(二)",
+      "31366": "電磁學(三)",
+      "31445": "進階實驗物理",
+      "22672": "量子物理(二)",
+      "18155": "統計物理"
+    },
+    "itemNotes": {
+      "category:dept-required": "科目表沒印課號的 6 門（應用數學(一)(二)、普通化學實驗(一)(二)、普通物理(三)、電子學實驗(一)）由學校課程查詢系統對回課號。實驗物理(三) 科目表印成 313779（6 碼），系統查到的是 31379，這裡用 31379。微積分可修本系微積分(一)(二) 或理工學院微積分-英，兩種都列在清單裡，修哪一種都算。",
+      "category:group-required": "從這 10 門裡至少修 3 學分（專題研究最多抵 3 學分）。多修的群組課這裡設成可以改算進「選修課程」—— 原文沒寫多修的怎麼算，請確認。",
+      "category:free-elective": "本系專業選修 13 學分：物理學系三個組（物理組、光電物理組、電子物理組）開的選修都算。",
+      "check:history-culture": "兩份文件不一致：必修科目表（適 110～112）寫「歷史與文化」學群至少 2 學分；修業規則 113.4.25 修正版的檔名寫「取消歷史領域」，條文裡沒提歷史。系統判斷不了，列為待確認，請系辦確認 112 入學生還要不要修。",
+      "overflow": "超修的全人教育、基本能力、通識不計入畢業學分：物理系的兩份文件沒寫，這裡比照學校規劃表的慣例，請確認。"
+    }
+  }
+}

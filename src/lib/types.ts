@@ -441,7 +441,6 @@ export type PlanCourse = {
   clash?: { with: string; alternative?: { code: string; name: string; slotText: string } };
   /** 低信心先修，僅提示不排除 */
   prereqWarning?: string;
-  discussions?: Discussion[];
 };
 
 export type Plan = {
@@ -477,14 +476,7 @@ export type SolveResult =
   | { ok: true; plans: Plan[]; excluded: ExclusionSummary; relaxations: string[] }
   | { ok: false; infeasibilities: Infeasibility[]; excluded: ExclusionSummary; relaxations: string[] };
 
-// ---------------------------------------------------------------- 外部討論
-
-export type Discussion = {
-  /** 匿名討論摘要，不含教師評價性結論 */
-  summary: string;
-  sourceUrl: string;
-  postedAt: string;
-};
+// ---------------------------------------------------------------- 外部內容攔截
 
 export type BlockedContent = {
   sourceUrl: string;

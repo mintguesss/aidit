@@ -94,7 +94,6 @@ export const solveScheduleStep: Step = {
         summary: `依選課傾向求解無解，受限類別：${cats.join("、")}；已回報衝突條件與建議放寬項目`,
         retries: 1,
         toolCalls: calls,
-        control: { type: "skip", steps: ["retrieveDiscussions", "scanExternal"] },
       };
     }
 

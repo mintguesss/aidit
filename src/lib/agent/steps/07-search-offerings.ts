@@ -4,7 +4,7 @@ import { fetchedAt } from "@/lib/offerings";
 import { requirementsFrom } from "@/lib/solver/schedule";
 import { schoolOf } from "@/lib/schools";
 
-/** 步驟 7：查下學期開課。查無 → 略過求解與討論檢索，僅輸出審查結果。 */
+/** 步驟 7：查下學期開課。查無 → 略過求解，僅輸出審查結果。 */
 export const searchOfferingsStep: Step = {
   name: "searchOfferings",
   label: "查詢下學期開課資料",
@@ -16,7 +16,7 @@ export const searchOfferingsStep: Step = {
       return {
         status: "skipped",
         summary: "各類別學分均已滿足或修課中，無須推薦下學期課程",
-        control: { type: "skip", steps: ["solveSchedule", "retrieveDiscussions", "scanExternal"] },
+        control: { type: "skip", steps: ["solveSchedule"] },
       };
     }
 
@@ -48,7 +48,7 @@ export const searchOfferingsStep: Step = {
         status: "partial",
         summary: `${state.nextTerm} 查無符合未修類別之開課`,
         toolCalls: [call],
-        control: { type: "skip", steps: ["solveSchedule", "retrieveDiscussions", "scanExternal"] },
+        control: { type: "skip", steps: ["solveSchedule"] },
       };
     }
 

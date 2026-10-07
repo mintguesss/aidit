@@ -1,8 +1,6 @@
 import type {
   AuditResult,
-  BlockedContent,
   Declarations,
-  Discussion,
   HoldItem,
   Offering,
   Plan,
@@ -45,11 +43,6 @@ export type AgentState = {
   offerings: Offering[];
   solve?: SolveResult;
   plans: Plan[];
-  /** 步驟 9 取回、尚未通過安全檢查的外部內容 */
-  rawPosts: { courseCode: string; text: string; sourceUrl: string; postedAt: string }[];
-  /** 步驟 10 檢查通過後才可呈現 */
-  discussions: Map<string, Discussion[]>;
-  blocked: BlockedContent[];
   currentTerm: string;
   nextTerm: string;
   nextYear: number;
@@ -70,7 +63,7 @@ export type StepControl =
   | { type: "abort"; reason: string }
   /** 整案轉人工：不做任何學分判定 */
   | { type: "all-hold"; reason: string }
-  /** 查無開課 → 略過求解與討論檢索 */
+  /** 查無開課 → 略過求解 */
   | { type: "skip"; steps: string[] };
 
 export type StepOutcome = {

@@ -12,7 +12,6 @@ import { solveWithRelaxation, type SolveContext } from "@/lib/solver/schedule";
 import { scanMany } from "@/lib/safety/scan";
 
 export * from "./rule";
-export * from "./web";
 
 /** record.fetch —— 走 Provider 介面，上層不知道拿到的是哪一種來源 */
 export async function recordFetch(

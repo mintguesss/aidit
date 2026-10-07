@@ -11,8 +11,6 @@ import { auditCreditsStep } from "./steps/05-audit-credits";
 import { verifyCitationsStep } from "./steps/06-verify-citations";
 import { searchOfferingsStep } from "./steps/07-search-offerings";
 import { solveScheduleStep } from "./steps/08-solve-schedule";
-import { retrieveDiscussionsStep } from "./steps/09-retrieve-discussions";
-import { scanExternalStep } from "./steps/10-scan-external";
 
 /**
  * Step runner（docs/SPEC.md §6）。
@@ -30,8 +28,6 @@ const STEPS: Step[] = [
   verifyCitationsStep,
   searchOfferingsStep,
   solveScheduleStep,
-  retrieveDiscussionsStep,
-  scanExternalStep,
 ];
 
 export type RunOutcome =
@@ -56,9 +52,6 @@ export async function runAudit(request: AuditRequest): Promise<RunOutcome> {
     capabilityHolds: [],
     offerings: [],
     plans: [],
-    rawPosts: [],
-    discussions: new Map(),
-    blocked: [],
     currentTerm,
     nextTerm,
     nextYear,

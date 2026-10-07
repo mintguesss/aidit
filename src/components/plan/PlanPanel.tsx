@@ -197,7 +197,6 @@ export function PlanPanel({
                           先修提醒：{c.prereqWarning}（由課程大綱文字抽取，信心較低，未據以排除本課程）
                         </div>
                       ) : null}
-                      <Reviews course={c} />
                     </td>
                     <td className="num" data-lb="學分">{c.credits}</td>
                     <td className="nowrap" data-lb="時段">{c.slotText}</td>
@@ -326,23 +325,5 @@ function NoPlan({ state, term }: { state: State; term: string }) {
         </div>
       ))}
     </>
-  );
-}
-
-function Reviews({ course }: { course: Plan["courses"][number] }) {
-  const list = course.discussions ?? [];
-  if (list.length === 0) {
-    return (
-      <div className="review">
-        查無近兩年公開討論。<span>不影響採計判定</span>
-      </div>
-    );
-  }
-  const latest = list.reduce((a, b) => (a.postedAt > b.postedAt ? a : b));
-  return (
-    <div className="review">
-      近兩年 {list.length} 則公開討論：{list[0]!.summary}
-      <span>　匿名網路討論，最新一則 {latest.postedAt}，僅供參考，不參與採計判定</span>
-    </div>
   );
 }

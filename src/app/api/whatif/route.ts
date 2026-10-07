@@ -71,7 +71,7 @@ export async function POST(req: Request) {
     scenario: intent.scenario,
     audit,
     record,
-    pack: resolved.pack,
+    pack: (state.pack ?? resolved.pack),
   });
 
   return NextResponse.json({

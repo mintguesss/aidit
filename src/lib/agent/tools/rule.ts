@@ -120,6 +120,8 @@ export async function ruleReconcile(
         `學生學籍入學學年：${student.admissionYear}`,
         `系所：${student.dept}　學制：${student.program === "day" ? "日間部" : "進修部"}`,
         `待判斷之公告標題：${conflict.announcement.title}`,
+        // 同一份公告對不同入學年度有不同規定時，只判斷這一則講的那部分
+        ...(conflict.announcement.appliesToRaw ? [`本次只判斷這一段規定：${conflict.announcement.appliesToRaw}`] : []),
         `公告發布日期：${conflict.announcement.publishedAt}`,
         "公告全文：",
         text,
@@ -175,7 +177,7 @@ function offlineReconcile(conflict: Conflict, student: Student): z.infer<typeof 
 }
 
 function locatorFor(ann: Announcement): string {
-  return ann.appliesToRaw ? "第 1 點適用對象" : "全文";
+  return ann.locator ?? (ann.appliesToRaw ? "第 1 點適用對象" : "全文");
 }
 
 // -------------------------------------------------- 解消結果 → 引擎輸入形狀
@@ -188,11 +190,40 @@ export function toConflictNotes(outcomes: ReconcileOutcome[]): ConflictNote[] {
     if (!cat) continue;
     notes.push({
       target: o.conflict.target,
-      text: `已查核規則衝突：${o.reason}${o.appliesToStudent ? "" : "仍依本學籍適用之課程規劃表判定。"}`,
+      text: `已查核公告「${o.conflict.announcement.title}」：${o.reason}${
+        !o.appliesToStudent
+          ? "仍依本學籍適用之課程規劃表判定。"
+          : o.conflict.announcement.effect
+            ? `依此公告，${o.conflict.announcement.effect.ambiguity.description}這類課修了會列為待確認事項。`
+            : ""
+      }`,
       citations: o.citation ? [o.citation] : [],
     });
   }
   return notes;
+}
+
+/**
+ * 判定適用本學籍的公告，把它對審查的影響加進這次審查用的規則包（不改動已鎖版的規則包本身）。
+ * 影響是資料（公告庫的 effect），不是模型臨時決定的：模型只判斷「適不適用」。
+ */
+export function withAnnouncedEffects(pack: RulePack, outcomes: ReconcileOutcome[]): RulePack {
+  const applied = outcomes.filter((o) => o.resolved && o.appliesToStudent === true && o.conflict.announcement.effect);
+  if (applied.length === 0) return pack;
+  const documents = [...pack.documents];
+  const categories = pack.categories.map((cat) => {
+    const extra = applied
+      .map((o) => o.conflict.announcement)
+      .filter((a) => a.effect!.category === cat.id && !cat.ambiguities.some((x) => x.id === a.effect!.ambiguity.id));
+    return extra.length ? { ...cat, ambiguities: [...cat.ambiguities, ...extra.map((a) => a.effect!.ambiguity)] } : cat;
+  });
+  for (const o of applied) {
+    const a = o.conflict.announcement;
+    if (!documents.some((d) => d.id === a.contentDocId)) {
+      documents.push({ id: a.contentDocId, title: a.title, url: a.url, publishedAt: a.publishedAt });
+    }
+  }
+  return { ...pack, categories, documents };
 }
 
 export function toDeptDefinedResolutions(

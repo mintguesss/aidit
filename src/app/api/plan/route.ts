@@ -56,7 +56,7 @@ export async function POST(req: Request) {
 
   const resolved = resolveRulePack(record.student);
   if (!resolved.ok) return NextResponse.json({ error: resolved.detail }, { status: 422 });
-  const pack = resolved.pack;
+  const pack = (state.pack ?? resolved.pack);
 
   const preferences = body?.preferences
     ? preferencesOf(body.preferences)

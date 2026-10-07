@@ -96,6 +96,7 @@ export function loadCorpus(): Map<string, string> {
 const ANNOUNCEMENT_CORPUS: [string, string][] = [
   ["ann-ge-114", "ann-ge-114.txt"],
   ["ann-eng-cert", "ann-eng-cert.txt"],
+  ["fju-hec-1141", "fju-hec-1141.txt"],
 ];
 
 export type ResolveOutcome =

@@ -212,7 +212,23 @@ function triggerHits(
       const inList = pack.categories.some((cat) => isListed(cat) && matches(cat, c, pack));
       return !inList && !activeCodes.has(code);
     }
+    case "generalDomain":
+      return c.generalDomain === amb.trigger.domain;
   }
+}
+
+/**
+ * 排課用：這門課會不會一修就落到待確認（依領域觸發的規則缺口）。
+ * 會的話不能拿來湊任何類別 —— 排進課表等於建議學生去修一門採計方式還不確定的課。
+ * 其他觸發條件（外系、跨院）只影響已修的課怎麼採計，不在這裡擋。
+ */
+export function heldForPlanning(c: CourseRecord, pack: RulePack): RuleAmbiguity | undefined {
+  for (const cat of pack.categories) {
+    for (const amb of cat.ambiguities) {
+      if (amb.trigger.type === "generalDomain" && triggerHits(amb, c, pack, new Set())) return amb;
+    }
+  }
+  return undefined;
 }
 
 function prepare(input: AuditInput): Prepared {

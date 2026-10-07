@@ -26,7 +26,7 @@ export const detectConflictsStep: Step = {
     }
     return {
       status: "ok",
-      summary: `發現 ${data.length} 處：${data.map((c) => c.targetName).join("、")}`,
+      summary: `發現 ${data.length} 處：${data.map((c) => `${c.targetName}（${c.announcement.title}）`).join("、")}`,
       toolCalls: [call],
     };
   },

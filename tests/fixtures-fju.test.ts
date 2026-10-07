@@ -139,7 +139,8 @@ describe("示範資料不含成績與個資", () => {
 describe("真實資料做出來的引擎問題（修正後不得再出現）", () => {
   it("合成資料的公告不會套到輔大學生身上（兩邊都有 general、english 這兩個 id）", async () => {
     const { ruleConflict } = await import("@/lib/agent/tools/rule");
-    expect(ruleConflict(pack)).toEqual([]);
+    // 只會有輔大自己的公告（fju-），合成學校的 ann-ge-114、ann-eng-cert 不會出現
+    expect(ruleConflict(pack).every((c) => c.announcement.school === "fju")).toBe(true);
   });
 
   it("畢業條件還有待確認時，結論不能只寫「已符合畢業學分條件」", () => {

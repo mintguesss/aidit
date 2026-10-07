@@ -1,6 +1,6 @@
 import type { ToolCall } from "@/lib/types";
 import type { Step } from "./types";
-import { ruleReconcile, toConflictNotes, toDeptDefinedResolutions } from "../tools";
+import { ruleReconcile, toConflictNotes, toDeptDefinedResolutions, withAnnouncedEffects } from "../tools";
 import { LlmBudgetExceeded } from "@/lib/llm/client";
 
 /**
@@ -73,9 +73,11 @@ export const reconcileConflictsStep: Step = {
 
     state.conflictNotes = toConflictNotes(state.reconciled);
     state.deptDefinedResolutions = toDeptDefinedResolutions(state.reconciled);
+    // 適用的公告若改變採計方式（例：舊生修新領域的課），之後的審查與排課都要照著用
+    state.pack = withAnnouncedEffects(state.pack!, state.reconciled);
 
     const detail = state.reconciled
-      .map((r) => `${r.conflict.targetName}：${r.resolved ? "已解消" : "無法解消"}`)
+      .map((r) => `${r.conflict.announcement.title}：${!r.resolved ? "無法解消" : r.appliesToStudent ? "適用" : "不適用"}`)
       .join("；");
 
     return {

@@ -76,7 +76,7 @@ export async function POST(req: Request) {
   const ctx: TurnContext = {
     audit,
     record,
-    pack: resolved.pack,
+    pack: (state.pack ?? resolved.pack),
     constraints,
     originalConstraints: original,
     currentPlan: state.plans[0],
@@ -139,8 +139,8 @@ export async function POST(req: Request) {
 
   const t = trace.finish({
     studentHash: studentHash(record.student.id),
-    rulePackId: resolved.pack.id,
-    rulePackVersion: resolved.pack.version,
+    rulePackId: (state.pack ?? resolved.pack).id,
+    rulePackVersion: (state.pack ?? resolved.pack).version,
     status: turn.reply.kind === "決定" ? "ok" : "held",
     llm: budget.usage,
   });

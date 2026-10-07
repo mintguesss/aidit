@@ -119,6 +119,8 @@ const zTrigger = z.discriminatedUnion("type", [
   z.object({ type: z.literal("courseFromOtherDept") }),
   z.object({ type: z.literal("waiverWithoutMapping") }),
   z.object({ type: z.literal("retiredCourseCode") }),
+  /** 通識領域是這一個的課（例：輔大 114 學年起新增的「永續素養」，舊生採計方式另有公告） */
+  z.object({ type: z.literal("generalDomain"), domain: z.string().min(1) }),
 ]);
 export type RuleTrigger = z.infer<typeof zTrigger>;
 

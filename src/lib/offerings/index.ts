@@ -1,6 +1,6 @@
-import type { Offering, Prerequisite, Term } from "@/lib/types";
+import type { CourseRecord, Offering, Prerequisite, Term } from "@/lib/types";
 import type { RulePack } from "@/lib/rules/schema";
-import { eligibleCategories } from "@/lib/audit/engine";
+import { eligibleCategories, heldForPlanning } from "@/lib/audit/engine";
 import { parseSlots } from "@/lib/solver/slots";
 import { RAW_OFFERINGS, type RawOffering } from "./raw";
 import { DEFAULT_SCHOOL } from "@/lib/schools";
@@ -136,8 +136,7 @@ export function offeringsFor(year: number, term: Term, school: string = DEFAULT_
  */
 export function categoriesFor(o: Offering, pack: RulePack): string[] {
   if (!o.selectType) return o.category;
-  return eligibleCategories(
-    {
+  const asRecord: CourseRecord = {
       code: o.code,
       name: o.name,
       credits: o.credits,
@@ -149,9 +148,10 @@ export function categoriesFor(o: Offering, pack: RulePack): string[] {
       offeringDept: o.dept,
       offeringCollege: o.college,
       ...(o.generalDomain ? { generalDomain: o.generalDomain } : {}),
-    },
-    pack,
-  );
+  };
+  // 修了會落到待確認的課（例：舊生修永續素養領域），不拿來湊任何類別
+  if (heldForPlanning(asRecord, pack)) return [];
+  return eligibleCategories(asRecord, pack);
 }
 
 function withCategories(o: Offering, pack: RulePack): Offering {

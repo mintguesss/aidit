@@ -307,13 +307,24 @@ function searchRules(topic: string, pack: RulePack, audit: AuditResult): RuleHit
   });
 }
 
+/**
+ * 原句是否在問本系某一項畢業條件（「英文要考到多少才能畢業」「程式語言機測是什麼」）。
+ * 規則的關鍵字清單是各系通用的，認不得這些系自訂的條件名稱；模型又常把它們判成超出範圍。
+ * 光有名稱裡的字還不夠（「程式」也會出現在閒聊裡），要同時帶有問規定的語氣。
+ */
+export function mentionsGraduationCheck(text: string, pack: RulePack): boolean {
+  const t = text.replace(/\s/g, "");
+  if (!/畢業|門檻|規定|要考|考試|考到|是什麼|什麼是|要不要|需不需要|一定要|標準|條件|怎麼算|怎麼過/.test(t)) return false;
+  return pack.graduationChecks.some((g) => t.includes(g.name) || nameKeys(g.name).some((k) => t.includes(k)));
+}
+
 /** 畢業條件名稱裡可以拿來比對的字：去掉括號內容與「能力」「學分」這類每條都有的字，取兩字一組 */
 function nameKeys(name: string): string[] {
   const core = name.replace(/[（(][^）)]*[）)]/g, "").replace(/\s/g, "");
   const out: string[] = [];
   for (let i = 0; i + 2 <= core.length; i++) {
     const k = core.slice(i, i + 2);
-    if (!/能力|學分|課程|時間|條件|畢業|修課|檢測|學期/.test(k)) out.push(k);
+    if (!/能力|學分|課程|時間|條件|畢業|修課|檢測|學期|學習|專業|授課|教育/.test(k)) out.push(k);
   }
   return out;
 }

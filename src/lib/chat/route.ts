@@ -23,6 +23,7 @@ import {
   answerProcedure,
   answerRegulation,
   capabilityLimits,
+  mentionsGraduationCheck,
 } from "./capabilities";
 import { clarify, forbidden, outOfScope, uncertain } from "./compose";
 import { buildContext, explain, runPlanTurn, type PlanTurnOutcome } from "./plan-turn";
@@ -555,6 +556,15 @@ export async function askTurn(
     intent = rules;
   } else if (intent.kind === "out-of-scope" && rules.kind === "intent") {
     intent = rules;
+    tools.push("rule.fallback");
+  } else if (
+    intent.kind === "out-of-scope" &&
+    !tools.includes("rule.other-institution") &&
+    mentionsGraduationCheck(forRules, ctx.pack)
+  ) {
+    // 實測 qwen3:14b 把「英文要考到多少才能畢業」「程式語言機測是什麼」判成超出範圍，
+    // 規則的通用關鍵字也認不得系自訂的條件名稱；原句講到本系的畢業條件就當規定問題查
+    intent = { kind: "intent", intent: "regulation", params: { topic: forRules, raw: lastUser(messages) } };
     tools.push("rule.fallback");
   } else if (ruleScenario && intent.kind !== "forbidden" && modelScenario?.type !== ruleScenario.type) {
     // 試算情境的關鍵字（提前畢業、停修、轉系、雙主修、輔系…）是字面上明確的，

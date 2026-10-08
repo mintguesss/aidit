@@ -411,3 +411,21 @@ describe("問規定：原句的細節不能被模型縮掉（有模型版實測�
     expect(r.reply.headline).toMatch(/英文/);
   });
 });
+
+describe("問規定：模型判超出範圍，但原句講到本系的畢業條件（有模型版實測）", () => {
+  const oos = { kind: "out-of-scope" } as AskIntentResult;
+  it("「英文要考到多少才能畢業」→ 改查規定，答英文能力", async () => {
+    const r = await askWithModel("英文要考到多少才能畢業", oos);
+    expect(r.reply.kind).toBe("決定");
+    expect(r.reply.headline).toMatch(/英文/);
+    expect(r.tools).toContain("rule.fallback");
+  });
+  it("只提到條件名稱、沒有在問規定（「我英文很爛」）→ 仍是超出範圍", async () => {
+    const r = await askWithModel("我英文很爛", oos);
+    expect(r.reply.kind).toBe("超出範圍");
+  });
+  it("閒聊 → 仍是超出範圍", async () => {
+    const r = await askWithModel("今天天氣如何", oos);
+    expect(r.reply.kind).toBe("超出範圍");
+  });
+});

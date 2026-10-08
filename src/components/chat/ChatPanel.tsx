@@ -43,6 +43,9 @@ type Turn = {
   pending?: boolean;
 };
 
+/** 「改回去」「回上一版」：退一步，在畫面上用之前那一輪的課表與條件，不必問後端（TODO G12） */
+const UNDO = /^(?:改回去|改回來|回上一版|回到上一版|上一版|回上一步|回到上一步|上一步|復原|還原|退回上一步)[。！!～~]?$/;
+
 const KIND_CLASS: Record<ReplyKind, string> = {
   決定: "decided",
   不確定: "uncertain",
@@ -97,6 +100,8 @@ export function ChatPanel({
   const endRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const consRef = useRef<ConstraintSet | undefined>(constraints);
+  /** 現在畫面上是哪一輪的課表（null＝還沒調整過的那一份） */
+  const [current, setCurrent] = useState<number | null>(null);
   const shownRef = useRef<string[] | undefined>(shownCourses);
 
   useEffect(() => {
@@ -110,9 +115,45 @@ export function ChatPanel({
     if (turns.length > 0) endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [turns]);
 
+  /** 回到某一輪的課表：條件、畫面上的課表、之後調整的基準都換回那一輪 */
+  const restore = (turnId: number, said?: string) => {
+    const at = turns.find((t) => t.id === turnId);
+    if (!at?.plan) return;
+    consRef.current = at.plan.constraints;
+    shownRef.current = at.plan.plans[0]?.courses.map((c) => c.code);
+    onPlanUpdate?.(at.plan);
+    setCurrent(turnId);
+    const n = turns.filter((t) => t.plan && t.id <= turnId).length;
+    const note: Turn = {
+      id: ++seq.current,
+      role: "assistant",
+      at: now(),
+      reply: { kind: "決定", headline: `已回到第 ${n} 次調整後的課表。`, detail: "條件與課表都回到那一次；之後的調整可以再說一次。", citations: [] },
+    };
+    setTurns((prev) => [...prev, ...(said ? [{ id: ++seq.current, role: "user" as const, text: said, at: now() }] : []), note]);
+  };
+
   const send = async (text: string) => {
     const q = text.trim();
     if (!q || busy) return;
+
+    // 「改回去」：退回上一次調整的課表；已經是第一次調整，就回到最一開始（等於重來）
+    if (scope === "plan" && UNDO.test(q.replace(/\s/g, ""))) {
+      const planTurns = turns.filter((t) => t.plan).map((t) => t.id);
+      const idx = current === null ? -1 : planTurns.indexOf(current);
+      setInput("");
+      if (idx > 0) return restore(planTurns[idx - 1]!, q);
+      if (idx === -1) {
+        setTurns((prev) => [
+          ...prev,
+          { id: ++seq.current, role: "user", text: q, at: now() },
+          { id: ++seq.current, role: "assistant", at: now(), reply: { kind: "決定", headline: "現在就是還沒調整過的課表。", detail: "沒有上一版可以回去。", citations: [] } },
+        ]);
+        return;
+      }
+      return void send("重來");
+    }
+
     setBusy(true);
     setInput("");
 
@@ -155,6 +196,7 @@ export function ChatPanel({
         // 跟著畫面走：無解時 PlanPanel 會清空課表，基準也就是「沒有課表」
         shownRef.current = data.plan.plans[0]?.courses.map((c) => c.code);
         onPlanUpdate?.(data.plan);
+        setCurrent(pending.id);
       }
 
       setTurns((prev) =>
@@ -289,7 +331,15 @@ export function ChatPanel({
       <div className="chat-log">
         {turns.length === 0 ? <p className="chat-empty">{intro}</p> : null}
         {turns.map((t) => (
-          <TurnView key={t.id} turn={t} planHref={planHref} onPick={(s) => void send(s)} busy={busy} />
+          <TurnView
+            key={t.id}
+            turn={t}
+            planHref={planHref}
+            onPick={(s) => void send(s)}
+            busy={busy}
+            isCurrent={t.id === current}
+            onRestore={() => restore(t.id)}
+          />
         ))}
         <div ref={endRef} />
       </div>
@@ -369,9 +419,13 @@ function TurnView({
   planHref,
   onPick,
   busy,
+  isCurrent,
+  onRestore,
 }: {
   turn: Turn;
   planHref?: string;
+  isCurrent: boolean;
+  onRestore: () => void;
   onPick: (s: string) => void;
   busy: boolean;
 }) {
@@ -429,7 +483,7 @@ function TurnView({
         {r.citations.length > 0 ? <CitationToggle citations={r.citations as Citation[]} label="依據" /> : null}
       </div>
 
-      {turn.plan ? <PlanCard p={turn.plan} onPick={onPick} busy={busy} /> : null}
+      {turn.plan ? <PlanCard p={turn.plan} onPick={onPick} busy={busy} isCurrent={isCurrent} onRestore={onRestore} /> : null}
       {turn.whatif ? <WhatIfCard r={turn.whatif} /> : null}
       {turn.redirect === "plan" && planHref ? (
         <div className="turn-card">
@@ -450,7 +504,19 @@ function TurnView({
 }
 
 /** §1.3 每輪回報三件事：改了什麼條件、課表差異、代價 */
-function PlanCard({ p, onPick, busy }: { p: PlanUpdate; onPick: (s: string) => void; busy: boolean }) {
+function PlanCard({
+  p,
+  onPick,
+  busy,
+  isCurrent,
+  onRestore,
+}: {
+  p: PlanUpdate;
+  onPick: (s: string) => void;
+  busy: boolean;
+  isCurrent: boolean;
+  onRestore: () => void;
+}) {
   const plan = p.plans[0];
   return (
     <div className="turn-card">
@@ -509,7 +575,17 @@ function PlanCard({ p, onPick, busy }: { p: PlanUpdate; onPick: (s: string) => v
       ) : null}
 
       <div className="turn-cons">
-        目前條件：{p.constraintLabels.join("・")}
+        {isCurrent ? "目前條件" : "這一版的條件"}：{p.constraintLabels.join("・")}
+      </div>
+      {/* 改壞了可以直接跳回任何一版（TODO G12）；說「改回去」是退一步 */}
+      <div className="turn-version">
+        {isCurrent ? (
+          <span className="now">目前的課表</span>
+        ) : (
+          <button type="button" disabled={busy} onClick={onRestore}>
+            回到這一版
+          </button>
+        )}
       </div>
     </div>
   );

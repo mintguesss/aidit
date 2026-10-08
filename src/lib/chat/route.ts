@@ -1,4 +1,4 @@
-import type { AuditResult, ExclusionReason, Plan, SolveResult, StudentRecord } from "@/lib/types";
+import type { AuditResult, ExclusionReason, Offering, Plan, SolveResult, StudentRecord } from "@/lib/types";
 import type { RulePack } from "@/lib/rules/schema";
 import { simulate } from "@/lib/whatif/simulate";
 import { LlmBudgetExceeded, type LlmBudget } from "@/lib/llm/client";
@@ -27,6 +27,8 @@ import { buildContext, explain, runPlanTurn, type PlanTurnOutcome } from "./plan
 import type { ChatMessage, ConstraintSet, Reply } from "./types";
 import { LIMITS } from "./types";
 import { schoolOf, withoutOwnSchool } from "@/lib/schools";
+import { isEarlyMorning } from "@/lib/solver/slots";
+import { offeringsFor } from "@/lib/offerings";
 
 /**
  * 兩個介面的路由器。
@@ -89,7 +91,8 @@ export async function planTurn(
     return { reply: TURN_LIMIT_REPLY(LIMITS.turnsPerSession), tools: [], intent: "limit", clarifying: false };
   }
 
-  const raw = lastUser(messages);
+  // 「要拿掉一門，還是這學期都不排？」之後的回答（「一門」「全部」）要接回上一句才看得懂（TODO G12）
+  const raw = withDropAnswer(messages) ?? lastUser(messages);
   // 規則看的句子：學生自己學校的稱呼換成「本校」，「輔大」才不會被當成他校
   const forRules = withoutOwnSchool(raw, schoolOf(ctx.record.student));
   const tools = ["chat.intent"];
@@ -197,9 +200,38 @@ export async function planTurn(
     }
   }
 
+  // 「拿掉一堂通識」「這學期不排通識」「換另一門」（TODO G12）：要看眼前課表上哪幾門屬於那一類
+  const drop = resolveDrop(intent.params, raw, shown, ctx);
+  if (drop.reply) return { reply: drop.reply, tools, intent: intent.intent, clarifying: true };
+  if (drop.excludeCodes.length > 0 || drop.unexclude.length > 0) {
+    intent = { ...intent, params: { ...intent.params, excludeCourses: [...intent.params.excludeCourses, ...drop.excludeCodes] } };
+  }
+
   let applied = applyParams(ctx.constraints, ctx.originalConstraints, intent.params, intent.reason, raw, shownCount, schoolOf(ctx.record.student));
+  if (drop.applies) {
+    const next: ConstraintSet = {
+      ...applied.next,
+      excludeCourses: applied.next.excludeCourses.filter((c) => !drop.unexclude.includes(c)),
+      ...(drop.skip.length > 0
+        ? { skipCategories: [...(applied.next.skipCategories ?? []).filter((x) => !drop.skip.some((y) => y.id === x.id)), ...drop.skip] }
+        : {}),
+      ...(drop.lastDrop ? { lastDrop: drop.lastDrop } : {}),
+    };
+    // 堂數：拿掉幾門、同一句又加了幾門（「換成一堂 AI 的課」），而且是上限 —— 不自己補回來。
+    // 「這學期都不排通識」不改堂數：通識的位置改排其他類別的課
+    if (shownCount !== undefined && drop.skip.length === 0) {
+      // 加回來的：同一句要加的主題課、指定的課，以及「換另一門」放回來的那門
+      const additions = (intent.params.addTopic ? 1 : 0) + intent.params.pinCourses.length + drop.unexclude.length;
+      next.targetCourseCount = Math.max(0, shownCount - drop.removedCount + additions);
+      next.maxCourseCount = next.targetCourseCount;
+    }
+    applied = { ...applied, next, requested: true };
+  }
   // 「改了什麼」只能由實際生效的差異產生，不採用模型自述的 reason（見 describeDelta）
-  let changed = changesOf(intent.params, applied.next);
+  // 堂數沒變（換成、整類不排）就不說「已改為期望 N 堂課」，那只會讓人以為多了或少了一堂
+  const relabel = (lines: string[]) =>
+    drop.relabel(lines).filter((l) => !(drop.applies && l === `改為期望 ${shownCount} 堂課`));
+  let changed = relabel(changesOf(intent.params, applied.next));
   let requested = applied.requested;
 
   // 模型解析出意圖，卻沒有任何有效變更 —— 沒填、填錯被擋、或填成原本就是的值。
@@ -216,11 +248,18 @@ export async function planTurn(
     }
   }
 
-  // 條件平手時優先保留眼前已經排好的課，調整才不會無緣無故大換血
-  const solveFor = (set: ConstraintSet) => ({
-    ...buildContext(ctx.audit, ctx.record, ctx.pack, set),
-    keep: shown?.courses.map((c) => c.code),
-  });
+  // 眼前課表上沒被點名的課一律保留（TODO G12）：跟學年課下半同一級，排課時一定要接上。
+  // 例外：重來、換修課目標（本來就要重排）；拿掉的、整類不排的；
+  // 「不要早八」而那門課只有早八的班、又不是必修 —— 有替代就換
+  const solveFor = (set: ConstraintSet) => {
+    const base = buildContext(ctx.audit, ctx.record, ctx.pack, set);
+    const strict = intent.params.reset || intent.intent === "change-goal" ? [] : [...strictKeep(shown, set, base.offerings), ...drop.unexclude];
+    return {
+      ...base,
+      keep: shown?.courses.map((c) => c.code),
+      continueCodes: new Set([...(base.continueCodes ?? []), ...strict]),
+    };
+  };
   let outcome = runPlanTurn(solveFor(applied.next), applied.next, shown, changed, periodNamesFor(ctx.record.student.school));
   tools.push("schedule.solve");
 
@@ -232,7 +271,7 @@ export async function planTurn(
   const undone = params.reset ? { next: applied.next, reasons: [] } : undoImpossible(ctx.constraints, applied.next, outcome, shownCount, countAsked);
   if (undone.reasons.length > 0) {
     applied = { ...applied, next: undone.next };
-    changed = changesOf(params, undone.next);
+    changed = relabel(changesOf(params, undone.next));
     outcome = runPlanTurn(solveFor(undone.next), undone.next, shown, changed, periodNamesFor(ctx.record.student.school));
   }
   const notDone = [...undone.reasons, ...unsupportedAsks(raw)];
@@ -270,7 +309,19 @@ export async function planTurn(
  * 目前條件本身無解時，畫面上也沒有課表。
  */
 function shownPlan(ctx: TurnContext): Plan | undefined {
-  const solveCtx = { ...buildContext(ctx.audit, ctx.record, ctx.pack, ctx.constraints), keep: ctx.shownCodes };
+  const base = buildContext(ctx.audit, ctx.record, ctx.pack, ctx.constraints);
+  // 畫面上那份要原樣重建：每一門都排進來、不多排（TODO G12）。只是「盡量保留」的話，
+  // 重建出來的可能跟使用者看到的不一樣，「拿掉哪一門」「課表差在哪」就會對不上
+  const shownCodes = ctx.shownCodes ?? [];
+  const solveCtx =
+    shownCodes.length > 0
+      ? {
+          ...base,
+          keep: shownCodes,
+          continueCodes: new Set([...(base.continueCodes ?? []), ...shownCodes]),
+          constraints: { ...base.constraints, maxCourseCount: shownCodes.length },
+        }
+      : { ...base, keep: ctx.shownCodes };
   const o = runPlanTurn(solveCtx, ctx.constraints, undefined, [], periodNamesFor(ctx.record.student.school));
   return o.solve.ok ? o.solve.plans[0] : undefined;
 }
@@ -744,4 +795,151 @@ function correctOtherInstitution<T extends { kind: string }>(intent: T, rules: T
   if (intent.kind !== "forbidden" || topic !== "other-institution" || rules.kind === "forbidden") return intent;
   tools.push("rule.other-institution");
   return rules.kind === "intent" ? rules : ({ kind: "out-of-scope" } as unknown as T);
+}
+
+// ---------------------------------------------------------------- 拿掉某一類（TODO G12）
+
+/** 我們問「要拿掉一門，還是這學期都不排？」時的固定問句；用來認出下一句是在回答它 */
+const DROP_ASK = "還是這學期都不排";
+
+/**
+ * 上一輪問了「要拿掉一門，還是這學期都不排？」，這一句只回「一門」「全部」：
+ * 接回上一句使用者的話再解析，否則「一門」單獨看不出要拿掉什麼。
+ */
+function withDropAnswer(messages: ChatMessage[]): string | undefined {
+  const last = messages.at(-1);
+  if (!last || last.role !== "user") return undefined;
+  const t = last.content.replace(/\s/g, "");
+  if (!/^(?:拿掉)?(?:一[門堂個]|1[門堂個]?|全部|都(?:拿掉|不排|不要)|這學期都不排|全拿掉|全不排)/.test(t) || t.length > 12) return undefined;
+  const ask = [...messages].reverse().find((m) => m.role === "assistant");
+  if (!ask || !ask.content.includes(DROP_ASK)) return undefined;
+  const i = messages.lastIndexOf(ask);
+  const prevUser = messages.slice(0, i).reverse().find((m) => m.role === "user");
+  if (!prevUser) return undefined;
+  const all = /全|都/.test(t);
+  // 問句最後的「…都不排「通識」？」就是要拿掉的類別
+  const word = [...ask.content.matchAll(/「([^」]+)」/g)].at(-1)?.[1];
+  if (!word) return undefined;
+  return `${prevUser.content}，${all ? `這學期都不排${word}` : `拿掉一堂${word}`}`;
+}
+
+type DropResult = {
+  /** 有拿掉或改拿另一門：呼叫端要重算堂數 */
+  applies: boolean;
+  /** 要先問使用者，或課表上根本沒有那一類 */
+  reply?: Reply;
+  excludeCodes: string[];
+  /** 「換另一門」：上次拿掉的那門放回來 */
+  unexclude: string[];
+  removedCount: number;
+  skip: { id: string; name: string }[];
+  lastDrop?: { category: string; code: string };
+  /** 把「排除 生死學」改寫成說明為什麼是這一門 */
+  relabel: (changed: string[]) => string[];
+};
+
+/**
+ * 「拿掉一堂通識」：從眼前課表上那一類的課挑一門拿掉，並講明是哪一門、為什麼是它。
+ * 挑法：早八的先拿；其次是那天只有它一門（拿掉可以空出一天）；再來是清單後面的。
+ * 沒說幾門、課表上又不只一門 → 先問「要拿掉一門，還是這學期都不排？」
+ * 「這學期都不排」→ 整類跳過（skipCategories），學分留到之後的學期。
+ * 「換另一門」→ 上次拿掉的放回來，改拿同一類的下一門。
+ */
+function resolveDrop(params: PlanParams, raw: string, shown: Plan | undefined, ctx: TurnContext): DropResult {
+  const none: DropResult = { applies: false, excludeCodes: [], unexclude: [], removedCount: 0, skip: [], relabel: (c) => c };
+  const courses = shown?.courses ?? [];
+  const t = raw.replace(/\s/g, "");
+  const another = params.dropAnother || /換另一門|換別門|拿另一門|換另外一門/.test(t) ? ctx.constraints.lastDrop : undefined;
+  const drop = params.dropCategory ?? (another ? { category: another.category, count: 1 } : null);
+  if (!drop) return none;
+
+  const word = drop.category;
+  const inShown = courses.filter((c) => c.categoryLabel.includes(word));
+  const cat = ctx.pack.categories.find((c) => c.name.includes(word));
+  const label = cat?.name ?? word;
+
+  if (drop.count === "all") {
+    if (!cat) {
+      return { ...none, reply: uncertain({ headline: `你的畢業規定裡沒有「${word}」這一類。`, searched: ["適用的課程規劃表"], contact: "可以改說課名，例如「把某某課拿掉」" }) };
+    }
+    return {
+      ...none,
+      applies: true,
+      removedCount: inShown.length,
+      skip: [{ id: cat.id, name: cat.name }],
+      relabel: (changed) => changed,
+    };
+  }
+
+  // 「換另一門」：上次拿掉的放回來，不算進候選
+  const pool = another ? inShown.filter((c) => c.code !== another.code) : inShown;
+  if (pool.length === 0) {
+    return {
+      ...none,
+      reply: uncertain({
+        headline: another ? `課表上沒有其他「${label}」的課可以換。` : `課表上沒有「${label}」的課。`,
+        searched: ["目前畫面上的課表"],
+        contact: "可以直接說要拿掉哪一門課",
+      }),
+    };
+  }
+  let n = drop.count;
+  if (n === null) {
+    if (pool.length >= 2) {
+      return { ...none, reply: { kind: "不確定", headline: `課表上有 ${pool.length} 門「${label}」：要拿掉一門，${DROP_ASK}「${word}」？`, searched: [], citations: [] } };
+    }
+    n = 1;
+  }
+
+  // 挑哪一門：早八 → 那天只有它（拿掉空出一天）→ 清單後面的
+  const dayCount = new Map<number, number>();
+  for (const c of courses) for (const d of new Set(c.slots.map((s) => s.day))) dayCount.set(d, (dayCount.get(d) ?? 0) + 1);
+  const reason = (c: (typeof courses)[number]) =>
+    isEarlyMorning(c.slots) ? "早八" : c.slots.length > 0 && [...new Set(c.slots.map((s) => s.day))].every((d) => dayCount.get(d) === 1) ? "那天只有這門課，拿掉可以空出一天" : undefined;
+  const rank = (c: (typeof courses)[number]) => (isEarlyMorning(c.slots) ? 0 : reason(c) ? 1 : 2);
+  const picked = [...pool]
+    .map((c, i) => ({ c, i }))
+    .sort((a, b) => rank(a.c) - rank(b.c) || b.i - a.i)
+    .slice(0, Math.min(n, pool.length))
+    .map((x) => x.c);
+
+  const why = new Map(picked.map((c) => [c.code, reason(c)]));
+  const others = pool.length - picked.length;
+  return {
+    applies: true,
+    excludeCodes: picked.map((c) => c.code),
+    unexclude: another ? [another.code] : [],
+    removedCount: picked.length,
+    skip: [],
+    lastDrop: picked.length === 1 ? { category: word, code: picked[0]!.code } : undefined,
+    relabel: (changed) =>
+      [...(another ? [`放回 ${courseName(another.code, ctx)}`] : []), ...changed].map((line) => {
+        const c = picked.find((p) => line === `排除 ${p.name}` || line.startsWith(`排除 ${p.name}（`));
+        if (!c) return line;
+        const w = why.get(c.code);
+        return `拿掉「${label}」的${c.name}${w ? `（${w}）` : ""}${others > 0 ? "；想拿另一門可以說「換另一門」" : ""}`;
+      }),
+  };
+}
+
+/** 一定要保留的課（見 planTurn 的 solveFor）：眼前課表上、這一輪沒被點名也沒違反條件的課 */
+function strictKeep(shown: Plan | undefined, set: ConstraintSet, offerings: Offering[]): string[] {
+  const skip = new Set((set.skipCategories ?? []).map((c) => c.id));
+  return (shown?.courses ?? [])
+    .filter((c) => !set.excludeCourses.includes(c.code))
+    .filter((c) => !skip.has(c.category))
+    .filter((c) => {
+      if (!set.avoidEarly) return true;
+      const sections = offerings.filter((o) => o.code === c.code);
+      const onlyEarly = sections.length > 0 && sections.every((o) => isEarlyMorning(o.slots));
+      // 只開早八、又不是必修：有替代就換（同一類的別門課由排課補上）
+      return !onlyEarly || sections.some((o) => o.selectType === "required");
+    })
+    .map((c) => c.code);
+}
+
+/** 課號 → 課名（下學期開課資料裡的名稱；查不到就用課號） */
+function courseName(code: string, ctx: TurnContext): string {
+  const [y, t] = ctx.audit.nextTerm.split("-").map(Number) as [number, 1 | 2];
+  return offeringsFor(y, t, schoolOf(ctx.record.student)).find((o) => o.code === code)?.name ?? code;
 }

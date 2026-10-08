@@ -21,6 +21,7 @@ import { loadStored } from "@/lib/ui/prefs";
 
 const TIPS = [
   "不要早八",
+  "回上一版",
   "空出星期五",
   "少一堂課",
   "課盡量集中",

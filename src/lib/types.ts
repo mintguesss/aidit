@@ -359,6 +359,11 @@ export type Constraints = {
   maxCredits?: number;
   minCredits?: number;
   targetCourseCount?: number;
+  /**
+   * 堂數上限（硬限制）。「拿掉一堂通識」之後不能再自己補一門回來 —— 期望堂數只是偏好，
+   * 那一類的學分還缺時排課會補，等於沒拿掉（TODO G12）
+   */
+  maxCourseCount?: number;
   preferCompactDays?: boolean;
   /** 課必須排在幾天內（硬限制）；preferCompactDays 只是盡量 */
   maxDays?: number;

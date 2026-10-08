@@ -46,9 +46,13 @@ export function buildContext(
 ): SolveContext {
   const [year, term] = parseTerm(audit.nextTerm);
   const limits = termLimitsFor(pack, record.student, audit.nextTerm);
+  // 「這學期不排通識」：那一類的需求這學期不補，只算那一類的課也不排（TODO G12）
+  const skip = new Set((set.skipCategories ?? []).map((c) => c.id));
   return {
-    offerings: offeringsFor(year, term, schoolOf(record.student), pack),
-    requirements: requirementsFrom(audit),
+    offerings: offeringsFor(year, term, schoolOf(record.student), pack).filter(
+      (o) => skip.size === 0 || o.category.length === 0 || !o.category.every((c) => skip.has(c)),
+    ),
+    requirements: requirementsFrom(audit).filter((r) => !skip.has(r.categoryId)),
     passedCodes: new Set(
       record.courses
         .filter((c) => c.status === "passed" || c.status === "waived")

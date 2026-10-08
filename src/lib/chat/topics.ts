@@ -20,6 +20,12 @@ const SYNONYMS: [RegExp, string[]][] = [
   [/^(英文|英語|english)$/i, ["英文", "英語", "-英"]],
 ];
 
+/** 是不是已知的主題（同義詞表裡有的，或英文縮寫）。「換成一堂 AI 的課」沒寫「相關」時用來判斷那是主題不是課名 */
+export function isKnownTopic(word: string): boolean {
+  const t = word.replace(/\s/g, "");
+  return /^[A-Za-z]{1,12}$/.test(t) || SYNONYMS.some(([re]) => re.test(t));
+}
+
 /** 主題的比對字詞 */
 export function topicTerms(topic: string): string[] {
   const t = topic.replace(/\s|相關|有關|的課程?|課程?$/g, "");

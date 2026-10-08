@@ -1211,3 +1211,8 @@ html[data-anon]:not([data-anon-ready]) body{visibility:hidden;animation:anon-rev
 .topbar-right .linkbtn{color:#C6D5E5;font-size:13px}.topbar-right .linkbtn:hover{color:#fff}
 details.rv-guide>summary{cursor:pointer}
 html[data-anon] a[aria-disabled="true"]{color:inherit;text-decoration:none;cursor:default}
+/* 對話：回到某一版的課表（TODO G12） */
+.turn-version{margin-top:8px;display:flex;justify-content:flex-end}
+.turn-version button{font:inherit;font-size:12.5px;padding:4px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink-2);cursor:pointer}
+.turn-version button:disabled{opacity:.5;cursor:default}
+.turn-version .now{font-size:12.5px;color:var(--ok)}

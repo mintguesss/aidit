@@ -2,6 +2,7 @@ import { z } from "zod/v4";
 import { structured, type LlmBudget } from "@/lib/llm/client";
 import { findCourseCode } from "@/lib/courses/code";
 import { allOfferings } from "@/lib/offerings";
+import { isKnownTopic } from "./topics";
 import type { AskIntent, ChatMessage, ForbiddenTopic, PlanIntent } from "./types";
 
 /**
@@ -88,6 +89,21 @@ const zPlanIntent = z.object({
       addTopic: z.string().max(20).nullable().optional(),
       /** 新加的那門課要幾學分（「多選一堂兩學分的課」填 2）；只限新加的課，沒提到填 null（TODO G1） */
       newCourseCredits: z.number().int().min(1).max(6).nullable().optional(),
+      /**
+       * 「換成」「改成」：拿掉的課由新的課補上，堂數不變（TODO G12）。
+       * 與「多一堂」「加一堂」不同：那是堂數 +1
+       */
+      replace: z.boolean().nullable().optional(),
+      /**
+       * 拿掉某一類的課（「拿掉一堂通識」「通識拿掉」「這學期不排通識」）。
+       * category 填使用者說的類別（通識、選修、必修、全人…）；count 填幾門，「全部、這學期都不排」填 "all"，沒說填 null
+       */
+      dropCategory: z
+        .object({ category: z.string().max(12), count: z.union([z.number().int().min(1).max(6), z.literal("all")]).nullable() })
+        .nullable()
+        .optional(),
+      /** 「換另一門」：上一次拿掉的那門放回來，改拿同一類的另一門 */
+      dropAnother: z.boolean().nullable().optional(),
       reset: z.boolean(),
     })
     .nullable(),
@@ -165,6 +181,10 @@ const PLAN_SYSTEM = [
   "7. 想修某個主題的課（「我想修一堂 AI 相關的課」）→ intent=pin-course、delta.addTopic 填主題（如 \"AI\"），",
   "   不要猜課名放進 pinCourses。說了新加的課要幾學分（「多選一堂兩學分的課」）→ delta.newCourseCredits 填 2，",
   "   同時 courseCountDelta=1。學分數只限新加的那門，不是學期學分上限（那是 maxCredits）。",
+  "8. 「換成」「改成」→ delta.replace=true，堂數不變，courseCountDelta 不要填。「加一堂」「多一堂」才是 courseCountDelta=1。",
+  "9. 拿掉某一類的課（「拿掉一堂通識」「通識拿掉」「這學期不排通識」）→ delta.dropCategory：category 填使用者說的類別，",
+  "   count 填幾門；「全部」「這學期都不排」填 \"all\"；沒說幾門填 null（程式會反問），不要猜。不要把類別名稱放進 excludeCourses。",
+  "   「換另一門」（上一輪拿掉的那門不要拿，改拿另一門）→ delta.dropAnother=true。",
 ].join("\n");
 
 export async function parsePlanIntent(
@@ -436,6 +456,9 @@ function emptyDelta() {
     pinCourses: [] as string[],
     addTopic: null as string | null,
     newCourseCredits: null as number | null,
+    replace: null as boolean | null,
+    dropCategory: null as { category: string; count: number | "all" | null } | null,
+    dropAnother: null as boolean | null,
     reset: false,
   };
 }
@@ -462,7 +485,8 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
   if (/再給我一版|另一版|其他方案|換一組|差在哪|比較/.test(t)) {
     return { ...base, intent: "compare" };
   }
-  if (/重來|回到原本|重設|復原|還原|取消(?:所有|剛剛|剛才|上一個|之前|前面)?的?(?:調整|設定|條件)/.test(t)) {
+  // 「改回去」「回上一版」是退一步，由畫面上的對話紀錄處理（ChatPanel），不是重來
+  if (/重來|回到原本|回到最初|重設|全部取消|取消(?:所有|全部)的?(?:調整|設定|條件)/.test(t)) {
     const d = emptyDelta();
     d.reset = true;
     // 重設不是調整堂數；標成 adjust-load 會讓 trace 記成完全不同的一件事
@@ -541,6 +565,33 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
     const parts = topic[1]!.split(/[我想要修上選加排一堂門個些的]/).filter(Boolean);
     d.addTopic = parts.at(-1) ?? topic[1]!;
     reasons.push(`想修一門「${d.addTopic}」相關的課`);
+  } else {
+    // 「換成一堂 AI 的課」：沒寫「相關」，但 AI 是已知主題（「換成一堂兩學分的課」的「兩學分」不是）
+    const bare = /(?:換成|改成|換為|加|修|上|選)(?:一[堂門個])?([A-Za-z]{1,12}|[一-鿿]{2,6}?)的?課/.exec(t);
+    if (bare && isKnownTopic(bare[1]!)) {
+      d.addTopic = bare[1]!;
+      reasons.push(`想修一門「${d.addTopic}」相關的課`);
+    }
+  }
+  // 「換另一門」：上一次拿掉的放回來，改拿同一類的另一門（TODO G12）
+  if (/換另一門|換別門|拿另一門|換另外一門|拿別的那門|換一門別的/.test(t)) {
+    d.dropAnother = true;
+    reasons.push("改拿另一門");
+  }
+  // 「換成」「改成」：堂數不變（TODO G12）
+  if (/換成|改成|換為|替換成|換一堂|換一門/.test(t)) d.replace = true;
+  // 「拿掉一堂通識」「通識拿掉」「這學期不排通識」「不要通識」（TODO G12）
+  const dropBefore = /(?:拿掉|去掉|刪掉|移除|少(?:修|選|排|上)?|不要|不排)(\d|[一二兩三四])?[堂門個]?的?(通識|選修|必修|全人|核心|基本能力|群組)/.exec(t);
+  const dropAfter = /把?(\d|[一二兩三四])?[堂門個]?的?(通識|選修|必修|全人|核心|基本能力|群組)(?:課程?)?(?:都|全部|全)?(?:拿掉|去掉|刪掉|移除|不要|不排|換成|改成|換掉)/.exec(t);
+  const drop = dropBefore ?? dropAfter;
+  if (drop) {
+    const all = /全部|都(?:拿掉|不要|不排|去掉)|這學期(?:都)?不(?:排|修|要)|全拿掉/.test(t);
+    // 「通識拿掉，換成一堂 AI 的課」：沒說拿幾門，但「換成一堂」就是換一門
+    const n = drop[1] ? numOf(drop[1]) : d.replace && /換成一[堂門個]|改成一[堂門個]/.test(t) ? 1 : null;
+    d.dropCategory = { category: drop[2]!, count: all ? "all" : n };
+    reasons.push(`拿掉${all ? "全部" : n ? `${n} 門` : ""}「${drop[2]}」`);
+    // 「少一堂通識」的「少一堂」已經算進拿掉的門數，不再另外減堂數
+    if (d.courseCountDelta !== null && d.courseCountDelta < 0) d.courseCountDelta = null;
   }
 
   // 「多選一堂兩學分的課」：只限新加的那門（TODO G1）
@@ -610,7 +661,8 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
   // 「換掉某某」與「把某某換掉」兩種語序都要接得住
   const swapAfter = /(?:換掉|不想修|不想上|不要上|不要修|拿掉)([一-龥（）()A-Z0-9]{3,15})/.exec(t);
   const swapBefore = /把([一-龥（）()A-Z0-9]{3,15}?)(?:換掉|拿掉|去掉|移除)/.exec(t);
-  const swapName = swapBefore?.[1] ?? swapAfter?.[1];
+  // 拿掉的是一整類（上面的 dropCategory），不是課名；「通識拿掉換成…」的「換成…」也不是課名
+  const swapName = d.dropCategory ? undefined : (swapBefore?.[1] ?? swapAfter?.[1]);
   // 「把週五的課拿掉」「不要上到晚上」說的是時段不是課名 —— 時段已由上面處理，
   // 這裡再當成課名去查只會多一句「開課資料中找不到「週五的課」」
   if (swapName && !/早八|早上|上午|下午|晚上|星期|週|禮拜|第.節/.test(swapName)) {
@@ -633,7 +685,7 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
   if (reasons.length === 0) return base;
 
   const intent: PlanIntent =
-    d.excludeCourses.length > 0
+    d.excludeCourses.length > 0 || d.dropCategory || d.dropAnother
       ? "swap-course"
       : d.pinCourses.length > 0 || d.addTopic
         ? "pin-course"

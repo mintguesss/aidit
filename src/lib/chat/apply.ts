@@ -181,6 +181,7 @@ export function toSolverConstraints(
     maxCredits: Math.min(c.maxCredits ?? termLimits.maxCredits, termLimits.maxCredits),
     minCredits: termLimits.minCredits,
     targetCourseCount: c.targetCourseCount,
+    ...(c.maxCourseCount !== undefined ? { maxCourseCount: c.maxCourseCount } : {}),
     preferCompactDays: c.preferCompactDays,
     maxDays: c.maxDays,
     excludeCourses: c.excludeCourses,
@@ -322,6 +323,9 @@ export function applyParams(
         goals: [],
         wantTopic: undefined,
         newCourseCredits: undefined,
+        skipCategories: undefined,
+        maxCourseCount: undefined,
+        lastDrop: undefined,
       },
       delta: { reason: "重設為個人資料的原始設定" },
       unresolved: [],
@@ -444,6 +448,7 @@ export function applyParams(
     if (counts.includes(params.courseCountTarget)) {
       requested = true;
       next.targetCourseCount = params.courseCountTarget;
+      next.maxCourseCount = undefined;
     } else {
       refusedParams.push(`期望 ${params.courseCountTarget} 堂課（原句沒有這個堂數）`);
     }
@@ -455,6 +460,7 @@ export function applyParams(
     if (direction && size) {
       requested = true;
       next.targetCourseCount = Math.max(0, (shownCount ?? current.targetCourseCount ?? 0) + d);
+      next.maxCourseCount = undefined;
     } else {
       refusedParams.push(`堂數${d > 0 ? "增加" : "減少"} ${Math.abs(d)} 堂（原句不是這個意思）`);
     }
@@ -530,9 +536,17 @@ export function applyParams(
     else {
       requested = true;
       next.wantTopic = { label: topic, codes };
-      // 沒有另外說堂數：多排一門給它，不擠掉眼前課表上的課
-      if (params.courseCountTarget === null && (params.courseCountDelta ?? 0) === 0 && shownCount !== undefined) {
+      // 沒有另外說堂數：多排一門給它，不擠掉眼前課表上的課。
+      // 「換成」是替換，堂數不變；同時拿掉某一類時，堂數由呼叫端依拿掉幾門計算（route.ts）
+      if (
+        params.courseCountTarget === null &&
+        (params.courseCountDelta ?? 0) === 0 &&
+        shownCount !== undefined &&
+        !params.replace &&
+        !params.dropCategory
+      ) {
         next.targetCourseCount = shownCount + 1;
+        if (next.maxCourseCount !== undefined) next.maxCourseCount = shownCount + 1;
       }
     }
   }
@@ -566,6 +580,7 @@ export function describeSet(c: ConstraintSet, names: PeriodNames = DEMO_PERIOD_N
   if (c.maxCredits !== undefined) out.push(`學期學分上限 ${c.maxCredits}`);
   for (const code of c.pinCourses) out.push(`保留 ${nameOf(code)}`);
   for (const code of c.excludeCourses) out.push(`排除 ${nameOf(code)}`);
+  for (const x of c.skipCategories ?? []) out.push(`這學期不排「${x.name}」`);
   if (c.wantTopic) out.push(`至少一門「${c.wantTopic.label}」相關的課`);
   if (c.newCourseCredits) out.push(`新加的課盡量 ${c.newCourseCredits} 學分`);
   if (c.goals.includes("minor")) out.push("另有輔系需求（尚未收錄規定）");
@@ -651,6 +666,9 @@ export function describeDelta(
   for (const code of after.excludeCourses.filter((c) => !before.excludeCourses.includes(c))) {
     out.push(`排除 ${nameOf(code)}`);
   }
+  for (const c of (after.skipCategories ?? []).filter((x) => !(before.skipCategories ?? []).some((y) => y.id === x.id))) {
+    out.push(`這學期不排「${c.name}」`);
+  }
   for (const g of after.goals.filter((x) => !before.goals.includes(x))) {
     out.push({ "early-graduation": "加入提前畢業目標", minor: "加入輔系需求", "cert-program": "加入學程需求" }[g]);
   }
@@ -710,6 +728,18 @@ export function sanitiseConstraintSet(c: ConstraintSet, fallback: ConstraintSet)
         }
       : {}),
     ...(num(c?.newCourseCredits, 1, 6) !== undefined ? { newCourseCredits: num(c?.newCourseCredits, 1, 6) } : {}),
+    ...(num(c?.maxCourseCount, 1, 12) !== undefined ? { maxCourseCount: num(c?.maxCourseCount, 1, 12) } : {}),
+    ...(c?.lastDrop && typeof c.lastDrop.category === "string" && isCourseCode(c.lastDrop.code)
+      ? { lastDrop: { category: c.lastDrop.category.slice(0, 12), code: c.lastDrop.code } }
+      : {}),
+    ...(Array.isArray(c?.skipCategories)
+      ? {
+          skipCategories: c.skipCategories
+            .filter((x) => x && typeof x.id === "string" && typeof x.name === "string")
+            .slice(0, 8)
+            .map((x) => ({ id: x.id.slice(0, 40), name: x.name.slice(0, 20) })),
+        }
+      : {}),
     goals: Array.isArray(c?.goals)
       ? c.goals.filter((g): g is ConstraintSet["goals"][number] =>
           ["early-graduation", "minor", "cert-program"].includes(g as string),

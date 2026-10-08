@@ -77,6 +77,12 @@ export type ConstraintSet = {
   wantTopic?: { label: string; codes: string[] };
   /** 「多選一堂兩學分的課」：新加的那門盡量是幾學分。偏好（TODO G1） */
   newCourseCredits?: number;
+  /** 「這學期不排通識」：這幾類這學期整類不排（學分留到之後的學期）（TODO G12） */
+  skipCategories?: { id: string; name: string }[];
+  /** 堂數上限：「拿掉一堂」之後不自己補回來（見 Constraints.maxCourseCount）。之後改堂數就解除 */
+  maxCourseCount?: number;
+  /** 上一次「拿掉一堂某類」拿掉的是哪一門：使用者說「換另一門」時改拿同一類的別門 */
+  lastDrop?: { category: string; code: string };
   goals: PlanGoal[];
   note?: string;
 };

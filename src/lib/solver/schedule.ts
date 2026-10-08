@@ -1039,8 +1039,9 @@ function attemptSolve(
 
     for (let j = i; j < sorted.length; j++) {
       const c = sorted[j]!;
-      // 剪枝：已選學分 > maxCredits
+      // 剪枝：已選學分 > maxCredits；堂數上限（「拿掉一堂」之後不自己補回來，TODO G12）
       if (credits + c.offering.credits > maxCredits) continue;
+      if (ctx.constraints.maxCourseCount !== undefined && sel.length >= ctx.constraints.maxCourseCount) break;
       // 同一門課分好幾班（輔大的微積分有甲、乙兩班，同一個課號、不同時段），
       // 一份課表只能選其中一班。合成資料沒有多班的課，這條以前從沒被觸發過
       if (sel.some((s) => s.offering.code === c.offering.code)) continue;

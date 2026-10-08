@@ -219,6 +219,10 @@ export type StructuredRequest<S extends z.ZodType> = {
   /** 沒有金鑰時使用的確定性替身；必須能產出同形狀的結果 */
   offline: () => z.infer<S>;
   effort?: "low" | "medium" | "high";
+  /** 預設 LLM_MAX_TOKENS。只有評測的對照組（整份規章塞進去算）需要更大 */
+  maxTokens?: number;
+  /** 預設 LLM_TIMEOUT_MS。同上，對照組一次讀幾萬字，8 秒不夠 */
+  timeoutMs?: number;
 };
 
 type ProviderResult = { output: unknown; inputTokens: number; outputTokens: number };
@@ -226,7 +230,7 @@ type ProviderResult = { output: unknown; inputTokens: number; outputTokens: numb
 async function callAnthropic<S extends z.ZodType>(req: StructuredRequest<S>): Promise<ProviderResult> {
   const res = await getClient().messages.parse({
     model: MODEL,
-    max_tokens: LLM_MAX_TOKENS,
+    max_tokens: req.maxTokens ?? LLM_MAX_TOKENS,
     system: req.system,
     output_config: {
       // Haiku 4.5 不支援 effort，送出會 400，所以依模型決定要不要帶
@@ -234,7 +238,7 @@ async function callAnthropic<S extends z.ZodType>(req: StructuredRequest<S>): Pr
       format: zodOutputFormat(req.schema),
     },
     messages: [{ role: "user", content: req.user }],
-  });
+  }, req.timeoutMs ? { timeout: req.timeoutMs } : undefined);
 
   if (res.stop_reason === "refusal") {
     throw new Error(`模型拒絕回應：${res.stop_details?.category ?? "unknown"}`);
@@ -267,7 +271,7 @@ async function callOpenAiCompatible<S extends z.ZodType>(
     },
     body: JSON.stringify({
       model: LLM.model,
-      max_tokens: LLM_MAX_TOKENS,
+      max_tokens: req.maxTokens ?? LLM_MAX_TOKENS,
       messages: [
         { role: "system", content: req.system },
         { role: "user", content: req.user },
@@ -278,7 +282,7 @@ async function callOpenAiCompatible<S extends z.ZodType>(
       },
       ...(LLM_REASONING_EFFORT ? { reasoning_effort: LLM_REASONING_EFFORT } : {}),
     }),
-    signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
+    signal: AbortSignal.timeout(req.timeoutMs ?? LLM_TIMEOUT_MS),
   });
 
   if (!res.ok) {

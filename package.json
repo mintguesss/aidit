@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "eval": "tsx src/eval/run.ts",
     "eval:injection": "tsx src/eval/injection/run.ts",
+    "eval:baseline-c": "tsx src/eval/baseline-c/run.ts",
     "rulepack:extract": "tsx scripts/extract-rulepack.ts",
     "rulepack:validate": "tsx scripts/validate-rulepack.ts",
     "ci": "tsx scripts/ci.ts",

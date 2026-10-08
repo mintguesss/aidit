@@ -623,6 +623,7 @@ a.btn-primary:hover{color:#fff}
 .three li.cost .v{color:var(--unmet)}
 .three .add{color:var(--ok);display:block}
 .three .del{color:var(--unmet);display:block}
+.three .mv{color:var(--ink-2);display:block}
 @media(max-width:560px){.three li{flex-direction:column;gap:2px}.three .k{flex:none}}
 
 .turn-courses{list-style:none;margin:10px 0 0;padding:0;font-size:13.5px}

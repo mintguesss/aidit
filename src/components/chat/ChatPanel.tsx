@@ -24,7 +24,7 @@ export type PlanUpdate = {
   constraints: ConstraintSet;
   constraintLabels: string[];
   changed: string[];
-  diff: { added: string[]; removed: string[]; unchanged: boolean };
+  diff: { added: string[]; removed: string[]; moved?: string[]; unchanged: boolean };
   costs: string[];
   relaxOptions: string[];
 };
@@ -538,6 +538,7 @@ function PlanCard({
                   <span className="del">移除 {p.diff.removed.join("、")}</span>
                 ) : null}
                 {p.diff.added.length > 0 ? <span className="add">加入 {p.diff.added.join("、")}</span> : null}
+                {(p.diff.moved ?? []).length > 0 ? <span className="mv">換班 {p.diff.moved!.join("、")}</span> : null}
               </>
             )}
           </span>

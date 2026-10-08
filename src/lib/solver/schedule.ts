@@ -59,6 +59,8 @@ function meets(o: Offering, r: Requirement): boolean {
 
 /** 領域未達時的權重：以 2 學分等值計入目標函數，與一門通識課的學分數同量級 */
 const DOMAIN_WEIGHT = 2;
+/** 漏接一門該接上的課的代價，是沒排到主題課的幾倍（見 score 的 missedContinuations） */
+const CONTINUE_WEIGHT = 2;
 
 export function requirementsFrom(audit: AuditResult): Requirement[] {
   const reqs: Requirement[] = [];
@@ -636,8 +638,10 @@ function score(sel: Candidate[], ctx: SolveContext, parts = shortfallParts(sel, 
     unmetAfter: parts.total,
     unmetSpecific: parts.specific,
     // 學年課下半沒接上的門數，加上使用者要的主題課這學期有開卻一門都沒排（算 1）
+    // 該接上的課（學年課下半、對話中要保留的課）每漏一門算 2，主題課沒排算 1：
+    // 主題課只能換一門排得進的，不能為了它拿掉原本的課（TODO G12）
     missedContinuations:
-      [...(ctx.continueOffered ?? [])].filter((code) => !sel.some((c) => c.offering.code === code)).length +
+      CONTINUE_WEIGHT * [...(ctx.continueOffered ?? [])].filter((code) => !sel.some((c) => c.offering.code === code)).length +
       ((ctx.wantOffered?.size ?? 0) > 0 && !sel.some((c) => ctx.wantOffered!.has(c.offering.code)) ? 1 : 0),
     creditMismatch:
       ctx.constraints.newCourseCredits === undefined
@@ -909,10 +913,14 @@ function attemptSolve(
   // 同一組裡學分大的先。以前只照學分排：輔大一學期四百多個候選，3 學分的選修排在前面，
   // 搜尋到 NODE_LIMIT 就停，2 學分的人生哲學根本沒被試到（TODO G4）
   // 學年課下半最先，其次能補特定缺口的，最後只能補承接類別的
+  // 該接上的課（學年課下半、對話中要保留的課）最先，主題課第二：
+  // 先試「全部保留」才找得到不跟它們衝堂的主題課，找到之後衝堂的分支就能整個剪掉
   const specificRank = (c: Candidate) =>
-    c.continues || c.wanted
-      ? -1
-      : [...c.creditIdx, ...c.domainIdx].some((k) => !ctx.requirements[k]!.catchAll || isSub(ctx.requirements[k]!))
+    c.continues
+      ? -2
+      : c.wanted
+        ? -1
+        : [...c.creditIdx, ...c.domainIdx].some((k) => !ctx.requirements[k]!.catchAll || isSub(ctx.requirements[k]!))
         ? 0
         : 1;
   const byPriority = (a: Candidate, b: Candidate) =>
@@ -947,7 +955,7 @@ function attemptSolve(
   const wantOffered = (ctx.wantOffered?.size ?? 0) > 0;
   const missedWant = (cs: Candidate[]) => (wantOffered && !cs.some((c) => c.wanted) ? 1 : 0);
   const missedOf = (cs: Candidate[]) =>
-    continueOffered.filter((code) => !cs.some((c) => c.offering.code === code)).length + missedWant(cs);
+    CONTINUE_WEIGHT * continueOffered.filter((code) => !cs.some((c) => c.offering.code === code)).length + missedWant(cs);
   const sel: Candidate[] = [...pinnedCandidates];
   let nodes = 0;
   let truncated = false;
@@ -959,6 +967,10 @@ function attemptSolve(
   const wantAfter = new Array<boolean>(sorted.length + 1).fill(false);
   for (let k = sorted.length - 1; k >= 0; k--) wantAfter[k] = wantAfter[k + 1]! || Boolean(sorted[k]!.wanted);
   const specificAfter = new Array<number>(sorted.length + 1).fill(0);
+  // 每個課號在 sorted 裡的位置、主題課的位置：剪枝時查「後面還有沒有不衝堂的班」
+  const sectionsAt = new Map<string, number[]>();
+  sorted.forEach((c, k) => sectionsAt.set(c.offering.code, [...(sectionsAt.get(c.offering.code) ?? []), k]));
+  const wantIdx = sorted.flatMap((c, k) => (c.wanted ? [k] : []));
   contAfter[sorted.length] = new Set();
   for (let k = sorted.length - 1; k >= 0; k--) {
     const c = sorted[k]!;
@@ -1029,9 +1041,15 @@ function attemptSolve(
     // 只剪「嚴格比較差」的分支，平手的照留 —— 結果與不剪相同，只是同樣的節點上限能看得更遠。
     // 以前輔大每一次排課都撞到 30 萬個節點的上限，大二的課表因此多跑一天、大三少排一門
     if (bestKey[0] !== Infinity) {
+      // 「後面還拿得到」要扣掉跟已選的課衝堂的：已選了 C 程式語言，星期五同時段的生死學就再也排不進來。
+      // 沒扣的話這整個分支剪不掉，節點上限全耗在裡面（TODO G12 實測：加一門程式相關的課，生死學被擠掉）
+      const fits = (c: Candidate) =>
+        !sel.some((s) => s.offering.code === c.offering.code) &&
+        !sel.some((s) => !s.offering.slotsUnknown && !c.offering.slotsUnknown && clashes(s.offering.slots, c.offering.slots));
+      const reachable = (code: string) => (sectionsAt.get(code) ?? []).some((k) => k >= i && fits(sorted[k]!));
       const lbMissed =
-        continueOffered.filter((code) => !sel.some((c) => c.offering.code === code) && !contAfter[i]!.has(code)).length +
-        (missedWant(sel) && !wantAfter[i] ? 1 : 0);
+        CONTINUE_WEIGHT * continueOffered.filter((code) => !sel.some((c) => c.offering.code === code) && !reachable(code)).length +
+        (missedWant(sel) && !wantIdx.some((k) => k >= i && fits(sorted[k]!)) ? 1 : 0);
       if (lbMissed > bestKey[0]) return;
       const lbSpecific = Math.max(0, parts.specific - gainFactor * specificAfter[i]! - DOMAIN_WEIGHT * ctx.requirements.length);
       if (lbMissed === bestKey[0] && lbSpecific > bestKey[1]) return;

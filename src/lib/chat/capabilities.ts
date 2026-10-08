@@ -235,12 +235,6 @@ function searchRules(topic: string, pack: RulePack, audit: AuditResult): RuleHit
     });
   }
 
-  if (want("畢業", "最低", "總學分")) {
-    hits.push({
-      text: `本系（${pack.program === "day" ? "日間部" : "進修部"}）最低畢業學分 ${pack.minCredits} 學分。`,
-      citation: cite(pack.categories[0]!.citation.docId, "第 1 頁修業基本規定"),
-    });
-  }
 
   for (const cat of pack.categories) {
     if (!t.includes(cat.name) && !t.includes(cat.shortName)) continue;
@@ -256,13 +250,17 @@ function searchRules(topic: string, pack: RulePack, audit: AuditResult): RuleHit
     }
   }
 
+  // 畢業條件用名稱裡的關鍵字比：「英文畢業門檻」要對到「英文能力（CEF B2）」，不能要求整串名稱都出現
   for (const g of pack.graduationChecks) {
-    if (!t.includes(g.name)) continue;
+    if (!t.includes(g.name) && !nameKeys(g.name).some((k) => t.includes(k))) continue;
     hits.push({
+      // 有原文就直接講規定本身；「依學校共同規定辦理」等於沒回答
       text:
         g.rule === "deptDefined"
           ? `${g.name}的標準由各系自訂，規劃表本身未載明具體門檻。`
-          : `${g.name}依學校共同規定辦理。`,
+          : g.citation.quote && g.citation.quote.length > g.name.length + 2
+            ? `${g.name}：${g.citation.quote.replace(/^(?:及|與|並|且|和)/, "")}。`
+            : `${g.name}依學校共同規定辦理。`,
       citation: cite(g.citation.docId, g.citation.locator, g.citation.quote),
     });
   }
@@ -279,6 +277,26 @@ function searchRules(topic: string, pack: RulePack, audit: AuditResult): RuleHit
     });
   }
 
+  // 「畢業條件有哪些」：學分以外的條件逐項列出
+  if (want("畢業條件", "畢業門檻有哪些", "畢業規定有哪些") && pack.graduationChecks.length > 0 && !hits.some((h) => pack.graduationChecks.some((g) => h.text.startsWith(g.name)))) {
+    hits.push({
+      text: `畢業除了修滿 ${pack.minCredits} 學分，還要符合：${pack.graduationChecks.map((g) => g.name).join("、")}。`,
+      citation: pack.minCreditsCitation
+        ? cite(pack.minCreditsCitation.docId, pack.minCreditsCitation.locator, pack.minCreditsCitation.quote)
+        : cite(pack.categories[0]!.citation.docId, "第 1 頁修業基本規定"),
+    });
+  }
+
+  // 最低畢業學分：問總學分時答；只說了「畢業」的，有更具體的答案（英文門檻、某一類）就不搶第一句
+  if (want("最低", "總學分", "幾學分") || (want("畢業") && hits.length === 0)) {
+    hits.push({
+      text: `本系（${pack.program === "day" ? "日間部" : "進修部"}）最低畢業學分 ${pack.minCredits} 學分。`,
+      citation: pack.minCreditsCitation
+        ? cite(pack.minCreditsCitation.docId, pack.minCreditsCitation.locator, pack.minCreditsCitation.quote)
+        : cite(pack.categories[0]!.citation.docId, "第 1 頁修業基本規定"),
+    });
+  }
+
   // 同一條 locator 只留一次
   const seen = new Set<string>();
   return hits.filter((h) => {
@@ -287,6 +305,17 @@ function searchRules(topic: string, pack: RulePack, audit: AuditResult): RuleHit
     seen.add(k);
     return true;
   });
+}
+
+/** 畢業條件名稱裡可以拿來比對的字：去掉括號內容與「能力」「學分」這類每條都有的字，取兩字一組 */
+function nameKeys(name: string): string[] {
+  const core = name.replace(/[（(][^）)]*[）)]/g, "").replace(/\s/g, "");
+  const out: string[] = [];
+  for (let i = 0; i + 2 <= core.length; i++) {
+    const k = core.slice(i, i + 2);
+    if (!/能力|學分|課程|時間|條件|畢業|修課|檢測|學期/.test(k)) out.push(k);
+  }
+  return out;
 }
 
 // ---------------------------------------------------------- course-info

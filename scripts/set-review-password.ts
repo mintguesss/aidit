@@ -5,7 +5,8 @@ import "@/lib/util/env";
  * 設定校對登入密碼（lib/review/auth.ts）：存成加鹽的 scrypt 雜湊，放在資料庫的非公開儲存區，
  * 不進 repo、不用改 Vercel 環境變數。改了之後所有人的校對登入都會失效，要重新登入。
  *
- *   npx tsx scripts/set-review-password.ts        然後輸入新密碼（不會顯示在畫面上以外的地方）
+ *   npx tsx scripts/set-review-password.ts        然後輸入新密碼
+ *   npx tsx scripts/set-review-password.ts --allow-short   允許少於 10 個字的密碼
  *
  * 密碼至少 10 個字：repo 是公開的，登入端點雖有速率限制，太短的密碼仍然猜得到。
  */
@@ -21,10 +22,11 @@ async function main() {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const pw = await new Promise<string>((r) => rl.question("新的校對密碼（至少 10 個字）：", (a) => r(a.trim())));
   rl.close();
-  if (pw.length < 10) {
-    console.error("太短了：至少 10 個字。");
+  if (pw.length < 10 && !process.argv.includes("--allow-short")) {
+    console.error("太短了：至少 10 個字。確定要用短密碼，加 --allow-short。");
     process.exit(1);
   }
+  if (pw.length < 10) console.warn("注意：密碼不到 10 個字，比較容易被猜到。");
   await storeReviewPassword(pw);
   console.log("已設定。網站 5 分鐘內生效；所有人的校對登入都要重新登入。");
 }

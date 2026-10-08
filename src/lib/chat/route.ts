@@ -602,7 +602,8 @@ export async function askTurn(
     case "regulation":
       tools.push("rule.lookup");
       return {
-        reply: lookup(p.topic, p.raw, (q) => answerRegulation(q, ctx.pack, ctx.audit)),
+        // 原句跟模型抽的主題一起查：模型常把「英文畢業門檻」縮成「畢業門檻」，只用它查會答成最低畢業學分
+        reply: answerRegulation(p.topic && !p.raw.includes(p.topic) ? `${p.raw}　${p.topic}` : p.raw, ctx.pack, ctx.audit),
         tools,
         intent: intent.intent,
         clarifying: false,

@@ -400,3 +400,14 @@ describe("模型填的拿掉數量要原句有（有模型版實測）", () => {
     expect(r.reply.headline).not.toContain("找不到");
   });
 });
+
+describe("問規定：原句的細節不能被模型縮掉（有模型版實測）", () => {
+  it("「英文畢業門檻是什麼」模型主題填「畢業門檻」→ 仍答英文的規定，不是最低畢業學分", async () => {
+    const r = await askWithModel("英文畢業門檻是什麼", {
+      kind: "intent", intent: "regulation",
+      params: askParams("英文畢業門檻是什麼", { topic: "畢業門檻" }),
+    } as AskIntentResult);
+    expect(r.reply.headline).not.toContain("最低畢業學分");
+    expect(r.reply.headline).toMatch(/英文/);
+  });
+});

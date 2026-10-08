@@ -189,7 +189,9 @@ for (const fx of ["fju-im-111-year2", "fju-im-111-year3", "fju-im-111-year1"]) {
       const [r] = await chat(fx, "plan", [`把${pick.name}換掉`]);
       const v = planValid(r);
       const gone = !r.plan?.plans?.[0]?.courses.some((c: any) => c.code === pick.code);
-      record(fx, "排課", `把${pick.name}換掉`, r, v !== true ? v : gone || `${pick.name} 還在課表裡`);
+      // 那門課是某一類這學期唯一能補的（人生哲學之於全人核心）：系統不拿掉、說明原因，也是對的
+      const explained = r.reply.headline.startsWith("這個要求做不到") && String(r.reply.detail ?? "").includes("唯一能補的課");
+      record(fx, "排課", `把${pick.name}換掉`, r, v !== true ? v : gone || explained || `${pick.name} 還在課表裡，也沒說明原因`);
     }
   }
   {

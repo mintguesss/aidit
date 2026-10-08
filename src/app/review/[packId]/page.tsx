@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  */
 export default async function ReviewPack({ params }: { params: Promise<{ packId: string }> }) {
   const { packId } = await params;
-  const reviewer = reviewerFromSession((await cookies()).get(REVIEW_COOKIE)?.value);
+  const reviewer = await reviewerFromSession((await cookies()).get(REVIEW_COOKIE)?.value);
   if (!reviewer) redirect(`/review/login?next=/review/${encodeURIComponent(packId)}`);
   const view = await loadDraft(packId);
 

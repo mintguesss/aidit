@@ -29,7 +29,7 @@ type Body =
  * 校對紀錄（誰、何時、通過或修正）會保留下來作為資料品質的證據。
  */
 export async function POST(req: Request) {
-  const reviewer = reviewerFromSession((await cookies()).get(REVIEW_COOKIE)?.value);
+  const reviewer = await reviewerFromSession((await cookies()).get(REVIEW_COOKIE)?.value);
   if (!reviewer) return NextResponse.json({ error: "登入已過期，請重新登入校對。", login: true }, { status: 401 });
 
   const raw = (await req.json().catch(() => null)) as Body | null;

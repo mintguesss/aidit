@@ -598,7 +598,9 @@ function buildHolds(
     const credits = list.reduce((a, h) => a + h.course.credits, 0);
 
     const title =
-      ambiguity.affects === "thisCategory"
+      ambiguity.trigger.type === "generalDomain"
+        ? `${names}的採計方式待確認`
+        : ambiguity.affects === "thisCategory"
         ? list.length === 1
           ? `跨院選修${names}是否採計為${category.name}`
           : `${list.length} 門跨院選修是否採計為${category.name}`
@@ -607,7 +609,7 @@ function buildHolds(
     const impact = describeImpact(category.id, main, alternative, pack, credits, ambiguity.affects);
 
     const body =
-      `${ambiguity.description}。` +
+      `${ambiguity.description.replace(/[。．.]\s*$/, "")}。` +
       `涉及科目：${list
         .map((h) => `${h.course.name}（${h.course.code}，${h.course.credits} 學分）`)
         .join("、")}。` +

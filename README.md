@@ -5,13 +5,42 @@
 **本系統的核心主張：在畢業審查場域，答錯的代價遠高於不答。**
 優化目標是零錯答，接受較高的轉人工率。
 
+線上展示：https://aidit-weld.vercel.app （不需帳號；頁尾可切換示範學生）　授權：[MIT](LICENSE)
+
+## 畫面
+
+以下截圖為真實資料，以匿名展示模式（網址加 `?anon=1`）遮蔽校名、系名與教師姓名。
+
+**審查結果**：判定結論、各類別進度、還差多少學分
+
+![審查結果](docs/images/home.png)
+
+**修業明細**：每一類的應修、已修、未修與判定依據；畢業條件逐項檢核
+
+![修業明細](docs/images/audit.png)
+
+**選課建議**：依未修學分與開課資料排出下學期課表
+
+![選課建議](docs/images/plan.png)
+
+**調整課表**：用一句話改條件，回報改了什麼、課表差異與代價
+
+![調整課表](docs/images/plan-chat.png)
+
+**情境試算**：「如果我下學期修生死學會怎樣？」—— 依學校公告，採計方式需人工確認，附原文依據與承辦單位
+
+![情境試算](docs/images/whatif.png)
+
+**執行紀錄**：每一步的工具、耗時、分支，可供查核
+
+![執行紀錄](docs/images/trace.png)
+
 ## 文件索引
 
 | 你想做什麼 | 讀哪份 |
 |---|---|
 | **一份讀完整個系統**（Word） | [docs/系統文件.docx](docs/系統文件.docx)，原稿 [docs/系統文件.md](docs/系統文件.md) |
 | 了解系統怎麼運作 | 本檔 §架構（往下捲） |
-| 參與開發 | [CONTRIBUTING.md](CONTRIBUTING.md) —— 規則、CI、不要做的事 |
 | 接手後端 | [docs/HANDOVER.md](docs/HANDOVER.md)，再讀上一列 |
 | 串接 API | [docs/API.md](docs/API.md) —— 前後端分界線 |
 | 部署公開 demo | [docs/DEPLOY.md](docs/DEPLOY.md) —— Vercel |

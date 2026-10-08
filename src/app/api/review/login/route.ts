@@ -9,11 +9,11 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as { name?: string; password?: string } | null;
   const name = body?.name?.trim().slice(0, 40) ?? "";
   if (!name) return NextResponse.json({ error: "請填寫姓名或代號 —— 每一筆校對都要記下是誰做的。" }, { status: 400 });
-  const auth = checkReviewPassword(body?.password ?? null);
+  const auth = await checkReviewPassword(body?.password ?? null);
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
 
   const res = NextResponse.json({ ok: true, name });
-  res.cookies.set(REVIEW_COOKIE, signReviewSession(name), {
+  res.cookies.set(REVIEW_COOKIE, await signReviewSession(name), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",

@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 
 /** 人工校對頁的入口：列出待校對的規則包草稿。 */
 export default async function ReviewIndex() {
-  const reviewer = reviewerFromSession((await cookies()).get(REVIEW_COOKIE)?.value);
+  const reviewer = await reviewerFromSession((await cookies()).get(REVIEW_COOKIE)?.value);
   if (!reviewer) redirect("/review/login?next=/review");
   const drafts = await listDrafts();
   // 先全部解析完再進 JSX：server component 的 render 不能 await

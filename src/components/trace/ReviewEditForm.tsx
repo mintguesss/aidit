@@ -4,7 +4,6 @@ import { useState } from "react";
 import type { Editable } from "@/lib/review/edit";
 import type { ReviewItem } from "@/lib/review/store";
 import { Spinner } from "@/components/shell/Spinner";
-import { reviewHeaders } from "./review-password";
 
 /**
  * 「需要修正」的修改表單。
@@ -91,7 +90,6 @@ export function ReviewEditForm({
   packId,
   draftHash,
   reviewer,
-  password,
   freeCategory,
   onCancel,
   onNoteOnly,
@@ -101,7 +99,6 @@ export function ReviewEditForm({
   packId: string;
   draftHash: string;
   reviewer: string;
-  password: string;
   /** 承接類別（其他選修）目前的學分與名稱；改學分時可選擇一併調整 */
   freeCategory: { name: string; credits: number; othersExcludingThis: number; minCredits: number } | null;
   onCancel: () => void;
@@ -133,7 +130,7 @@ export function ReviewEditForm({
     try {
       const res = await fetch("/api/review", {
         method: "POST",
-        headers: reviewHeaders(password),
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({
           action: "edit",
           packId,

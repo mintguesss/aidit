@@ -1,4 +1,8 @@
 import { loadDraft } from "@/lib/review/store";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { REVIEW_COOKIE, reviewerFromSession } from "@/lib/review/auth";
+import { ReviewTopbar } from "@/components/trace/ReviewTopbar";
 import { ReviewBoard } from "@/components/trace/ReviewBoard";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +13,8 @@ export const dynamic = "force-dynamic";
  */
 export default async function ReviewPack({ params }: { params: Promise<{ packId: string }> }) {
   const { packId } = await params;
+  const reviewer = reviewerFromSession((await cookies()).get(REVIEW_COOKIE)?.value);
+  if (!reviewer) redirect(`/review/login?next=/review/${encodeURIComponent(packId)}`);
   const view = await loadDraft(packId);
 
   if (!view) {
@@ -29,16 +35,8 @@ export default async function ReviewPack({ params }: { params: Promise<{ packId:
 
   return (
     <>
-      <header className="topbar">
-        <div className="topbar-in">
-          <a href="/" className="brand-mark" title="回到系統首頁">Aidit</a>
-          <span className="brand-sub">規則包人工校對（內部作業）</span>
-          <span className="topbar-right">
-            <span className="term">{packId}</span>
-          </span>
-        </div>
-      </header>
-      <ReviewBoard view={view} />
+      <ReviewTopbar reviewer={reviewer} packId={packId} />
+      <ReviewBoard view={view} reviewer={reviewer} />
     </>
   );
 }

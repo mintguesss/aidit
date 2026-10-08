@@ -1,21 +1,22 @@
 import { listDrafts, loadDraft } from "@/lib/review/store";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import { REVIEW_COOKIE, reviewerFromSession } from "@/lib/review/auth";
+import { ReviewTopbar } from "@/components/trace/ReviewTopbar";
 
 export const dynamic = "force-dynamic";
 
 /** 人工校對頁的入口：列出待校對的規則包草稿。 */
 export default async function ReviewIndex() {
+  const reviewer = reviewerFromSession((await cookies()).get(REVIEW_COOKIE)?.value);
+  if (!reviewer) redirect("/review/login?next=/review");
   const drafts = await listDrafts();
   // 先全部解析完再進 JSX：server component 的 render 不能 await
   const views = await Promise.all(drafts.map(async (id) => ({ id, v: await loadDraft(id) })));
 
   return (
     <>
-      <header className="topbar">
-        <div className="topbar-in">
-          <a href="/" className="brand-mark" title="回到系統首頁">Aidit</a>
-          <span className="brand-sub">規則包人工校對（內部作業）</span>
-        </div>
-      </header>
+      <ReviewTopbar reviewer={reviewer} />
 
       <div className="abort">
         <div className="box" style={{ borderLeftColor: "var(--ink-3)" }}>

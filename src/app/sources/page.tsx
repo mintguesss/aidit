@@ -36,7 +36,12 @@ export default async function SourcesPage({
       <PageHead
         title="原文出處"
         stamp={`${docs.length} 份文件・${total} 條引用`}
-        lead="判定所引用的每一段原文都在這裡。各頁的「依據」連結會直接跳到對應的段落。"
+        lead={
+          <>
+            判定所引用的每一段原文都在這裡。各頁的「依據」連結會直接跳到對應的段落。目前套用哪一版規劃表見{" "}
+            <Link href={`/rulepack?fixture=${fixture}&term=${term}`}>適用規劃表</Link>。
+          </>
+        }
       />
 
       <SourceHighlight />

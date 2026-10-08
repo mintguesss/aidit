@@ -21,7 +21,7 @@ export function GraduationCheckDetails({
     <section className="panel">
       <div className="panel-hd">
         <h2>畢業條件</h2>
-        <SourceLinks citations={checks.flatMap((g) => g.citations)} label="依據" />
+        <SourceLinks citations={checks.flatMap((g) => g.citations)} label="依據" folded />
       </div>
       {/* 四條各佔一整列太浪費 —— 每條實際只有「名稱、狀態、一句說明」 */}
       <ul className="gcheck">

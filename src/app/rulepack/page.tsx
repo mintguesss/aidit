@@ -23,7 +23,12 @@ export default async function RulePackPage({
       <PageHead
         title="適用規劃表"
         stamp={audit ? `rev.${audit.rulePack.version}` : undefined}
-        lead="判定用的是哪一版規劃表，以及版本不對時要怎麼換。"
+        lead={
+          <>
+            判定用的是哪一版規劃表，以及版本不對時要怎麼換。每一條規定的原文見{" "}
+            <Link href={`/sources${search}`}>原文出處</Link>。
+          </>
+        }
       />
 
       <section className="panel">

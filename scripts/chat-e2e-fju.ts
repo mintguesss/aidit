@@ -1,7 +1,7 @@
 // 真實資料（輔大）對話測試：標準答案由引擎與開課資料獨立算出，再打 HTTP API 比對。
 // 輔大規則包只在 Supabase，所以伺服器與這支腳本都要讀得到 .env 裡的 SUPABASE_*。
 // 用法：npx tsx scripts/chat-e2e-fju.ts <base-url> <標籤>
-//   離線規則：另開一個設 AIDIT_LLM_PROVIDER=anthropic、AIDIT_LLM_MODEL=claude-opus-5 而沒有金鑰的實例來打（走規則、不吃顯卡）
+//   離線規則：另開一個設 AIDIT_LLM_PROVIDER=anthropic、AIDIT_LLM_MODEL=claude-sonnet-5-5 而沒有金鑰的實例來打（走規則、不吃顯卡）
 import "@/lib/util/env";
 import { getAuditSession } from "@/lib/audit/session";
 import { parsePageParams } from "@/lib/ui/params";

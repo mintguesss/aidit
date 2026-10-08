@@ -27,12 +27,17 @@ export default async function Holds({
             stamp={`${outcome.audit.holds.length} 項`}
             lead="這些項目未計入學分判定 —— 系統檢索所有可得依據後仍無法判定，已停止自動推論。"
           />
-          <section className="panel">
-            <HoldList
-              holds={outcome.audit.holds}
-              contactSubject={outcome.audit.student.className ?? outcome.audit.student.dept}
-            />
-          </section>
+          {/* 沒有待確認事項時只是一句說明，不包白底面板 */}
+          {outcome.audit.holds.length > 0 ? (
+            <section className="panel">
+              <HoldList
+                holds={outcome.audit.holds}
+                contactSubject={outcome.audit.student.className ?? outcome.audit.student.dept}
+              />
+            </section>
+          ) : (
+            <HoldList holds={[]} contactSubject="" />
+          )}
           <details className="panel explain">
             <summary>為什麼系統不直接猜一個答案</summary>
             <div className="bd">

@@ -36,12 +36,13 @@ export default async function Overview({
           <PageHead title="畢業學分審查結果" />
 
           <section className="panel">
-            <div className={`verdict ${verdictClass(outcome.audit)}`}>
-              <div className="h">{outcome.audit.verdict.headline}</div>
+            {/* 結論一句話常駐；細節（還差哪幾類、哪些條件待確認）收起來，下面的進度尺與數字已經講了 */}
+            <details className={`verdict ${verdictClass(outcome.audit)}`}>
+              <summary className="h">{outcome.audit.verdict.headline}</summary>
               <p className="p">
                 <RichText text={outcome.audit.verdict.detail} />
               </p>
-            </div>
+            </details>
 
             <div className="ruler">
               <ProgressRuler

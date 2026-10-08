@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { DraftView, ReviewDecision, ReviewItem } from "@/lib/review/store";
 import { ReviewEditForm } from "./ReviewEditForm";
 import { Spinner } from "@/components/shell/Spinner";
-import { getReviewPassword, getReviewer, reviewHeaders, setReviewPassword, setStoredReviewer } from "./review-password";
 
 /**
  * 逐條校對：系統的理解 vs. 原文。
@@ -39,14 +38,7 @@ const BADGE: Record<ReviewDecision["status"], string> = {
   rejected: "已退回",
 };
 
-export function ReviewBoard({ view }: { view: DraftView }) {
-  const [reviewer, setReviewer] = useState("");
-  const [password, setPassword] = useState("");
-  // 讀 localStorage 要等到瀏覽器端，避免伺服器與瀏覽器畫出來不一樣
-  useEffect(() => {
-    setPassword(getReviewPassword());
-    setReviewer(getReviewer());
-  }, []);
+export function ReviewBoard({ view, reviewer }: { view: DraftView; reviewer: string }) {
   const [decisions, setDecisions] = useState<ReviewDecision[]>(view.record.decisions);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -82,19 +74,19 @@ export function ReviewBoard({ view }: { view: DraftView }) {
 
   /** 寫入一筆校對。失敗時回傳原因，由那一項的卡片自己顯示（訊息放在頁首，按的人看不到） */
   const decide = async (itemId: string, status: ReviewDecision["status"], note?: string): Promise<string | null> => {
-    if (!reviewer.trim()) return "請先在頁面最上方填寫你的姓名或代號 —— 每一筆校對都要記下是誰做的。";
     setBusy(true);
     try {
       const res = await fetch("/api/review", {
         method: "POST",
-        headers: reviewHeaders(password),
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({
           action: "decide",
           packId: view.packId,
           decision: { itemId, status, note, reviewer: reviewer.trim() },
         }),
       });
-      const data = (await res.json().catch(() => ({}))) as { record?: { decisions: ReviewDecision[] }; error?: string };
+      const data = (await res.json().catch(() => ({}))) as { record?: { decisions: ReviewDecision[] }; error?: string; login?: boolean };
+      if (data.login) window.location.href = `/review/login?next=/review/${encodeURIComponent(view.packId)}`;
       if (!res.ok || !data.record) return data.error ?? `寫入失敗（${res.status}），請稍後再試。`;
       setDecisions(data.record.decisions);
       return null;
@@ -106,15 +98,11 @@ export function ReviewBoard({ view }: { view: DraftView }) {
   };
 
   const lock = async () => {
-    if (!reviewer.trim()) {
-      setMessage("鎖版必須記錄校對人。");
-      return;
-    }
     setBusy(true);
     try {
       const res = await fetch("/api/review", {
         method: "POST",
-        headers: reviewHeaders(password),
+        headers: { "content-type": "application/json" },
         body: JSON.stringify({ action: "lock", packId: view.packId, reviewer: reviewer.trim() }),
       });
       const data = (await res.json().catch(() => ({}))) as { path?: string; error?: string };
@@ -155,8 +143,10 @@ export function ReviewBoard({ view }: { view: DraftView }) {
             {needsFix} 項　退回 {rejected} 項
           </p>
 
-          <div className="note" style={{ marginBottom: 12, lineHeight: 1.8 }}>
-            <b>怎麼校對</b>
+          <details className="note rv-guide" style={{ marginBottom: 12, lineHeight: 1.8 }}>
+            <summary>
+              <b>怎麼校對</b>
+            </summary>
             <ol style={{ margin: "4px 0 0", paddingLeft: 20 }}>
               <li>
                 每一項左邊是<b>系統的理解</b>，右邊是<b>原文</b>（黃色底的是依據的那句話）。
@@ -172,7 +162,7 @@ export function ReviewBoard({ view }: { view: DraftView }) {
                 表單改不了的（例如需要新的判斷方式），按「留言給維護者」，等維護的人處理。
               </li>
             </ol>
-          </div>
+          </details>
 
           {docs.length > 0 ? (
             <div className="note" style={{ marginBottom: 12 }}>
@@ -190,27 +180,6 @@ export function ReviewBoard({ view }: { view: DraftView }) {
           ) : null}
 
           <div className="rv-who">
-            <input
-              type="text"
-              placeholder="你的姓名或代號（必填）"
-              aria-label="校對人"
-              value={reviewer}
-              onChange={(e) => {
-                setReviewer(e.target.value);
-                setStoredReviewer(e.target.value);
-              }}
-            />
-            <input
-              type="password"
-              placeholder="校對密碼"
-              aria-label="校對密碼"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => {
-                setPassword(e.target.value);
-                setReviewPassword(e.target.value);
-              }}
-            />
             <button
               className="btn btn-primary"
               disabled={busy || locked || approved !== total}
@@ -261,7 +230,7 @@ export function ReviewBoard({ view }: { view: DraftView }) {
             decision={byItem.get(item.id)}
             disabled={busy || locked}
             onDecide={decide}
-            edit={{ docs: allDocs, packId: view.packId, draftHash: view.draftHash, reviewer, password, free: freeFor(item) }}
+            edit={{ docs: allDocs, packId: view.packId, draftHash: view.draftHash, reviewer, free: freeFor(item) }}
           />
         ))}
       </div>
@@ -287,7 +256,6 @@ function ItemCard({
     packId: string;
     draftHash: string;
     reviewer: string;
-    password: string;
     free: { name: string; credits: number; othersExcludingThis: number; minCredits: number } | null;
   };
 }) {
@@ -387,7 +355,6 @@ function ItemCard({
             packId={edit.packId}
             draftHash={edit.draftHash}
             reviewer={edit.reviewer}
-            password={edit.password}
             freeCategory={edit.free}
             onCancel={() => setEditing(false)}
             onNoteOnly={noteOnly}

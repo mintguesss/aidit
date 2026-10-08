@@ -15,9 +15,12 @@ import { anchorOf, shortTitleOf } from "@/lib/rules/anchor";
 export function SourceLinks({
   citations,
   label = "依據",
+  folded = false,
 }: {
   citations: Citation[];
   label?: string;
+  /** 收起來只顯示「依據（N）」，點開才列連結 */
+  folded?: boolean;
 }) {
   const params = useSearchParams();
   const qs = params.toString();
@@ -31,6 +34,22 @@ export function SourceLinks({
     return true;
   });
 
+  if (folded) {
+    return (
+      <details className="srclinks-fold">
+        <summary>
+          {label}（{items.length}）＋
+        </summary>
+        <div className="srclinks">
+          {items.map((c) => (
+            <Link key={anchorOf(c.docId, c.locator)} href={`/sources${qs ? `?${qs}` : ""}#${anchorOf(c.docId, c.locator)}`}>
+              {shortTitleOf(c.docTitle)} {c.locator}
+            </Link>
+          ))}
+        </div>
+      </details>
+    );
+  }
   return (
     <div className="srclinks">
       <span className="lb">{label}</span>

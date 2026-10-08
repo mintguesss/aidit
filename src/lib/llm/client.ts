@@ -29,10 +29,12 @@ import type { LlmUsage } from "@/lib/types";
  * 換了模型就要重跑整份評測：不同模型的數字不能放在同一張比較表上，
  * 所以 MODEL_LABEL 會印進評測報告。
  */
+// 模型代號要用 Anthropic 現行的正式代號（2026-10 更新；舊的 claude-opus-5 不是正式代號，呼叫會失敗）。
+// 價格只用來算 trace 的成本欄位：實測前到 Anthropic Console 確認，與官方價目不符就改這裡
 const ANTHROPIC_MODELS = {
-  "claude-opus-5": { inputPerMTok: 5.0, outputPerMTok: 25.0, supportsEffort: true },
-  "claude-sonnet-5": { inputPerMTok: 2.0, outputPerMTok: 10.0, supportsEffort: true },
-  "claude-haiku-4-5": { inputPerMTok: 1.0, outputPerMTok: 5.0, supportsEffort: false },
+  "claude-opus-5-5": { inputPerMTok: 5.0, outputPerMTok: 25.0, supportsEffort: true },
+  "claude-sonnet-5-5": { inputPerMTok: 2.0, outputPerMTok: 10.0, supportsEffort: true },
+  "claude-haiku-4-5-20251001": { inputPerMTok: 1.0, outputPerMTok: 5.0, supportsEffort: false },
 } as const;
 
 export type Provider = "anthropic" | "openai-compatible";
@@ -80,7 +82,8 @@ function resolveConfig(): LlmConfig {
     );
   }
   // 用 || 而不是 ??：.env 裡留空會得到空字串，而空字串不是 nullish
-  const model = (want || "claude-opus-5") as keyof typeof ANTHROPIC_MODELS;
+  // 預設 Sonnet：模型只做意圖解析與公告適用判斷（短輸入、短輸出、照 schema 回答），不需要最強的推理
+  const model = (want || "claude-sonnet-5-5") as keyof typeof ANTHROPIC_MODELS;
   const spec = ANTHROPIC_MODELS[model];
   return {
     provider,

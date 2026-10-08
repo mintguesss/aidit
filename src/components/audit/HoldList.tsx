@@ -17,7 +17,7 @@ import { contactOf } from "@/lib/rules/contacts";
 export function HoldList({ holds, contactSubject }: { holds: HoldItem[]; contactSubject: string }) {
   if (holds.length === 0) {
     return (
-      <div className="empty">
+      <div className="holds-empty">
         <b>本次審查未產生待確認事項。</b>
         <br />
         所有結論皆有可回查之依據，且沒有任何修課命中規則包所記載的規則缺口。

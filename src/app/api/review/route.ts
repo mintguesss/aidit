@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { saveDecision, lockPack, editItem, type ReviewDecision } from "@/lib/review/store";
 import { EditError } from "@/lib/review/edit";
-import { checkReviewPassword, REVIEW_PASSWORD_HEADER } from "@/lib/review/auth";
+import { cookies } from "next/headers";
+import { REVIEW_COOKIE, reviewerFromSession } from "@/lib/review/auth";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,15 +24,22 @@ type Body =
 /**
  * 人工校對的寫入端點。
  *
- * 寫入要校對密碼（lib/review/auth.ts）：校對能鎖規則包版本，不能誰都能寫。
+ * 要先登入（/review/login，lib/review/auth.ts）：校對能鎖規則包版本，不能誰都能寫。
+ * 校對人一律記登入時的姓名，請求裡自帶的 reviewer 不採用。
  * 校對紀錄（誰、何時、通過或修正）會保留下來作為資料品質的證據。
  */
 export async function POST(req: Request) {
-  const auth = checkReviewPassword(req.headers.get(REVIEW_PASSWORD_HEADER));
-  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const reviewer = reviewerFromSession((await cookies()).get(REVIEW_COOKIE)?.value);
+  if (!reviewer) return NextResponse.json({ error: "登入已過期，請重新登入校對。", login: true }, { status: 401 });
 
-  const body = (await req.json().catch(() => null)) as Body | null;
-  if (!body?.packId) return NextResponse.json({ error: "缺少 packId。" }, { status: 400 });
+  const raw = (await req.json().catch(() => null)) as Body | null;
+  if (!raw?.packId) return NextResponse.json({ error: "缺少 packId。" }, { status: 400 });
+  const body: Body =
+    raw.action === "decide"
+      ? { ...raw, decision: { ...raw.decision, reviewer } }
+      : raw.action === "lock" || raw.action === "edit"
+        ? { ...raw, reviewer }
+        : raw;
 
   try {
     if (body.action === "decide") {

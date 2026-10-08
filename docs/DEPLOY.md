@@ -30,7 +30,7 @@
 | `AIDIT_TRACE_SECRET` | **要**，隨機長字串 | trace 去識別用的 HMAC 密鑰。沿用開發預設值等於任何人都能重算雜湊反推學號 |
 | `AIDIT_REVIEW_PASSWORD` | 選填 | 校對頁寫入與鎖版要輸入的密碼。沒設時用程式裡寫死的預設密碼（暫時做法，TODO E14） |
 | `ANTHROPIC_API_KEY` | 選填 | 不設就走確定性替身，trace 會標 `mode=offline`。Demo 給人看時建議不設，回答才每次都一樣 |
-| `AIDIT_LLM_MODEL` | 選填 | 不設為 `claude-opus-5`。換模型會連定價一起換，見 `.env.example` |
+| `AIDIT_LLM_MODEL` | 選填 | 不設為 `claude-sonnet-5-5`。換模型會連定價一起換，見 `.env.example` |
 | `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` | 選填 | 兩個都設才會啟用。不設就用檔案替身 |
 
 > `SUPABASE_SERVICE_ROLE_KEY` 有完整的資料庫權限，只能設為 Vercel 的

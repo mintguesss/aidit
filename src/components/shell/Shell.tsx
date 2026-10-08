@@ -47,6 +47,7 @@ export function Shell({
     { href: "/holds", label: "待確認", count: audit?.holds.length ?? 0, tone: "hold" },
     { href: "/plan", label: "選課建議" },
     { href: "/assistant", label: "修業問答" },
+    { href: "/scenario", label: "情境試算" },
   ];
 
   return (
@@ -60,14 +61,11 @@ export function Shell({
           <Suspense fallback={<nav className="topnav" aria-hidden />}>
             <Nav
               items={items}
+              // 個人資料（右上角姓名）、執行紀錄（右上角）、資料與隱私（頁尾）都有固定入口，不再重複。
+              // 適用規劃表與原文出處都是「判定依據的文件」，合成一個入口，兩頁互相連結
               more={[
-                { href: "/profile", label: "個人資料" },
-                { href: "/rulepack", label: "適用規劃表" },
-                { href: "/sources", label: "原文出處" },
-                { href: "/privacy", label: "資料與隱私" },
-                { href: "/scenario", label: "情境試算" },
-                { href: "/trace", label: "執行紀錄" },
-                // 內部作業：規則包的人工校對與鎖版。系統沒有登入前任何人都進得去（TODO E2）
+                { href: "/rulepack", label: "規劃表與原文" },
+                // 內部作業：規則包的人工校對與鎖版，要登入
                 { href: "/review", label: "規則校對" },
               ]}
             />

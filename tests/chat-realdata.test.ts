@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { answerCourseInfo, answerPersonalAudit, categoryFromText } from "@/lib/chat/capabilities";
+import { answerCourseInfo, answerPersonalAudit, categoryFromText, mentionsGraduationCheck } from "@/lib/chat/capabilities";
+import type { RulePack } from "@/lib/rules/schema";
 import { allOfferings } from "@/lib/offerings";
 import { applyParams, sanitiseConstraintSet } from "@/lib/chat/apply";
 import { fillEmpty } from "@/lib/chat/route";
@@ -234,5 +235,17 @@ describe("規定問答：畢業條件用關鍵字比、直接講規定（有模�
     const r = answerRegulation("畢業條件有哪些", await readPack(), audit);
     expect(r.headline).toContain("英文能力");
     expect(r.headline).toContain("程式語言機測");
+  });
+});
+
+describe("原句是否在問本系的畢業條件（模型判超出範圍時的後援）", () => {
+  const pack = {
+    graduationChecks: ["體育（四學期）", "資訊學科學習能力檢測", "英文能力（CEF B2）", "英語授課專業課程 3 學分", "程式語言機測", "全民國防教育軍事訓練", "導師時間"].map((name) => ({ name })),
+  } as unknown as RulePack;
+  it.each(["英文要考到多少才能畢業", "程式語言機測是什麼", "機測一定要考嗎", "體育要修幾學期才能畢業", "軍事訓練是畢業條件嗎"])("%s → 是", (said) => {
+    expect(mentionsGraduationCheck(said, pack)).toBe(true);
+  });
+  it.each(["我想學程式", "今天天氣如何", "學習是什麼", "專業是什麼", "我英文很爛"])("%s → 不是", (said) => {
+    expect(mentionsGraduationCheck(said, pack)).toBe(false);
   });
 });

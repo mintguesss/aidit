@@ -16,7 +16,9 @@ export type PageParams = { fixture: FixtureId; term: string };
 const TERM_RE = /^\d{3}-[12]$/;
 
 export function parsePageParams(sp: { fixture?: string; term?: string }): PageParams {
-  const f = FIXTURES.find((x) => x.id === sp.fixture);
+  // 匿名展示模式下網址用別名（school-a-…，見 lib/anon.ts），不讓網址列露出校名縮寫
+  const id = sp.fixture?.replace(/^school-a-/, "fju-");
+  const f = FIXTURES.find((x) => x.id === id);
   const fixture = (f?.id ?? defaultFixture()) as FixtureId;
   const g = FIXTURES.find((x) => x.id === fixture);
   // 沒指定學期就用案例自己的「目前學期」（大二結束的案例是 112-2）

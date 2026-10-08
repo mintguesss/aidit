@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { makeAnonymizer } from "@/lib/anon";
+import { ANON_BLOCKED_HREF, anonUrl, makeAnonymizer } from "@/lib/anon";
 
 /**
  * 匿名展示模式的顯示層（見 lib/anon.ts）。
@@ -31,6 +31,16 @@ export function AnonMode() {
         }
       };
       const fixAttrs = (el: Element) => {
+        if (el instanceof HTMLAnchorElement) {
+          const href = el.getAttribute("href");
+          if (href && anonUrl(href) !== href) el.setAttribute("href", anonUrl(href));
+          if (href && ANON_BLOCKED_HREF.test(href)) {
+            el.removeAttribute("href");
+            el.removeAttribute("download");
+            el.setAttribute("aria-disabled", "true");
+            el.setAttribute("title", "匿名展示模式下不提供此連結");
+          }
+        }
         for (const a of ATTRS) {
           const v = el.getAttribute(a);
           if (v) {
@@ -59,6 +69,9 @@ export function AnonMode() {
         }
       };
 
+      // 網址列也換成別名（不重新載入）
+      const here = location.pathname + location.search + location.hash;
+      if (anonUrl(here) !== here) history.replaceState(history.state, "", anonUrl(here));
       walk(document.body);
       document.title = anon(document.title);
       root.setAttribute("data-anon-ready", "");
@@ -71,8 +84,11 @@ export function AnonMode() {
         }
         const t = anon(document.title);
         if (t !== document.title) document.title = t;
+        // 客戶端換頁（切換示範學生）後網址可能又帶回真名
+        const url = location.pathname + location.search + location.hash;
+        if (anonUrl(url) !== url) history.replaceState(history.state, "", anonUrl(url));
       });
-      observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+      observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: [...ATTRS, "href"] });
     };
 
     fetch("/api/anon-terms")

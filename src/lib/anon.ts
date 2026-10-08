@@ -5,8 +5,9 @@
  * 系統用的是真實學校的真實資料 —— 匿名模式不換資料，只在畫面顯示前把會洩漏身分的字換掉，
  * 截圖與錄影就不用逐格打碼。
  *
- * 開關：網址加 ?anon=1 開啟（記在 cookie，換頁維持），?anon=0 關閉。
+ * 預設開啟（公開網站、公開 repo 一律匿名）；網址加 ?anon=0 關閉（記在 cookie，換頁維持），?anon=1 再打開。
  * 替換只發生在瀏覽器顯示層；伺服器、資料庫、trace 都不受影響。
+ * 會帶出真名的連結（學校網站、/api 下的原始資料）在匿名模式下停用。
  */
 
 export const ANON_COOKIE = "aidit-anon";
@@ -38,15 +39,21 @@ export const ANON_REPLACEMENTS: [string, string][] = [
   ["fju", "school-a"],
 ];
 
+/** 匿名模式下停用的連結：學校網站（網址帶校名）、/api 下的原始資料（JSON、原文，不經顯示層替換） */
+export const ANON_BLOCKED_HREF = /fju\.edu\.tw|\/api\//i;
+
+/** 網址裡的示範學生代號改用別名（lib/ui/params.ts 收到時換回來） */
+export const anonUrl = (s: string) => s.replace(/([?&]fixture=)fju-/g, "$1school-a-");
+
 /** 教師姓名一律換成這個 */
 export const ANON_TEACHER = "○老師";
 
 /** 前置腳本：在第一次繪製前決定要不要先藏起畫面，避免真名閃一下 */
 export const ANON_BOOT_SCRIPT = `(function(){try{
 var q=new URLSearchParams(location.search).get("anon");
-if(q==="1")document.cookie="${ANON_COOKIE}=1;path=/;max-age=31536000;samesite=lax";
-if(q==="0")document.cookie="${ANON_COOKIE}=;path=/;max-age=0;samesite=lax";
-if(/(?:^|; )${ANON_COOKIE}=1/.test(document.cookie))document.documentElement.setAttribute("data-anon","");
+if(q==="0")document.cookie="${ANON_COOKIE}=0;path=/;max-age=31536000;samesite=lax";
+if(q==="1")document.cookie="${ANON_COOKIE}=;path=/;max-age=0;samesite=lax";
+if(!/(?:^|; )${ANON_COOKIE}=0/.test(document.cookie))document.documentElement.setAttribute("data-anon","");
 }catch(e){}})();`;
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

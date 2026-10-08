@@ -222,7 +222,6 @@ function OutlinePanel({ o, outline }: { o: Offering; outline: Awaited<ReturnType
           <a href={url} target="_blank" rel="noreferrer">
             輔仁大學課程大綱系統
           </a>
-          （每天更新一次）
         </span>
       </div>
       <div className="panel-bd ol-body">

@@ -1,11 +1,11 @@
 """
-競賽文件 Markdown → Word（docs/competition/*.md → docs/competition/word/*.docx）。
+競賽文件 Markdown → Word（private/competition/*.md → private/competition/word/*.docx；private/ 不進 git）。
 
 Markdown 是原稿（放在 git 裡比對差異）；Word 版給團隊直接改、貼進簡報。
 支援這批文件用到的語法：標題、段落、項目／編號清單（含巢狀）、核取方塊、表格、
 粗體、行內程式碼、連結、刪除線、水平線。
 
-用法：python scripts/competition-docx.py                       （整個 docs/competition）
+用法：python scripts/competition-docx.py                       （整個 private/competition）
       python scripts/competition-docx.py <輸入.md> <輸出.docx>   （單一檔案）
 """
 
@@ -19,7 +19,7 @@ from docx.oxml.ns import qn
 from docx.shared import Pt, RGBColor
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / "docs" / "competition"
+SRC = ROOT / "private" / "competition"
 OUT = SRC / "word"
 FONT = "Microsoft JhengHei"
 MONO = "Consolas"

@@ -21,3 +21,6 @@ Thumbs.db
 
 # Python
 __pycache__/
+
+# 本機私人資料夾：競賽文件等不公開的內容
+private/

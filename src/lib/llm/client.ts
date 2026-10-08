@@ -32,8 +32,10 @@ import type { LlmUsage } from "@/lib/types";
 // 模型代號要用 Anthropic 現行的正式代號（2026-10 更新；舊的 claude-opus-5 不是正式代號，呼叫會失敗）。
 // 價格只用來算 trace 的成本欄位：實測前到 Anthropic Console 確認，與官方價目不符就改這裡
 const ANTHROPIC_MODELS = {
-  "claude-opus-5-5": { inputPerMTok: 5.0, outputPerMTok: 25.0, supportsEffort: true },
+  "claude-opus-5-5": { inputPerMTok: 4.0, outputPerMTok: 20.0, supportsEffort: true },
   "claude-sonnet-5-5": { inputPerMTok: 2.0, outputPerMTok: 10.0, supportsEffort: true },
+  // 2026-10-07 發布。價格分級，這裡用提示 10 萬 token 以下那一級（每輪的提示遠小於此）
+  "claude-haiku-5-5": { inputPerMTok: 0.1, outputPerMTok: 0.5, supportsEffort: true },
   "claude-haiku-4-5-20251001": { inputPerMTok: 1.0, outputPerMTok: 5.0, supportsEffort: false },
 } as const;
 
@@ -148,8 +150,11 @@ export const LLM_REASONING_EFFORT = (() => {
   // 是否生效由 /api/health 的 llm.reasoningEffort 回報。
   return LLM.provider === "openai-compatible" ? raw : undefined;
 })();
-/** 結構化輸出很小；刻意壓低上限以控成本，超過即視為輸出異常 */
-export const LLM_MAX_TOKENS = 1024;
+/**
+ * 結構化輸出很小；刻意壓低上限以控成本，超過即視為輸出異常。
+ * 5.5 系列預設會先思考，思考的 token 也算在這個上限裡，1024 可能在答案出來前就用完
+ */
+export const LLM_MAX_TOKENS = 2048;
 
 export class LlmBudgetExceeded extends Error {
   constructor(readonly limit: number) {

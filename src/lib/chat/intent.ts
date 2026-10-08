@@ -464,6 +464,9 @@ function emptyDelta() {
   };
 }
 
+/** 「這學期都不排通識」：整類不排，不是拿一門（模型填的 count="all" 也要原句有這種說法才算） */
+export const DROP_ALL_CUE = /全部|都(?:拿掉|不要|不排|去掉)|這學期(?:都)?不(?:想)?(?:排|修|要|上|選)|全拿掉/;
+
 function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
   const t = raw.replace(/\s/g, "");
   const base = {
@@ -582,11 +585,11 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
   // 「換成」「改成」：堂數不變（TODO G12）
   if (/換成|改成|換為|替換成|換一堂|換一門/.test(t)) d.replace = true;
   // 「拿掉一堂通識」「通識拿掉」「這學期不排通識」「不要通識」（TODO G12）
-  const dropBefore = /(?:拿掉|去掉|刪掉|移除|少(?:修|選|排|上)?|不要|不排)(\d|[一二兩三四])?[堂門個]?的?(通識|選修|必修|全人|核心|基本能力|群組)/.exec(t);
+  const dropBefore = /(?:拿掉|去掉|刪掉|移除|少(?:修|選|排|上)?|不要|不排|不想(?:上|修|選)|不(?:上|修))(\d|[一二兩三四])?[堂門個]?的?(通識|選修|必修|全人|核心|基本能力|群組)/.exec(t);
   const dropAfter = /把?(\d|[一二兩三四])?[堂門個]?的?(通識|選修|必修|全人|核心|基本能力|群組)(?:課程?)?(?:都|全部|全)?(?:拿掉|去掉|刪掉|移除|不要|不排|換成|改成|換掉)/.exec(t);
   const drop = dropBefore ?? dropAfter;
   if (drop) {
-    const all = /全部|都(?:拿掉|不要|不排|去掉)|這學期(?:都)?不(?:排|修|要)|全拿掉/.test(t);
+    const all = DROP_ALL_CUE.test(t);
     // 「通識拿掉，換成一堂 AI 的課」：沒說拿幾門，但「換成一堂」就是換一門
     const n = drop[1] ? numOf(drop[1]) : d.replace && /換成一[堂門個]|改成一[堂門個]/.test(t) ? 1 : null;
     d.dropCategory = { category: drop[2]!, count: all ? "all" : n };

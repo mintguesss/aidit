@@ -30,7 +30,8 @@ export type PlanTurnOutcome = {
   /** 1. 改了什麼條件 */
   changed: string[];
   /** 2. 課表差異 */
-  diff: { added: string[]; removed: string[]; unchanged: boolean };
+  /** moved：同一門課換了班（「課排下午」把人生哲學從星期二早上換到星期四下午） */
+  diff: { added: string[]; removed: string[]; moved?: string[]; unchanged: boolean };
   /** 3. 代價 */
   costs: string[];
   /** 無解時提出的放寬選項，由使用者決定要不要用 */
@@ -96,11 +97,16 @@ export function runPlanTurn(
   const afterMap = new Map((after?.courses ?? []).map((c) => [c.code, c.name]));
   const added = [...afterMap].filter(([k]) => !beforeMap.has(k)).map(([k, v]) => `${v}（${k}）`);
   const removed = [...beforeMap].filter(([k]) => !afterMap.has(k)).map(([k, v]) => `${v}（${k}）`);
+  // 同一門課換了班也是變動。只比課號的話，「課排下午」把人生哲學換到下午的班，畫面卻說「課表沒有變動」
+  const slotBefore = new Map((before?.courses ?? []).map((c) => [c.code, c.slotText]));
+  const moved = (after?.courses ?? [])
+    .filter((c) => slotBefore.has(c.code) && slotBefore.get(c.code) !== c.slotText)
+    .map((c) => `${c.name}改到${c.slotText}（原本${slotBefore.get(c.code)}）`);
 
   return {
     solve: result,
     changed,
-    diff: { added, removed, unchanged: added.length === 0 && removed.length === 0 },
+    diff: { added, removed, moved, unchanged: added.length === 0 && removed.length === 0 && moved.length === 0 },
     costs: computeCosts(ctx, before, after, result),
     relaxOptions: result.ok ? [] : relaxationOptions(set, result),
     constraints: describeSet(set, names),

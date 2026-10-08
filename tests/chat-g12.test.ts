@@ -157,3 +157,36 @@ describe("要拿掉的類別要對得上（isDropCategory）", () => {
     expect(isDropCategory(category, raw, pack)).toBe(want);
   });
 });
+
+describe("有模型版實測找到的（2026-10-09）", () => {
+  it("「我想多修一堂程式相關的課」：+1 堂，原本的課全部保留（主題課換一門不衝堂的，不擠掉生死學）", async () => {
+    const { codes, r } = await talk("我想多修一堂程式相關的課");
+    expect(codes.length).toBe(shown0.length + 1);
+    for (const c of shown0) expect(codes).toContain(c);
+    expect(codes.some((c) => r.plan!.constraintSet.wantTopic!.codes.includes(c))).toBe(true);
+  });
+
+  it("「這學期不想上通識課」：整類不排，不會多一句「找不到『通識課』」", async () => {
+    const { r, plan } = await talk("這學期不想上通識課");
+    expect(r.reply.headline).not.toContain("找不到");
+    expect(plan!.courses.some(isGeneral)).toBe(false);
+  });
+
+  it("「我不想修人生哲學」：它是全人核心這學期唯一能補的課 → 不拿掉、說明原因，課表維持原樣", async () => {
+    const { r, codes } = await talk("我不想修人生哲學");
+    expect(r.reply.headline).toContain("做不到");
+    expect(r.reply.detail).toContain("唯一能補的課");
+    expect(codes).toEqual(expect.arrayContaining(shown0));
+  });
+
+  it("「課排下午」把人生哲學換到下午的班：要說換了班，不能說課表沒有變動", async () => {
+    const { r } = await talk("我早上爬不起來，課排下午");
+    expect(r.reply.detail).toContain("換班：人生哲學改到");
+    expect(r.reply.detail).not.toContain("課表沒有變動");
+  });
+
+  it("「幫我排輕鬆一點」課表沒變：說明已經在學期學分下限", async () => {
+    const { r } = await talk("幫我排輕鬆一點的課表");
+    expect(r.reply.detail).toContain("學期學分下限");
+  });
+});

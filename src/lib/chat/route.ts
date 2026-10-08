@@ -9,6 +9,7 @@ import {
   parsePlanIntent,
   ruleAskIntent,
   rulePlanIntent,
+  DROP_ALL_CUE,
   type AskIntentResult,
   type PlanIntentResult,
   type PlanParams,
@@ -207,6 +208,19 @@ export async function planTurn(
     intent = { ...intent, params: { ...intent.params, dropCategory: null } };
     tools.push("rule.drop-category-ignored");
   }
+  if (intent.params.dropCategory) {
+    const d = intent.params.dropCategory;
+    const t = raw.replace(/\s/g, "");
+    // 數量也要原句有：實測 qwen3:14b 對「通識拿掉」填 count="all"，沒問就整類不排了
+    const count =
+      d.count === "all" ? (DROP_ALL_CUE.test(t) ? "all" : null)
+      : d.count !== null && !/[\d一二兩三四五六][堂門個]/.test(t) && !(intent.params.replace && /換成|改成/.test(t)) ? null
+      : d.count;
+    // 模型常把類別也塞進要排除的課名（「通識課」），那不是課名，查不到只會多一句「找不到」
+    const word = d.category.replace(/課程?$/, "");
+    const excludeCourses = intent.params.excludeCourses.filter((x) => !new RegExp(`^${word}(?:的)?(?:課程?|類)?$`).test(x.replace(/\s/g, "")));
+    intent = { ...intent, params: { ...intent.params, dropCategory: { ...d, count }, excludeCourses } };
+  }
   // 「拿掉一堂通識」「這學期不排通識」「換另一門」（TODO G12）：要看眼前課表上哪幾門屬於那一類
   const drop = resolveDrop(intent.params, raw, shown, ctx);
   if (drop.reply) return { reply: drop.reply, tools, intent: intent.intent, clarifying: true };
@@ -281,7 +295,31 @@ export async function planTurn(
     changed = relabel(changesOf(params, undone.next));
     outcome = runPlanTurn(solveFor(undone.next), undone.next, shown, changed, periodNamesFor(ctx.record.student.school));
   }
-  const notDone = [...undone.reasons, ...unsupportedAsks(raw)];
+  // 拿掉的課是某一類這學期唯一能補的（「我不想修人生哲學」，全人核心只有它）：整份課表會排不出來。
+  // 不套用這個排除、講清楚為什麼，而不是回「查無開課，請洽系辦加開」（TODO G12：必修沒得換就保留）
+  const kept: string[] = [];
+  const newExcl = applied.next.excludeCourses.filter((c) => !ctx.constraints.excludeCourses.includes(c));
+  if (!outcome.solve.ok && newExcl.length > 0) {
+    const without = { ...applied.next, excludeCourses: applied.next.excludeCourses.filter((c) => !newExcl.includes(c)) };
+    const changedWithout = relabel(changesOf(params, without));
+    const retry = runPlanTurn(solveFor(without), without, shown, changedWithout, periodNamesFor(ctx.record.student.school));
+    if (retry.solve.ok) {
+      const cats = [...new Set(outcome.solve.infeasibilities.map((i) => i.category.replace(/\s*\d+\s*學分$/, "")))].join("、");
+      const names = newExcl.map((c) => `「${courseName(c, ctx)}」`).join("、");
+      kept.push(`${names}是${cats ? `「${cats}」` : "必修"}這學期唯一能補的課，拿掉就排不出課表，所以先保留。`);
+      applied = { ...applied, next: without };
+      changed = changedWithout;
+      outcome = retry;
+    }
+  }
+  // 「輕鬆一點」卻沒變：已經在學期學分下限了，要講出來，不然看起來像沒聽懂
+  const light: string[] = [];
+  const nowPlan = outcome.solve.ok ? outcome.solve.plans[0] : undefined;
+  if (applied.next.goal === "light" && ctx.constraints.goal !== "light" && outcome.diff.unchanged && nowPlan) {
+    const min = solveFor(applied.next).termMinCredits;
+    if (nowPlan.totalCredits <= min) light.push(`這份課表 ${nowPlan.totalCredits} 學分，已經是學期學分下限 ${min} 學分，沒辦法再少。`);
+  }
+  const notDone = [...undone.reasons, ...kept, ...light, ...unsupportedAsks(raw)];
 
   if (applied.unresolved.length > 0) {
     return {
@@ -460,6 +498,7 @@ function planReply(o: PlanTurnOutcome, requested: boolean, notDone: string[] = [
     : [
         o.diff.removed.length > 0 ? `移除 ${o.diff.removed.join("、")}` : "",
         o.diff.added.length > 0 ? `加入 ${o.diff.added.join("、")}` : "",
+        (o.diff.moved ?? []).length > 0 ? `換班：${o.diff.moved!.join("、")}` : "",
       ]
         .filter(Boolean)
         .join("；") + "。";

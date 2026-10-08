@@ -382,3 +382,21 @@ describe("模型亂填要拿掉的類別（TODO G12 後續）", () => {
     expect(r.plan!.constraintSet.avoidPeriods).toHaveLength(5);
   });
 });
+
+describe("模型填的拿掉數量要原句有（有模型版實測）", () => {
+  it("「通識拿掉」模型填 count=\"all\" → 原句沒說全部，先問，不直接整類不排", async () => {
+    const r = await withModel("通識拿掉", {
+      kind: "intent", intent: "swap-course", reason: "",
+      params: { ...empty(), dropCategory: { category: "通識", count: "all" } },
+    });
+    expect(r.plan?.constraintSet.skipCategories ?? []).toEqual([]);
+  });
+
+  it("模型把「通識課」也塞進要排除的課名 → 忽略，不回「找不到『通識課』」", async () => {
+    const r = await withModel("這學期不想上通識課", {
+      kind: "intent", intent: "swap-course", reason: "",
+      params: { ...empty(), excludeCourses: ["通識課"], dropCategory: { category: "通識", count: "all" } },
+    });
+    expect(r.reply.headline).not.toContain("找不到");
+  });
+});

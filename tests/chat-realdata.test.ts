@@ -216,3 +216,23 @@ describe("分項條件：v0.7 的「本系專業選修」是「選修課程」�
     expect(r.detail).toContain("未修 18");
   });
 });
+
+describe("規定問答：畢業條件用關鍵字比、直接講規定（有模型版實測）", () => {
+  const readPack = async () => {
+    const { readFileSync } = await import("node:fs");
+    const { zRulePack } = await import("@/lib/rules/schema");
+    return zRulePack.parse({ ...JSON.parse(readFileSync("docs/review/fju-im-111.draft.json", "utf8")), provenance: "approved", approvedBy: "t" });
+  };
+  it("「英文畢業門檻是什麼」答英文能力的規定，不是最低畢業學分", async () => {
+    const { answerRegulation } = await import("@/lib/chat/capabilities");
+    const r = answerRegulation("英文畢業門檻是什麼", await readPack(), audit);
+    expect(r.headline).toContain("CEF");
+    expect(r.headline).not.toContain("最低畢業學分");
+  });
+  it("「畢業條件有哪些」列出學分以外的條件", async () => {
+    const { answerRegulation } = await import("@/lib/chat/capabilities");
+    const r = answerRegulation("畢業條件有哪些", await readPack(), audit);
+    expect(r.headline).toContain("英文能力");
+    expect(r.headline).toContain("程式語言機測");
+  });
+});

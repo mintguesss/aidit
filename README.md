@@ -9,6 +9,7 @@
 
 | 你想做什麼 | 讀哪份 |
 |---|---|
+| **一份讀完整個系統**（Word） | [docs/系統文件.docx](docs/系統文件.docx)，原稿 [docs/系統文件.md](docs/系統文件.md) |
 | 了解系統怎麼運作 | 本檔 §架構（往下捲） |
 | 參與開發 | [CONTRIBUTING.md](CONTRIBUTING.md) —— 規則、CI、不要做的事 |
 | 接手後端 | [docs/HANDOVER.md](docs/HANDOVER.md)，再讀上一列 |

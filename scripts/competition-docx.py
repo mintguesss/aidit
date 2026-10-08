@@ -5,7 +5,8 @@ Markdown 是原稿（放在 git 裡比對差異）；Word 版給團隊直接改�
 支援這批文件用到的語法：標題、段落、項目／編號清單（含巢狀）、核取方塊、表格、
 粗體、行內程式碼、連結、刪除線、水平線。
 
-用法：python scripts/competition-docx.py
+用法：python scripts/competition-docx.py                       （整個 docs/competition）
+      python scripts/competition-docx.py <輸入.md> <輸出.docx>   （單一檔案）
 """
 
 import re
@@ -106,6 +107,17 @@ def convert(md: Path, out: Path):
             flush()
             i += 1
             continue
+        if s.startswith("```"):
+            # 程式碼區塊：等寬字、保留縮排
+            flush()
+            i += 1
+            while i < len(lines) and not lines[i].strip().startswith("```"):
+                par = doc.add_paragraph()
+                par.paragraph_format.space_after = Pt(0)
+                set_font(par.add_run(lines[i].rstrip() or " "), name=MONO, size=9.5, color="22456E")
+                i += 1
+            i += 1
+            continue
         if s.startswith("|"):
             flush()
             rows = []
@@ -156,6 +168,11 @@ def convert(md: Path, out: Path):
 
 
 def main():
+    # 指定單一檔案：python scripts/competition-docx.py <輸入.md> <輸出.docx>
+    if len(sys.argv) == 3:
+        convert(Path(sys.argv[1]), Path(sys.argv[2]))
+        print(f"{sys.argv[1]} → {sys.argv[2]}")
+        return
     OUT.mkdir(exist_ok=True)
     for md in sorted(SRC.glob("*.md")):
         out = OUT / (("00-總覽" if md.stem == "README" else md.stem) + ".docx")

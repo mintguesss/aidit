@@ -18,6 +18,7 @@ import {
   answerCourseInfo,
   answerPersonalAudit,
   categoryFromText,
+  subRuleNamed,
   answerProcedure,
   answerRegulation,
   capabilityLimits,
@@ -200,6 +201,12 @@ export async function planTurn(
     }
   }
 
+  // 模型有時把 dropCategory 填成空字串或「早上的課」：空字串會比對到每一類，
+  // 變成「課表上有 5 門…要拿掉一門，還是這學期都不排「」？」。對不上規則包的類別就當沒說
+  if (intent.params.dropCategory && !isDropCategory(intent.params.dropCategory.category, raw, ctx.pack)) {
+    intent = { ...intent, params: { ...intent.params, dropCategory: null } };
+    tools.push("rule.drop-category-ignored");
+  }
   // 「拿掉一堂通識」「這學期不排通識」「換另一門」（TODO G12）：要看眼前課表上哪幾門屬於那一類
   const drop = resolveDrop(intent.params, raw, shown, ctx);
   if (drop.reply) return { reply: drop.reply, tools, intent: intent.intent, clarifying: true };
@@ -540,6 +547,8 @@ export async function askTurn(
         // 不該退回整體進度，使用者明明說了「通識」。
         reply: answerPersonalAudit(
           ctx.audit,
+          // 原句說的是分項條件（「系專選」「本系專業選修」）就用它：模型常會填成上一層的類別
+          subRuleFrom(ctx.audit, p.raw) ??
           spokenCategory(p.category, p.raw) ??
             (rules.kind === "intent" && rules.intent === "personal-audit" ? rules.params.category : undefined) ??
             // 規則與模型都沒認出類別時，拿這位學生自己的類別名稱去比原句：
@@ -799,6 +808,18 @@ function correctOtherInstitution<T extends { kind: string }>(intent: T, rules: T
 
 // ---------------------------------------------------------------- 拿掉某一類（TODO G12）
 
+/**
+ * 要拿掉的類別說法是否成立：原句真的提到（至少兩個連續字），而且跟規則包某一類的名稱
+ * 有兩個連續字相同（去掉「課程」後比）。「早上的課」「」都不算。
+ */
+export function isDropCategory(category: string | null | undefined, raw: string, pack: RulePack): boolean {
+  const word = (category ?? "").replace(/課程|\s/g, "");
+  if (word.length < 2 || !spokenCategory(word, raw)) return false;
+  const pairs = (s: string) => new Set([...s].slice(0, -1).map((_, i) => s.slice(i, i + 2)));
+  const mine = pairs(word);
+  return pack.categories.some((c) => [...pairs(c.name.replace(/課程|\s/g, ""))].some((p) => mine.has(p)));
+}
+
 /** 我們問「要拿掉一門，還是這學期都不排？」時的固定問句；用來認出下一句是在回答它 */
 const DROP_ASK = "還是這學期都不排";
 
@@ -942,4 +963,10 @@ function strictKeep(shown: Plan | undefined, set: ConstraintSet, offerings: Offe
 function courseName(code: string, ctx: TurnContext): string {
   const [y, t] = ctx.audit.nextTerm.split("-").map(Number) as [number, 1 | 2];
   return offeringsFor(y, t, schoolOf(ctx.record.student)).find((o) => o.code === code)?.name ?? code;
+}
+
+/** 原句指的是某個分項條件（見 capabilities 的 categoryFromText）時回傳它的名稱 */
+function subRuleFrom(audit: AuditResult, raw: string): string | undefined {
+  const name = categoryFromText(audit, raw);
+  return name && subRuleNamed(audit, name) ? name : undefined;
 }

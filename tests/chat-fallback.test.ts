@@ -370,3 +370,15 @@ describe("「他校事務」要有別的學校才算（TODO G3）", () => {
     expect(ruleAskIntent(withoutOwnSchool("輔大的畢業門檻是多少", "demo"))).toMatchObject({ kind: "forbidden", topic: "other-institution" });
   });
 });
+
+describe("模型亂填要拿掉的類別（TODO G12 後續）", () => {
+  it.each(["", "早上的課"])("「不要早上的課」模型填 dropCategory=「%s」→ 不問「要拿掉哪一類」，照樣不排早上", async (category) => {
+    const r = await withModel("不要早上的課", {
+      kind: "intent", intent: "adjust-time", reason: "",
+      params: { ...empty(), dropCategory: { category, count: null } },
+    });
+    expect(r.reply.headline).not.toContain("還是這學期都不排");
+    expect(r.clarifying).toBeFalsy();
+    expect(r.plan!.constraintSet.avoidPeriods).toHaveLength(5);
+  });
+});

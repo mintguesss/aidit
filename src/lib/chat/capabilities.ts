@@ -39,12 +39,43 @@ export function categoryFromText(audit: AuditResult, text: string): string | und
   };
   const scored = audit.categories.map((c) => ({ name: c.name, n: lcs(c.name) })).sort((a, b) => b.n - a.n);
   const top = scored[0];
-  if (!top || top.n < 2 || scored[1]?.n === top.n) return undefined;
-  return top.name;
+  const catName = !top || top.n < 2 || scored[1]?.n === top.n ? undefined : top.name;
+  // 分項條件（輔大 v0.7 的「本系專業選修」是「選修課程」底下的條件，不是一類）另外比。
+  // 要比類別對得更長才算：「通識」對「通識涵養課程」與「三大通識領域」一樣長，仍答類別
+  const subs = audit.categories
+    .flatMap((c) => c.subRules.filter((s) => typeof s.name === "string" && s.name).map((s) => ({ name: s.name, n: lcs(s.name) })))
+    .sort((a, b) => b.n - a.n);
+  const sub = subs[0];
+  if (sub && sub.n >= 2 && sub.n > (top?.n ?? 0) && subs[1]?.n !== sub.n) return sub.name;
+  return catName;
+}
+
+/** 名稱是某一類底下的分項條件（「本系專業選修」）時，回傳那一類與那個條件 */
+export function subRuleNamed(audit: AuditResult, name: string) {
+  for (const cat of audit.categories) {
+    const sub = cat.subRules.find((s) => s.name === name);
+    if (sub) return { cat, sub };
+  }
+  return undefined;
 }
 
 export function answerPersonalAudit(audit: AuditResult, category?: string): Reply {
   const holds = audit.holds.length;
+
+  // 問的是分項條件（「本系專業選修夠了嗎」）：答那個條件本身，不是整個「選修課程」還差多少
+  const named = category ? subRuleNamed(audit, category) : undefined;
+  if (named) {
+    const { cat, sub } = named;
+    return {
+      kind: "決定",
+      headline: `${sub.name}${sub.status === "satisfied" ? "已滿足" : "還沒達到"}：${sub.detail}`,
+      detail:
+        `這是「${cat.name}」底下的條件。${cat.name}整體：應修 ${cat.required}、已修 ${cat.earned}、` +
+        `修課中 ${cat.inProgress}、未修 ${cat.unmet}。`,
+      citations: (sub.citations.length > 0 ? sub.citations : cat.citations).slice(0, 2),
+      uncountedHolds: holds,
+    };
+  }
 
   if (category) {
     const cat =

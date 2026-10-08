@@ -183,3 +183,36 @@ describe("有本系保留班的課，只列本系的班", () => {
     for (const o of own) expect(r.detail).toContain(o.teacher);
   });
 });
+
+describe("分項條件：v0.7 的「本系專業選修」是「選修課程」底下的條件，不是一類", () => {
+  const withSub = (name: string, unmet: number, subs: { name: string; status: "satisfied" | "unmet"; detail: string }[]) =>
+    ({
+      ...(cat(name, unmet) as object),
+      subRules: subs.map((s) => ({ id: s.name, ...s, citations: [] })),
+    }) as unknown as CategoryResult;
+  const v07 = {
+    ...audit,
+    categories: [
+      cat("全人教育核心課程", 0),
+      withSub("通識涵養課程", 2, [{ name: "三大通識領域", status: "unmet", detail: "三大領域各至少 4 學分；尚缺 社會科學 領域。" }]),
+      cat("院系必修課程", 0),
+      withSub("選修課程", 18, [{ name: "本系專業選修", status: "satisfied", detail: "至少 10 學分，已修 14 學分。" }]),
+    ],
+  } as unknown as AuditResult;
+
+  it.each([
+    ["本系專業選修夠了嗎", "本系專業選修"],
+    ["系專選還差多少", "本系專業選修"],
+    ["通識還差多少", "通識涵養課程"], // 「通識」對類別與「三大通識領域」一樣長：仍答類別
+    ["選修還差多少", "選修課程"],
+  ])("%s → %s", (said, name) => {
+    expect(categoryFromText(v07, said)).toBe(name);
+  });
+
+  it("答條件本身：已滿足，並附上整個選修課程的進度", () => {
+    const r = answerPersonalAudit(v07, "本系專業選修");
+    expect(r.headline).toBe("本系專業選修已滿足：至少 10 學分，已修 14 學分。");
+    expect(r.detail).toContain("選修課程整體");
+    expect(r.detail).toContain("未修 18");
+  });
+});

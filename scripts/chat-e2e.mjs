@@ -152,7 +152,8 @@ const CASES = [
     } },
   { g: "多輪", scope: "plan", turns: ["課排在兩天內就好"],
     check: (r) => cs(r)?.maxDays === 2 || `沒套用兩天：${r.reply.headline}` },
-  { g: "多輪", scope: "plan", turns: ["空出星期五", "取消剛剛的調整"],
+  // 「取消剛剛的調整」是退一步，由畫面上的對話紀錄處理（ChatPanel 的 UNDO），不經後端；這裡測「全部取消」
+  { g: "多輪", scope: "plan", turns: ["空出星期五", "全部取消"],
     check: (r) => cs(r) && !cs(r).avoidDays?.includes(5) || `沒取消：${r.reply.headline}` },
   { g: "多輪", scope: "plan", turns: ["空出星期五", "重來"],
     check: (r) => cs(r) && !cs(r).avoidDays?.includes(5) && r.intent !== "compare" || `沒重設：${r.intent} ${r.reply.headline}` },

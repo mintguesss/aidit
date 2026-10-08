@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { auditCredits } from "@/lib/audit/engine";
 import { zRulePack } from "@/lib/rules/schema";
 import { fixture } from "@/lib/providers/fixtures";
-import { planTurn } from "@/lib/chat/route";
+import { isDropCategory, planTurn } from "@/lib/chat/route";
 import { buildContext } from "@/lib/chat/plan-turn";
 import { constraintSetFrom, preferencesOf } from "@/lib/chat/apply";
 import { rulePlanIntent } from "@/lib/chat/intent";
@@ -141,5 +141,19 @@ describe("改回去 vs 重來", () => {
     expect(undo.kind === "intent" && undo.params.reset).toBeFalsy();
     const reset = rulePlanIntent("重來");
     expect(reset.kind === "intent" && reset.params.reset).toBe(true);
+  });
+});
+
+describe("要拿掉的類別要對得上（isDropCategory）", () => {
+  it.each([
+    ["通識", "通識拿掉", true],
+    ["通識涵養課程", "拿掉一堂通識", true],
+    ["選修", "這學期不排選修", true],
+    ["", "不要早上的課", false],
+    ["早上的課", "不要早上的課", false],
+    ["通識", "不要早上的課", false], // 原句沒說
+    ["體育", "體育拿掉", false], // 規則包沒有這一類
+  ] as const)("「%s」＋原句「%s」→ %s", (category, raw, want) => {
+    expect(isDropCategory(category, raw, pack)).toBe(want);
   });
 });

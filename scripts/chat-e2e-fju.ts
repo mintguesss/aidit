@@ -98,11 +98,23 @@ for (const fx of ["fju-im-111-year2", "fju-im-111-year3", "fju-im-111-year1"]) {
       audit.unmet === 0 ? (/已|滿足|0/.test(r.reply.headline) || `應已修畢：${r.reply.headline}`) :
       !r.reply.headline.includes(want) ? `應含「${want}」` : bad.length ? `類別數字不符：${bad.map((c) => `${c.name} ${c.unmet}`).join("、")}` : true);
   }
-  for (const [q, name] of [["通識還差多少？", "通識涵養課程"], ["院系必修還差多少？", "院系必修課程"], ["系專選還差多少學分？", "本系專業選修"]] as const) {
+  for (const [q, name] of [["通識還差多少？", "通識涵養課程"], ["院系必修還差多少？", "院系必修課程"]] as const) {
     const [r] = await chat(fx, "ask", [q]);
     const c = cat(name);
     const ok = r.reply.headline.startsWith(name) && (c.unmet > 0 ? r.reply.headline.includes(`還差 ${c.unmet} 學分`) : /已滿足|已足/.test(r.reply.headline));
     record(fx, "問答", q, r, ok || `標準答案：${name} 未修 ${c.unmet}`);
+  }
+  {
+    // 規則包 v0.7 起「本系專業選修」是「選修課程」底下的條件，不是一類：答案要講條件本身
+    const owner = audit.categories.find((c) => c.subRules.some((s) => s.name === "本系專業選修"));
+    const sub = owner?.subRules.find((s) => s.name === "本系專業選修");
+    for (const q of ["系專選還差多少學分？", "本系專業選修夠了嗎？"]) {
+      const [r] = await chat(fx, "ask", [q]);
+      const ok = sub
+        ? r.reply.headline.startsWith("本系專業選修") && r.reply.headline.includes(sub.status === "satisfied" ? "已滿足" : "還沒達到")
+        : false;
+      record(fx, "問答", q, r, ok || `標準答案：本系專業選修${sub?.status === "satisfied" ? "已滿足" : "還沒達到"}（${sub?.detail ?? "規則包沒有這個條件"}）`);
+    }
   }
   {
     // 通識缺領域時，回答必須講出缺哪個領域 —— 只說「還差 N 學分」會讓學生隨便修 N 學分的通識

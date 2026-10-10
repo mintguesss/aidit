@@ -27,7 +27,7 @@ const OUT = join(process.cwd(), "docs", "screenshots");
  */
 const PATCH = `
   .topbar{position:static !important}
-  .chat-log{max-height:none !important}
+  .msgr-log{max-height:none !important}
 `;
 
 const DESKTOP = { width: 1280, height: 900 };
@@ -35,9 +35,9 @@ const MOBILE = { width: 390, height: 844 };
 
 const shots = [];
 
-async function capture(page, name, title) {
+async function capture(page, name, title, fullPage = true) {
   const file = `${name}.png`;
-  await page.screenshot({ path: join(OUT, file), fullPage: true });
+  await page.screenshot({ path: join(OUT, file), fullPage });
   shots.push({ file, title });
   console.log(`  ${file}`);
 }
@@ -74,14 +74,16 @@ console.log("桌機 1280px");
   await capture(page, "03-audit-expanded", "修業明細：展開採計科目、分項規定與依據");
 
   await go(page, "/holds");
-  await capture(page, "04-holds", "待確認事項：可一鍵寄信給承辦窗口");
+  await capture(page, "04-holds", "待確認事項：收起只看事項、影響、找誰；可記錄自己的處理進度");
 
+  // 課表在彈出視窗裡：彈出視窗是固定定位，拍視窗範圍而不是整頁
   await go(page, "/plan");
-  await capture(page, "05-plan-grid", "選課建議：週課表");
+  await page.getByRole("button", { name: "查看建議課表" }).click();
+  await page.waitForTimeout(500);
+  await capture(page, "05-plan-grid", "選課建議：週課表（彈出視窗）", false);
   await page.getByRole("button", { name: "清單" }).click().catch(() => {});
   await page.waitForTimeout(400);
-  await page.addStyleTag({ content: PATCH });
-  await capture(page, "06-plan-list", "選課建議：清單檢視");
+  await capture(page, "06-plan-list", "選課建議：清單檢視（彈出視窗）", false);
 
   await go(page, "/plan");
   for (const t of ["空出星期五", "為什麼沒有選企業流程管理"]) {

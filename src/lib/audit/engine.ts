@@ -623,6 +623,9 @@ function buildHolds(
       impact,
       contact: ambiguity.contact,
       affectedCategory: ambiguity.affects === "thisCategory" ? category.id : undefined,
+      reason: `${ambiguity.description.replace(/[。．.]\s*$/, "")}。`,
+      courses: list.map((h) => ({ code: h.course.code, name: h.course.name, credits: h.course.credits })),
+      searched: ambiguity.searchedSources,
     });
   }
 
@@ -631,6 +634,7 @@ function buildHolds(
     if (g.rule !== "deptDefined") continue;
     const r = input.deptDefinedResolutions?.[g.id];
     if (r?.resolved) continue;
+    const searched = g.searchedSources.length > 0 ? g.searchedSources : ["系網公告"];
     holds.push({
       id: `hold-check-${g.id}`,
       title: `${g.name}檢定標準查無適用本學年度之明文`,
@@ -642,6 +646,8 @@ function buildHolds(
       citations: [toCitation(g.citation, pack), ...(r?.citations ?? [])],
       impact: "畢業條件之一無法判定，未計入上方判定。",
       contact: g.contact,
+      reason: r?.detail ?? g.holdDetail ?? `課程規劃表就${g.name}記載「各系自訂」，所得公告未載明適用之入學學年。`,
+      searched: r?.detail ? undefined : searched,
     });
   }
 

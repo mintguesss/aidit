@@ -1,57 +1,26 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import Link from "next/link";
-import type { Citation, ExclusionReason, Infeasibility, Plan, WhatIfResult } from "@/lib/types";
-import { LIMITS, type ConstraintSet, type Reply, type ReplyKind } from "@/lib/chat/types";
-import { CitationToggle } from "../sources/CitationToggle";
+import type { ExclusionReason, WhatIfResult } from "@/lib/types";
+import { LIMITS, type ConstraintSet, type Reply } from "@/lib/chat/types";
+import { Messenger } from "./Messenger";
+import { Thread } from "./Thread";
+import type { PlanUpdate, Tip, Turn } from "./shared";
+
+export type { PlanUpdate } from "./shared";
 
 /**
- * 對話框（docs/CONVERSATION.md §3）。
+ * 對話框（docs/CONVERSATION.md §3）：送訊息、改回去、附加檔案的邏輯都在這裡，
+ * 畫面交給兩種完全不同的版面 ——
+ *   調整課表（scope=plan）  Messenger：訊息泡泡，短句來回，課表變動是泡泡裡的標籤
+ *   修業問答（scope=ask）   Thread：一問一答的問答串，答案攤開成段落，依據接在後面
  *
- * 三種回答各有固定的視覺：
- *   決定     藍色左帶，附依據
- *   不確定   琥珀色左帶，列出查過什麼、建議洽詢誰
- *   超出範圍 灰色左帶，一句話指向正確管道
- *
- * 需要重新推算的結果（課表、試算、排除原因）以卡片夾在該則回覆下方，
- * 讓「問了什麼 → 系統算了什麼 → 依據是什麼」在同一個位置看得完。
+ * 三種回答（決定／不確定／超出範圍）兩邊都看得出來，只是呈現方式不同。
  */
-
-export type PlanUpdate = {
-  plans: Plan[];
-  conflicts?: Infeasibility[];
-  constraints: ConstraintSet;
-  constraintLabels: string[];
-  changed: string[];
-  diff: { added: string[]; removed: string[]; moved?: string[]; unchanged: boolean };
-  costs: string[];
-  relaxOptions: string[];
-};
-
-type Turn = {
-  id: number;
-  role: "user" | "assistant";
-  text?: string;
-  at: string;
-  reply?: Reply;
-  plan?: PlanUpdate;
-  whatif?: WhatIfResult;
-  explanation?: ExclusionReason;
-  redirect?: "plan";
-  traceId?: string;
-  pending?: boolean;
-};
 
 /** 「改回去」「回上一版」：退一步，在畫面上用之前那一輪的課表與條件，不必問後端（TODO G12） */
 const UNDO =
   /^(?:改回去|改回來|回上一版|回到上一版|上一版|回上一步|回到上一步|上一步|復原|還原|退回上一步|撤銷|撤回|取消剛剛(?:的|那個)?(?:調整|修改|改動|變更)?|剛剛的不要了?)[。！!～~]?$/;
-
-const KIND_CLASS: Record<ReplyKind, string> = {
-  決定: "decided",
-  不確定: "uncertain",
-  超出範圍: "outside",
-};
 
 export function ChatPanel({
   title,
@@ -69,6 +38,7 @@ export function ChatPanel({
   rulepackHref,
   stamp,
   shownCourses,
+  onOpenPlan,
 }: {
   title: string;
   hint: string;
@@ -76,7 +46,8 @@ export function ChatPanel({
   fixture: string;
   term: string;
   placeholder: string;
-  tips: string[];
+  /** 常用問法；修業問答可以附上分類（{ q, k }），起始畫面的卡片會顯示 */
+  tips: Tip[];
   guide: ReactNode;
   /** 空白狀態的一句話；完整規則收在上方的可展開區塊 */
   intro: string;
@@ -93,6 +64,8 @@ export function ChatPanel({
    * 後端沒有 session，不送的話它只能用條件重算，而那不一定是使用者眼前的這一份。
    */
   shownCourses?: string[];
+  /** 在彈出視窗裡看某一版的課表（調整課表用） */
+  onOpenPlan?: (p: PlanUpdate, label: string) => void;
 }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState("");
@@ -302,314 +275,49 @@ export function ChatPanel({
 
   const userTurns = turns.filter((t) => t.role === "user").length;
 
+  const view = {
+    title,
+    hint,
+    stamp,
+    intro,
+    guide,
+    placeholder,
+    tips,
+    turns,
+    busy,
+    input,
+    setInput,
+    send: (q: string) => void send(q),
+    clear: () => {
+      setTurns([]);
+      setCurrent(null);
+    },
+    pickFile: () => fileRef.current?.click(),
+    userTurns,
+    maxTurns: LIMITS.turnsPerSession,
+    rulepackHref,
+    planHref,
+    current,
+    restore: (id: number) => restore(id),
+    onOpenPlan,
+    endRef,
+  };
+
   return (
-    <section className="panel chat">
-      <div className="chat-hd">
-        <h2>{title}</h2>
-        {stamp ? <span className="stamp">{stamp}</span> : null}
-        <span className="chat-hint">{hint}</span>
-        <span className="chat-tools">
-          {/* §0.7 單一 session 的輪次上限是規則，就該讓使用者看得到還剩幾輪 */}
-          {userTurns > 0 ? (
-            <span className="chat-turns">
-              第 {userTurns} / {LIMITS.turnsPerSession} 輪
-            </span>
-          ) : null}
-          {turns.length > 0 ? (
-            <button type="button" className="chat-clear" disabled={busy} onClick={() => setTurns([])}>
-              清除
-            </button>
-          ) : null}
-        </span>
-      </div>
-
-      {/* 規則說明收起來。它只有第一次需要讀，卻會永遠佔掉半個畫面 */}
-      <details className="chat-guide">
-        <summary>這個對話怎麼運作</summary>
-        <div className="bd">{guide}</div>
-      </details>
-
-      <div className="chat-log">
-        {turns.length === 0 ? <p className="chat-empty">{intro}</p> : null}
-        {turns.map((t) => (
-          <TurnView
-            key={t.id}
-            turn={t}
-            planHref={planHref}
-            onPick={(s) => void send(s)}
-            busy={busy}
-            isCurrent={t.id === current}
-            onRestore={() => restore(t.id)}
-          />
-        ))}
-        <div ref={endRef} />
-      </div>
-
-      {/* 輸入區是這個畫面的主要動作，不是一個順便放在底部的填空格：
-          常用問法在上、可換行的輸入框在下、送出鍵與鍵盤提示同一列。 */}
-      <div className="chat-composer">
-        <div className="chat-tips">
-          <span className="tips-lb">可以這樣問</span>
-          {tips.map((t) => (
-            <button key={t} type="button" disabled={busy} onClick={() => void send(t)}>
-              {t}
-            </button>
-          ))}
-        </div>
-
-        <form
-          className="chat-form"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void send(input);
-          }}
-        >
-          <textarea
-            rows={2}
-            placeholder={placeholder}
-            aria-label={title}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => {
-              // 中文輸入法選字時的 Enter 不能當成送出
-              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                void send(input);
-              }
-            }}
-            disabled={busy}
-          />
-          <div className="chat-send">
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".pdf,.json,application/pdf,application/json"
-              hidden
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                e.target.value = "";
-                if (f) void attach(f);
-              }}
-            />
-            <button
-              type="button"
-              className="attach"
-              disabled={busy}
-              title="課程規劃表（.pdf／.json）"
-              onClick={() => fileRef.current?.click()}
-            >
-              ＋ 附加檔案
-            </button>
-            {rulepackHref ? (
-              <Link className="attach-more" href={rulepackHref}>
-                規劃表版本不對？
-              </Link>
-            ) : null}
-            <button className="btn btn-primary" type="submit" disabled={busy || input.trim() === ""}>
-              {busy ? "處理中" : "送出"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </section>
-  );
-}
-
-function TurnView({
-  turn,
-  planHref,
-  onPick,
-  busy,
-  isCurrent,
-  onRestore,
-}: {
-  turn: Turn;
-  planHref?: string;
-  isCurrent: boolean;
-  onRestore: () => void;
-  onPick: (s: string) => void;
-  busy: boolean;
-}) {
-  if (turn.role === "user") {
-    return (
-      <div className="turn user">
-        <div className="turn-bubble">{turn.text}</div>
-        <div className="turn-meta">{turn.at}</div>
-      </div>
-    );
-  }
-
-  if (turn.pending) {
-    return (
-      <div className="turn assistant">
-        <div className="turn-who">Aidit</div>
-        <div className="turn-body pending">
-          <span className="dots">
-            <i />
-            <i />
-            <i />
-          </span>
-          推算中
-        </div>
-      </div>
-    );
-  }
-
-  const r = turn.reply!;
-  return (
-    <div className="turn assistant">
-      <div className="turn-who">
-        Aidit
-        <span className={`kind ${KIND_CLASS[r.kind]}`}>{r.kind}</span>
-      </div>
-
-      <div className={`turn-body ${KIND_CLASS[r.kind]}`}>
-        <p className="turn-headline">{r.headline}</p>
-        {r.detail
-          ? r.detail.split("\n").map((line, i) => (
-              <p className="turn-detail" key={i}>
-                {line}
-              </p>
-            ))
-          : null}
-
-        {r.kind === "不確定" && r.searched && r.searched.length > 0 ? (
-          <p className="turn-searched">已查詢：{r.searched.join("、")}</p>
-        ) : null}
-        {r.contact ? <p className="turn-contact">{r.contact}</p> : null}
-        {r.uncountedHolds ? (
-          <p className="turn-hold">本結果未計入 {r.uncountedHolds} 項待確認事項。</p>
-        ) : null}
-
-        {r.citations.length > 0 ? <CitationToggle citations={r.citations as Citation[]} label="依據" /> : null}
-      </div>
-
-      {turn.plan ? <PlanCard p={turn.plan} onPick={onPick} busy={busy} isCurrent={isCurrent} onRestore={onRestore} /> : null}
-      {turn.whatif ? <WhatIfCard r={turn.whatif} /> : null}
-      {turn.redirect === "plan" && planHref ? (
-        <div className="turn-card">
-          <Link href={planHref}>前往選課建議 →</Link>
-        </div>
-      ) : null}
-      {/* 時間一律在訊息下方：一則在上一則在下，讀起來會一直跳 */}
-      <div className="turn-foot">
-        <span className="turn-meta">{turn.at}</span>
-        {turn.traceId ? (
-          <a className="turn-trace" href={`/api/trace/${turn.traceId}`} target="_blank" rel="noreferrer">
-            本輪執行紀錄
-          </a>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-/** §1.3 每輪回報三件事：改了什麼條件、課表差異、代價 */
-function PlanCard({
-  p,
-  onPick,
-  busy,
-  isCurrent,
-  onRestore,
-}: {
-  p: PlanUpdate;
-  onPick: (s: string) => void;
-  busy: boolean;
-  isCurrent: boolean;
-  onRestore: () => void;
-}) {
-  const plan = p.plans[0];
-  return (
-    <div className="turn-card">
-      <ol className="three">
-        <li>
-          <span className="k">改了什麼</span>
-          {/* changed 為空＝條件與目前設定相同。留白會看起來像壞掉，要講出來 */}
-          <span className="v">{p.changed.length > 0 ? p.changed.join("、") : "沒有變動"}</span>
-        </li>
-        <li>
-          <span className="k">課表差異</span>
-          <span className="v">
-            {p.diff.unchanged ? (
-              "沒有變動"
-            ) : (
-              <>
-                {p.diff.removed.length > 0 ? (
-                  <span className="del">移除 {p.diff.removed.join("、")}</span>
-                ) : null}
-                {p.diff.added.length > 0 ? <span className="add">加入 {p.diff.added.join("、")}</span> : null}
-                {(p.diff.moved ?? []).length > 0 ? <span className="mv">換班 {p.diff.moved!.join("、")}</span> : null}
-              </>
-            )}
-          </span>
-        </li>
-        <li className={p.costs.length > 0 ? "cost" : undefined}>
-          <span className="k">代價</span>
-          <span className="v">{p.costs.length > 0 ? p.costs.join(" ") : "沒有明顯的代價。"}</span>
-        </li>
-      </ol>
-
-      {plan ? (
-        <ul className="turn-courses">
-          {plan.courses.map((c) => (
-            <li key={c.code}>
-              <span className="code">{c.code}</span>
-              {c.name}
-              <span className="meta">
-                {c.credits} 學分・{c.slotText}・{c.categoryLabel}・餘額 {c.remaining ?? "未知"}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-
-      {p.relaxOptions.length > 0 ? (
-        <div className="relax">
-          <div className="relax-lb">要放寬哪一項由你決定</div>
-          <div className="relax-opts">
-            {p.relaxOptions.map((o) => (
-              <button key={o} type="button" disabled={busy} onClick={() => onPick(o)}>
-                {o}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
-      <div className="turn-cons">
-        {isCurrent ? "目前條件" : "這一版的條件"}：{p.constraintLabels.join("・")}
-      </div>
-      {/* 改壞了可以直接跳回任何一版（TODO G12）；說「改回去」是退一步 */}
-      <div className="turn-version">
-        {isCurrent ? (
-          <span className="now">目前的課表</span>
-        ) : (
-          <button type="button" disabled={busy} onClick={onRestore}>
-            回到這一版
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function WhatIfCard({ r }: { r: WhatIfResult }) {
-  // 沒有衝突也沒有替代路徑時，這張卡片是空的 —— 空卡片比沒有卡片更糟
-  if (!r.conflict && r.alternatives.length === 0) return null;
-  return (
-    <div className="turn-card">
-      <div className="turn-card-hd">試算結果</div>
-      {r.conflict ? (
-        <p className="turn-detail">
-          <b>條件衝突</b>　「{r.conflict.a}」對「{r.conflict.b}」：{r.conflict.explanation}
-        </p>
-      ) : null}
-      {r.alternatives.length > 0 ? (
-        <p className="turn-detail">
-          <b>替代路徑</b>　{r.alternatives.join("／")}
-        </p>
-      ) : null}
-    </div>
+    <>
+      {scope === "plan" ? <Messenger {...view} /> : <Thread {...view} />}
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".pdf,.json,application/pdf,application/json"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = "";
+          if (f) void attach(f);
+        }}
+      />
+    </>
   );
 }
 

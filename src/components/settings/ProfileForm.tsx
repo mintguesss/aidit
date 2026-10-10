@@ -29,6 +29,24 @@ const GOALS: [CoursePreferences["goal"], string, string][] = [
   ["light", "輕量修課", "這學期想輕一點，堂數越少越好"],
 ];
 
+/** 選填偏好的快選字。比對的是課名裡有沒有這幾個字，所以都是課名常見的短詞 */
+const CAREER_PRESETS = ["資料分析", "軟體開發", "資訊安全", "行銷", "財務"];
+const INTEREST_PRESETS = ["資料", "程式", "人工智慧", "雲端", "行銷", "設計"];
+const AVOID_PRESETS = ["實驗", "專題", "英語", "體育"];
+
+const XGOALS: [ExtraGoal["kind"], string, string][] = [
+  ["minor", "輔系", "修另一系的指定科目"],
+  ["double-major", "雙主修", "兩系都畢業，兩張學位"],
+  ["cert-program", "學分學程", "跨系模組，另發證明"],
+  ["transfer", "轉系", "換到另一系的規定"],
+];
+const XGOAL_LABEL: Record<ExtraGoal["kind"], string> = {
+  minor: "輔系",
+  "double-major": "雙主修",
+  "cert-program": "學分學程",
+  transfer: "轉系",
+};
+
 export function ProfileForm({
   fixture,
   term,
@@ -51,13 +69,17 @@ export function ProfileForm({
 }) {
   const [prefs, setPrefs] = useState<CoursePreferences>(defaults);
   const [saved, setSaved] = useState<"idle" | "saving" | "ok" | "fail">("idle");
-  const [opt, setOpt] = useState<OptionalPreferences>(EMPTY_OPTIONAL);
   const [hydrated, setHydrated] = useState(false);
+  const [opt, setOptRaw] = useState<OptionalPreferences>(EMPTY_OPTIONAL);
+  const setOpt = (o: OptionalPreferences) => {
+    setOptRaw(o);
+    setSaved("idle");
+  };
 
   useEffect(() => {
     void fetchPreferences(fixture, term, defaults).then((s) => {
       setPrefs(s.required);
-      setOpt(s.optional);
+      setOptRaw(s.optional);
       setHydrated(true);
     });
     // defaults 由伺服器算出且在同一個案例下固定，不需要重跑
@@ -74,133 +96,186 @@ export function ProfileForm({
     void pushPreferences(fixture, term, prefs, opt).then((ok) => setSaved(ok ? "ok" : "fail"));
   };
 
-  const addGoal = () =>
-    setPrefs((p) => ({ ...p, extraGoals: [...(p.extraGoals ?? []), { kind: "minor", target: "" }] }));
+  const addGoal = (kind: ExtraGoal["kind"]) => {
+    setPrefs((p) => ({ ...p, extraGoals: [...(p.extraGoals ?? []), { kind, target: "" }] }));
+    setSaved("idle");
+  };
 
-  const updateGoal = (i: number, patch: Partial<ExtraGoal>) =>
+  const updateGoal = (i: number, patch: Partial<ExtraGoal>) => {
     setPrefs((p) => ({
       ...p,
       extraGoals: (p.extraGoals ?? []).map((g, k) => (k === i ? { ...g, ...patch } : g)),
     }));
+    setSaved("idle");
+  };
 
-  const removeGoal = (i: number) =>
+  const removeGoal = (i: number) => {
     setPrefs((p) => ({ ...p, extraGoals: (p.extraGoals ?? []).filter((_, k) => k !== i) }));
+    setSaved("idle");
+  };
+
+  const tasteFilled =
+    (opt.careerDirection ? 1 : 0) + (opt.interestAreas.length > 0 ? 1 : 0) + (opt.avoidCourseTypes.length > 0 ? 1 : 0);
+
+  // 右側摘要：把設定翻成一句一句的白話
+  const summary = [
+    GOALS.find(([v]) => v === prefs.goal)?.[1] ?? "",
+    prefs.avoidEarly ? "不排早八" : "",
+    prefs.preferCompactDays ? "課程盡量集中" : "",
+    prefs.avoidDays.length > 0 ? `空出星期${prefs.avoidDays.map((d) => DAYS.find(([x]) => x === d)?.[1]).join("、")}` : "",
+    prefs.targetCourseCount ? `期望 ${prefs.targetCourseCount} 堂` : "",
+    prefs.maxCredits ? `最多 ${prefs.maxCredits} 學分` : "",
+    tasteFilled > 0 ? `口味偏好 ${tasteFilled} 項` : "",
+    ...(prefs.extraGoals ?? []).filter((g) => g.target).map((g) => `${XGOAL_LABEL[g.kind]}：${g.target}`),
+  ].filter(Boolean);
 
   const reset = () => {
     void erase(fixture, term, "preferences");
     setPrefs(defaults);
-    setOpt(EMPTY_OPTIONAL);
+    setOptRaw(EMPTY_OPTIONAL);
     setSaved("idle");
   };
 
   return (
     <>
-      <section className="panel">
-        <div className="panel-hd">
+      {/* 學籍資料做成一張學生證：左邊是「你是誰」，右邊是「哪些事實決定了你的判定」 */}
+      <section className="idcard">
+        <div className="idcard-hd">
           <h2>學籍資料</h2>
-          <span className="hint">由校務系統提供，此處僅供檢視</span>
+          <span className="idcard-lock">唯讀・由校務系統提供</span>
         </div>
-        <div className="panel-bd">
-          <div className="fieldgrid">
-            <Field k="代號" v={student.maskedId ?? student.id} mono />
-            <Field k="姓名" v={student.displayName ?? "（未提供）"} />
-            <Field k="系級" v={student.className ?? student.dept} />
-            <Field k="學制" v={student.program === "day" ? "日間部" : "進修部"} />
-            <Field k="學籍入學學年" v={String(student.admissionYear)} />
-            <Field k="實際入學學年" v={String(student.actualAdmissionYear)} />
-            <Field
-              k="學籍狀態"
-              v={{ enrolled: "在學", leave: "休學", graduated: "已畢業" }[student.status]}
-            />
-            {commitments.length > 0 ? (
-              <Field
-                k="下學期已登記時段"
-                v={commitments.map((c) => `${c.label} ${c.slotText}`).join("、")}
-              />
-            ) : null}
-            {rulePack ? (
-              <Field
-                k="適用規劃表"
-                v={`${student.admissionYear} 學年度 rev.${rulePack.version}${
-                  rulePack.provenance === "approved"
-                    ? ""
-                    : rulePack.provenance === "synthetic"
-                      ? "（合成規則包）"
-                      : "（未校對草稿）"
-                }`}
-                mono
-              />
-            ) : null}
+        <div className="idcard-bd">
+          <div className="idcard-who">
+            <span className="idcard-av" aria-hidden>
+              {(student.displayName ?? "？").slice(0, 1)}
+            </span>
+            <div className="idcard-name">{student.displayName ?? "（未提供姓名）"}</div>
+            <div className="idcard-id">{student.maskedId ?? student.id}</div>
+            <div className="idcard-tags">
+              <span className={`idcard-st ${student.status}`}>
+                {{ enrolled: "在學", leave: "休學", graduated: "已畢業" }[student.status]}
+              </span>
+              <span>{student.program === "day" ? "日間部" : "進修部"}</span>
+            </div>
           </div>
-          <p className="panel-foot">
-            此處僅供檢視，資料有誤請洽教務處註冊組。版本不對可到{" "}
-            <Link href={`/rulepack${search}`}>適用規劃表</Link> 上傳。
-          </p>
+
+          <dl className="idcard-facts">
+            <div className="wide">
+              <dt>系級</dt>
+              <dd>{student.className ?? student.dept}</dd>
+            </div>
+            <div>
+              <dt>學籍入學學年</dt>
+              <dd className="num">
+                {student.admissionYear}
+                <small>決定適用的規劃表</small>
+              </dd>
+            </div>
+            <div>
+              <dt>實際入學學年</dt>
+              <dd className="num">
+                {student.actualAdmissionYear}
+                {student.actualAdmissionYear !== student.admissionYear ? (
+                  <small className="diff">與學籍學年不同（轉系／轉學）</small>
+                ) : (
+                  <small>與學籍學年相同</small>
+                )}
+              </dd>
+            </div>
+            {rulePack ? (
+              <div className="wide">
+                <dt>適用規劃表</dt>
+                <dd>
+                  <Link className="idcard-plan" href={`/rulepack${search}`}>
+                    <b>{student.admissionYear} 學年度</b>
+                    <code>rev.{rulePack.version}</code>
+                    {rulePack.provenance !== "approved" ? (
+                      <span className="idcard-prov">
+                        {rulePack.provenance === "synthetic" ? "合成規則包" : "未校對草稿"}
+                      </span>
+                    ) : null}
+                  </Link>
+                </dd>
+              </div>
+            ) : null}
+            {commitments.length > 0 ? (
+              <div className="wide">
+                <dt>下學期已登記時段</dt>
+                <dd className="idcard-chips">
+                  {commitments.map((c) => (
+                    <span key={c.label}>
+                      {c.label}
+                      <em>{c.slotText}</em>
+                    </span>
+                  ))}
+                </dd>
+              </div>
+            ) : null}
+          </dl>
         </div>
+        <p className="idcard-foot">
+          資料有誤請洽教務處註冊組。
+        </p>
       </section>
 
-      <section className="panel">
-        <div className="panel-hd">
-          <h2>選課傾向</h2>
-          <span className="hint">下學期選課建議會依這裡的設定排課</span>
-        </div>
-        <div className="panel-bd">
-          <details className="fset" open>
-            <summary>這學期的修課目標</summary>
-            <div className="optlist">
+      {/* 選課傾向：左邊一組一組設定，右邊固定一張「目前的設定」摘要＋儲存。
+          改什麼，右邊立刻看得到結果，不必捲到最下面找儲存鍵 */}
+      <div className="pf">
+        <div className="pf-main">
+          <div className="pf-hd">
+            <h2>選課傾向</h2>
+            <span>選課建議會照這裡排課</span>
+          </div>
+
+          <section className="pf-card">
+            <SecHead n={1} icon="goal" title="這學期想怎麼修？" sub="決定這學期的修課份量" />
+            <div className="goalpick" role="radiogroup" aria-label="修課目標">
               {GOALS.map(([value, label, desc]) => (
-                <label key={value} className="opt">
-                  <input
-                    type="radio"
-                    name="goal"
-                    checked={prefs.goal === value}
-                    onChange={() => update({ goal: value })}
-                  />
-                  <span>
-                    <b>{label}</b>
-                    <small>{desc}</small>
+                <button
+                  key={value}
+                  type="button"
+                  role="radio"
+                  aria-checked={prefs.goal === value}
+                  className={prefs.goal === value ? "on" : undefined}
+                  onClick={() => update({ goal: value })}
+                >
+                  <span className="goalpick-ic" aria-hidden>
+                    <GoalIcon kind={value} />
                   </span>
-                </label>
+                  <b>{label}</b>
+                  <small>{desc}</small>
+                </button>
               ))}
             </div>
-          </details>
+          </section>
 
-          <details className="fset">
-            <summary>時段</summary>
-            <label className="opt inline">
-              <input
-                type="checkbox"
-                checked={prefs.avoidEarly}
-                onChange={(e) => update({ avoidEarly: e.target.checked })}
-              />
-              <span>
-                <b>不排早八</b>
-                <small>第 1 節。做不到時會照排並標示</small>
-              </span>
-            </label>
-            <label className="opt inline">
-              <input
-                type="checkbox"
-                checked={prefs.preferCompactDays}
-                onChange={(e) => update({ preferCompactDays: e.target.checked })}
-              />
-              <span>
-                <b>課程盡量集中</b>
-                <small>盡量把課排在少數幾天，減少跑學校的次數</small>
-              </span>
-            </label>
-
-            <div className="subfield">
-              <div className="sublabel">完全空出的星期（硬性條件，這幾天不會排任何課）</div>
-              <div className="daypick">
+          <section className="pf-card">
+            <SecHead n={2} icon="time" title="時段" sub="哪些時間不要排課" />
+            <Switch
+              on={prefs.avoidEarly}
+              onChange={(v) => update({ avoidEarly: v })}
+              label="不排早八"
+              desc="第 1 節。做不到時會照排並標示"
+            />
+            <Switch
+              on={prefs.preferCompactDays}
+              onChange={(v) => update({ preferCompactDays: v })}
+              label="課程盡量集中"
+              desc="排在少數幾天，少跑幾趟學校"
+            />
+            <div className="weekpick">
+              <div className="weekpick-lb">
+                點選要<b>完全空出</b>的星期<small>一定做到，這幾天不排任何課</small>
+              </div>
+              <div className="weekpick-days">
                 {DAYS.map(([d, label]) => {
                   const on = prefs.avoidDays.includes(d);
                   return (
                     <button
                       key={d}
                       type="button"
-                      className="chip"
                       aria-pressed={on}
+                      className={on ? "on" : undefined}
                       onClick={() =>
                         update({
                           avoidDays: on
@@ -209,173 +284,173 @@ export function ProfileForm({
                         })
                       }
                     >
-                      星期{label}
+                      <span className="weekpick-d">{label}</span>
+                      <span className="weekpick-s">{on ? "空出" : "可排"}</span>
                     </button>
                   );
                 })}
               </div>
             </div>
-          </details>
+          </section>
 
-          <details className="fset">
-            <summary>堂數</summary>
-            <div className="numgrid">
-              <label className="numfield">
-                <span>期望堂數</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={30}
-                  value={prefs.targetCourseCount ?? ""}
-                  placeholder="不指定"
-                  onChange={(e) =>
-                    update({ targetCourseCount: e.target.value === "" ? undefined : Number(e.target.value) })
-                  }
-                />
-                <small>做不到時會照排並說明原因</small>
-              </label>
-              <label className="numfield">
-                <span>學期學分上限</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={30}
-                  value={prefs.maxCredits ?? ""}
-                  placeholder="依學則上限"
-                  onChange={(e) =>
-                    update({ maxCredits: e.target.value === "" ? undefined : Number(e.target.value) })
-                  }
-                />
-                <small>不會超過學則規定的上限</small>
-              </label>
-            </div>
-          </details>
-
-          <details className="fset">
-            <summary>備註</summary>
-            <textarea
-              rows={2}
-              maxLength={200}
-              placeholder="例如：下學期有校外實習，希望課不要排太散"
-              value={prefs.note ?? ""}
-              onChange={(e) => update({ note: e.target.value })}
-            />
-            <small className="hintline">
-              <b>不參與求解</b>，只顯示在選課建議頁供你自己參考。
-            </small>
-          </details>
-
-          <details className="fset">
-            <summary>
-              課程排序偏好
-              <span className="opt-badge">選填</span>
-            </summary>
-            <small className="opt-note">
-              不填不影響審查結果與課表可行性，僅影響課程排序。
-              兩份課表在未修學分、堂數、時段上完全相同時，才會用這裡的偏好決定誰排前面。
-            </small>
-
-            <div className="optrow">
-              <label htmlFor="career">職涯方向</label>
-              <input
-                id="career"
-                type="text"
-                placeholder="例如：資料分析"
-                value={opt.careerDirection ?? ""}
-                onChange={(e) => setOpt({ ...opt, careerDirection: e.target.value })}
+          <section className="pf-card">
+            <SecHead n={3} icon="load" title="份量" sub="堂數、學分上限與備註" />
+            <div className="steppers">
+              <Stepper
+                label="期望堂數"
+                value={prefs.targetCourseCount}
+                min={1}
+                max={12}
+                unit="堂"
+                empty="不指定"
+                hint="做不到時會照排並說明"
+                onChange={(v) => update({ targetCourseCount: v })}
+              />
+              <Stepper
+                label="學期學分上限"
+                value={prefs.maxCredits}
+                min={1}
+                max={30}
+                unit="學分"
+                empty="依學則"
+                hint="不會超過學則上限"
+                onChange={(v) => update({ maxCredits: v })}
               />
             </div>
+            <label className="pf-note">
+              <span>備註</span>
+              <textarea
+                rows={2}
+                maxLength={200}
+                placeholder="例如：下學期有校外實習，希望課不要排太散"
+                value={prefs.note ?? ""}
+                onChange={(e) => update({ note: e.target.value })}
+              />
+              <small>不參與排課，只顯示在選課建議頁給你自己看。</small>
+            </label>
+          </section>
 
-            <TagField
-              id="interest"
-              label="興趣領域"
-              placeholder="輸入後按 Enter，例如：機器學習"
-              values={opt.interestAreas}
-              onChange={(v) => setOpt({ ...opt, interestAreas: v })}
+          {/* 口味：三列，左邊是問題、右邊是快選字；自訂輸入收在「＋ 自訂」裡，不常駐 */}
+          <section className="pf-card taste">
+            <SecHead
+              n={4}
+              icon="taste"
+              title="讓推薦更合你的口味"
+              sub="選填・只影響條件一樣好時誰排前面"
+              aside={
+                <span className="taste-meter" aria-label={`已填 ${tasteFilled} 項，共 3 項`}>
+                  {[0, 1, 2].map((k) => (
+                    <i key={k} className={k < tasteFilled ? "on" : undefined} />
+                  ))}
+                  <em>{tasteFilled}/3</em>
+                </span>
+              }
             />
-
-            <TagField
-              id="avoidtype"
-              label="想避開的課程類型"
-              placeholder="輸入後按 Enter，例如：大量程式作業"
-              values={opt.avoidCourseTypes}
-              onChange={(v) => setOpt({ ...opt, avoidCourseTypes: v })}
-            />
-
-            <p className="opt-foot">
-              這些欄位與必填分開存放，可在{" "}
-              <Link href={`/privacy${search}`}>資料與隱私</Link> 單獨刪除。
-            </p>
-          </details>
-
-          <details className="fset">
-            <summary>額外修業目標</summary>
-            <small>
-              校務系統已註冊的輔系、雙主修、學分學程會自動顯示，不必在這裡填。
-              這裡填的是<b>還沒註冊但打算修</b>的目標。
-            </small>
-            <div className="goalrows">
-              {(prefs.extraGoals ?? []).map((g, i) => (
-                <div className="goalrow" key={i}>
-                  <select
-                    value={g.kind}
-                    aria-label="目標種類"
-                    onChange={(e) => updateGoal(i, { kind: e.target.value as ExtraGoal["kind"] })}
-                  >
-                    <option value="minor">輔系</option>
-                    <option value="double-major">雙主修</option>
-                    <option value="cert-program">學分學程</option>
-                    <option value="transfer">轉系</option>
-                  </select>
-                  <input
-                    type="text"
-                    value={g.target}
-                    placeholder={g.kind === "cert-program" ? "學程名稱，例如：資訊安全" : "系所名稱，例如：財金"}
-                    aria-label="目標名稱"
-                    onChange={(e) => updateGoal(i, { target: e.target.value })}
-                  />
-                  <button type="button" className="btn" onClick={() => removeGoal(i)}>
-                    移除
-                  </button>
-                </div>
-              ))}
-              {(prefs.extraGoals ?? []).length < 4 ? (
-                <button type="button" className="btn" onClick={addGoal}>
-                  ＋ 新增目標
-                </button>
-              ) : null}
+            <div className="taste-rows">
+              <PickField
+                label="想往哪個方向發展"
+                hint="選一個"
+                single
+                values={opt.careerDirection ? [opt.careerDirection] : []}
+                presets={CAREER_PRESETS}
+                onChange={(v) => setOpt({ ...opt, careerDirection: v[0] ?? "" })}
+              />
+              <PickField
+                label="有興趣的領域"
+                hint="可多選"
+                values={opt.interestAreas}
+                presets={INTEREST_PRESETS}
+                onChange={(v) => setOpt({ ...opt, interestAreas: v })}
+              />
+              <PickField
+                label="想避開的課"
+                hint="可多選"
+                tone="avoid"
+                values={opt.avoidCourseTypes}
+                presets={AVOID_PRESETS}
+                onChange={(v) => setOpt({ ...opt, avoidCourseTypes: v })}
+              />
             </div>
-          </details>
+            <p className="pf-fine">
+              用課名比對這些字。與其他設定分開存放，可在 <Link href={`/privacy${search}`}>資料與隱私</Link> 單獨刪除。
+            </p>
+          </section>
 
-          <div className="formactions">
-            <button className="btn btn-primary" type="button" onClick={submit} disabled={!hydrated || saved === "saving"}>
-              {saved === "saving" ? <Spinner label="儲存中…" /> : "儲存設定"}
+          <section className="pf-card">
+            <SecHead n={5} icon="extra" title="打算加修什麼？" sub="還沒申請、正在考慮的目標，幫你算還差多少" />
+            <div className="xgoal-add">
+              {XGOALS.map(([kind, label, desc]) => (
+                <button
+                  key={kind}
+                  type="button"
+                  disabled={(prefs.extraGoals ?? []).length >= 4}
+                  onClick={() => addGoal(kind)}
+                >
+                  <span className="xgoal-ic" aria-hidden>
+                    <XGoalIcon kind={kind} />
+                  </span>
+                  <b>{label}</b>
+                  <small>{desc}</small>
+                  <span className="xgoal-plus" aria-hidden>
+                    ＋
+                  </span>
+                </button>
+              ))}
+            </div>
+            {(prefs.extraGoals ?? []).length > 0 ? (
+              <ul className="xgoal-list">
+                {(prefs.extraGoals ?? []).map((g, i) => (
+                  <li key={i}>
+                    <span className="xgoal-ic sm" aria-hidden>
+                      <XGoalIcon kind={g.kind} />
+                    </span>
+                    <span className="xgoal-kind">{XGOAL_LABEL[g.kind]}</span>
+                    <input
+                      type="text"
+                      value={g.target}
+                      autoFocus={g.target === ""}
+                      placeholder={g.kind === "cert-program" ? "學程名稱，例如：資訊安全" : "系所名稱，例如：財金"}
+                      aria-label={`${XGOAL_LABEL[g.kind]}名稱`}
+                      onChange={(e) => updateGoal(i, { target: e.target.value })}
+                    />
+                    <button type="button" className="xgoal-x" aria-label="移除" onClick={() => removeGoal(i)}>
+                      ×
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </section>
+        </div>
+
+        {/* 右側摘要：目前設定一覽＋儲存，捲動時跟著走 */}
+        <aside className="pf-side">
+          <div className="pf-sum">
+            <div className="pf-sum-k">目前的設定</div>
+            <ul className="pf-sum-list">
+              {summary.map((t) => (
+                <li key={t}>{t}</li>
+              ))}
+            </ul>
+            <button className="btn btn-primary pf-save" type="button" onClick={submit} disabled={!hydrated || saved === "saving"}>
+              {saved === "saving" ? <Spinner label="儲存中…" /> : saved === "ok" ? "已儲存 ✓" : "儲存設定"}
             </button>
-            <button className="btn" type="button" onClick={reset} disabled={!hydrated}>
+            {saved === "ok" ? <p className="pf-ok">選課建議頁會照這些條件重新排課。</p> : null}
+            {saved === "fail" ? (
+              <p className="pf-fail">無法寫入儲存空間（可能是私密視窗）。這次瀏覽仍有效，關掉分頁後會回到預設值。</p>
+            ) : null}
+            <Link className="pf-go" href={`/plan${search}`}>
+              看依此排出的課表 →
+            </Link>
+            <button className="pf-reset" type="button" onClick={reset} disabled={!hydrated}>
               回到預設值
             </button>
-            <Link className="btn" href={`/plan${search}`}>
-              去看依此排出的課表 →
-            </Link>
+            <p className="pf-fine">
+              設定以不可逆的雜湊值為鍵存在伺服器（不含學號），可在 <Link href={`/privacy${search}`}>資料與隱私</Link> 刪除。
+            </p>
           </div>
-
-          {saved === "ok" ? (
-            <div className="note inset">
-              已儲存。選課建議頁會依這些條件重新排課。
-            </div>
-          ) : saved === "fail" ? (
-            <div className="note warn">
-              無法寫入瀏覽器儲存空間（可能是私密視窗或已停用站台資料）。
-              設定在本次瀏覽期間仍然有效，但關掉分頁後會回到預設值。
-            </div>
-          ) : null}
-
-          <p className="panel-foot">
-            設定存在伺服器（以不可逆的雜湊值為鍵，不含學號），換裝置也看得到；
-            本機另留一份供離線使用。可在 <Link href={`/privacy${search}`}>資料與隱私</Link> 查閱或刪除。
-          </p>
-        </div>
-      </section>
+        </aside>
+      </div>
 
       {/* 畢業條件的檢核結果與依據在修業明細，這裡不重複一份 */}
       <p className="lead">
@@ -386,67 +461,255 @@ export function ProfileForm({
   );
 }
 
-/** 標籤式輸入：Enter 新增、點 ✕ 移除。選填欄位是自由文字，用標籤比逗號分隔好收拾 */
-function TagField({
-  id,
+/** 開關：整列可點，右邊一顆滑動開關 */
+function Switch({ on, onChange, label, desc }: { on: boolean; onChange: (v: boolean) => void; label: string; desc: string }) {
+  return (
+    <button type="button" role="switch" aria-checked={on} className={`sw-row${on ? " on" : ""}`} onClick={() => onChange(!on)}>
+      <span className="sw-txt">
+        <b>{label}</b>
+        <small>{desc}</small>
+      </span>
+      <span className="sw-track" aria-hidden>
+        <i />
+      </span>
+    </button>
+  );
+}
+
+/** 加減鈕。到最小值再按減號就回到「不指定」 */
+function Stepper({
   label,
-  placeholder,
-  values,
+  value,
+  min,
+  max,
+  unit,
+  empty,
+  hint,
   onChange,
 }: {
-  id: string;
   label: string;
-  placeholder: string;
+  value: number | undefined;
+  min: number;
+  max: number;
+  unit: string;
+  empty: string;
+  hint: string;
+  onChange: (v: number | undefined) => void;
+}) {
+  const dec = () => onChange(value === undefined ? undefined : value <= min ? undefined : value - 1);
+  const inc = () => onChange(value === undefined ? min : Math.min(max, value + 1));
+  return (
+    <div className="stepper">
+      <span className="stepper-lb">{label}</span>
+      <div className="stepper-ctl">
+        <button type="button" onClick={dec} disabled={value === undefined} aria-label={`${label}減少`}>
+          −
+        </button>
+        <output className={value === undefined ? "none" : undefined} key={value ?? "none"}>
+          {value === undefined ? (
+            empty
+          ) : (
+            <>
+              <b>{value}</b>
+              {unit}
+            </>
+          )}
+        </output>
+        <button type="button" onClick={inc} disabled={value !== undefined && value >= max} aria-label={`${label}增加`}>
+          ＋
+        </button>
+      </div>
+      <small>{hint}</small>
+    </div>
+  );
+}
+
+/**
+ * 快選字＋自訂。左邊是問題、右邊一排字；點字加入、再點取消。
+ * 自訂輸入不常駐（常駐的虛線框讓整塊看起來很亂），按「＋ 自訂」才展開，Enter 加入後收起。
+ */
+function PickField({
+  label,
+  hint,
+  values,
+  presets,
+  onChange,
+  single,
+  tone,
+}: {
+  label: string;
+  hint: string;
   values: string[];
+  presets: string[];
   onChange: (v: string[]) => void;
+  single?: boolean;
+  tone?: "avoid";
 }) {
   const [draft, setDraft] = useState("");
+  const [typing, setTyping] = useState(false);
+  const toggle = (t: string) => {
+    if (values.includes(t)) onChange(values.filter((x) => x !== t));
+    else onChange(single ? [t] : values.length >= 8 ? values : [...values, t]);
+  };
   const add = () => {
     const t = draft.trim();
-    if (!t || values.includes(t) || values.length >= 8) return;
-    onChange([...values, t]);
+    if (t && !values.includes(t)) toggle(t);
     setDraft("");
+    setTyping(false);
   };
+  const custom = values.filter((v) => !presets.includes(v));
   return (
-    <div className="optrow">
-      <label htmlFor={id}>{label}</label>
-      <div className="tagfield">
-        {values.length > 0 ? (
-          <div className="tagchips">
-            {values.map((v) => (
-              <span className="tagchip" key={v}>
-                {v}
-                <button type="button" aria-label={`移除 ${v}`} onClick={() => onChange(values.filter((x) => x !== v))}>
-                  ✕
-                </button>
-              </span>
-            ))}
-          </div>
-        ) : null}
-        <input
-          id={id}
-          type="text"
-          placeholder={placeholder}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-              e.preventDefault();
-              add();
-            }
-          }}
-          onBlur={add}
-        />
+    <div className={`pick${tone ? ` ${tone}` : ""}`}>
+      <div className="pick-q">
+        <b>{label}</b>
+        <small>{hint}</small>
+      </div>
+      <div className="pick-chips">
+        {[...presets, ...custom].map((t) => (
+          <button key={t} type="button" aria-pressed={values.includes(t)} onClick={() => toggle(t)}>
+            {t}
+          </button>
+        ))}
+        {typing ? (
+          <input
+            type="text"
+            autoFocus
+            placeholder="輸入後按 Enter"
+            value={draft}
+            aria-label={`${label}（自訂）`}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                add();
+              } else if (e.key === "Escape") {
+                setDraft("");
+                setTyping(false);
+              }
+            }}
+            onBlur={add}
+          />
+        ) : (
+          <button type="button" className="pick-add" onClick={() => setTyping(true)}>
+            ＋ 自訂
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-function Field({ k, v, mono }: { k: string; v: string; mono?: boolean }) {
+/** 區塊標題：編號、圖示、標題、一句說明；右側可放額外元件 */
+function SecHead({
+  n,
+  icon,
+  title,
+  sub,
+  aside,
+}: {
+  n: number;
+  icon: "goal" | "time" | "load" | "taste" | "extra";
+  title: string;
+  sub: string;
+  aside?: React.ReactNode;
+}) {
   return (
-    <div className="field">
-      <div className="field-k">{k}</div>
-      <div className={`field-v${mono ? " mono" : ""}`}>{v}</div>
-    </div>
+    <header className="sec-hd">
+      <span className={`sec-ic ${icon}`} aria-hidden>
+        <SecIcon kind={icon} />
+        <em>{n}</em>
+      </span>
+      <span className="sec-t">
+        <h3>{title}</h3>
+        <small>{sub}</small>
+      </span>
+      {aside}
+    </header>
+  );
+}
+
+function SecIcon({ kind }: { kind: "goal" | "time" | "load" | "taste" | "extra" }) {
+  if (kind === "goal")
+    return (
+      <svg {...ic}>
+        <circle cx="12" cy="12" r="8" />
+        <circle cx="12" cy="12" r="4" />
+        <circle cx="12" cy="12" r="0.6" />
+      </svg>
+    );
+  if (kind === "time")
+    return (
+      <svg {...ic}>
+        <rect x="4" y="5" width="16" height="15" rx="2" />
+        <path d="M4 10h16M9 3v4M15 3v4" />
+      </svg>
+    );
+  if (kind === "load")
+    return (
+      <svg {...ic}>
+        <path d="M4 18h16M6 14h12M8 10h8M10 6h4" />
+      </svg>
+    );
+  if (kind === "taste")
+    return (
+      <svg {...ic}>
+        <circle cx="12" cy="12" r="8" />
+        <path d="M15 9l-2 4-4 2 2-4z" />
+      </svg>
+    );
+  return (
+    <svg {...ic}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 8v8M8 12h8" />
+    </svg>
+  );
+}
+
+const ic = { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+
+function GoalIcon({ kind }: { kind: CoursePreferences["goal"] }) {
+  if (kind === "asap")
+    return (
+      <svg {...ic}>
+        <path d="M4 6l7 6-7 6zM13 6l7 6-7 6z" />
+      </svg>
+    );
+  if (kind === "light")
+    return (
+      <svg {...ic}>
+        <path d="M20 4C11 4 6 9 5 19M5 19l7-7M9 15h5c3 0 5-3 6-11" />
+      </svg>
+    );
+  return (
+    <svg {...ic}>
+      <path d="M12 4v16M5 20h14M6 8h12M6 8l-3 6a3 3 0 0 0 6 0zM18 8l-3 6a3 3 0 0 0 6 0z" />
+    </svg>
+  );
+}
+
+function XGoalIcon({ kind }: { kind: ExtraGoal["kind"] }) {
+  if (kind === "minor")
+    return (
+      <svg {...ic}>
+        <path d="M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11" />
+      </svg>
+    );
+  if (kind === "double-major")
+    return (
+      <svg {...ic}>
+        <path d="M3 5h7v15H3zM14 5h7v15h-7zM6 9h1M17 9h1" />
+      </svg>
+    );
+  if (kind === "cert-program")
+    return (
+      <svg {...ic}>
+        <circle cx="12" cy="9" r="5" />
+        <path d="M9 13.5L8 21l4-2 4 2-1-7.5" />
+      </svg>
+    );
+  return (
+    <svg {...ic}>
+      <path d="M4 8h13l-3-3M20 16H7l3 3" />
+    </svg>
   );
 }

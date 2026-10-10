@@ -5,8 +5,9 @@ import { Shell, PageHead } from "@/components/shell/Shell";
 import { AbortNotice } from "@/components/shell/AbortNotice";
 import { RichText } from "@/components/audit/RichText";
 import { ProgressRuler } from "@/components/audit/ProgressRuler";
-import { FigureRow } from "@/components/audit/FigureRow";
+import { FigureList } from "@/components/audit/FigureList";
 import { ExtraGoals } from "@/components/audit/ExtraGoals";
+import { TodoGrid, type TodoCard } from "@/components/audit/TodoGrid";
 import type { AuditResult } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +17,9 @@ export const dynamic = "force-dynamic";
  *
  * 只回答三件事：現在是什麼狀況、還差什麼、接下來該去哪一頁。
  * 明細一律留在各自的功能頁 —— 把全部東西堆在同一頁，使用者反而找不到重點。
+ *
+ * 版面分三層：常駐的只有結論、缺口與下一步；數字拆解與說明點開才出現（再點一次收起）；
+ * 完整明細點進各功能頁。同一個數字在首頁只常駐出現一次。
  */
 export default async function Overview({
   searchParams,
@@ -50,11 +54,13 @@ export default async function Overview({
                 categories={outcome.audit.categories}
                 minCredits={outcome.audit.minCredits}
                 overflow={outcome.audit.overflow}
+                breakdown={<FigureList audit={outcome.audit} />}
               />
             </div>
-
-            <FigureRow audit={outcome.audit} />
           </section>
+
+          {/* 下一步緊接在結論後面：看完缺口，第一個問題就是「那我要做什麼」 */}
+          <NextSteps audit={outcome.audit} search={searchString(fixture, term)} />
 
           <ExtraGoals
             mode="brief"
@@ -64,8 +70,6 @@ export default async function Overview({
             rulepackHref={`/rulepack${searchString(fixture, term)}`}
             detailHref={`/audit${searchString(fixture, term)}`}
           />
-
-          <NextSteps audit={outcome.audit} search={searchString(fixture, term)} />
         </>
       )}
     </Shell>
@@ -89,7 +93,7 @@ function NextSteps({ audit, search }: { audit: AuditResult; search: string }) {
   const subOnly = audit.categories.filter((c) => c.status === "unmet" && c.unmet === 0);
   const unmetChecks = audit.graduationChecks.filter((g) => g.status === "unmet");
 
-  const cards: { k: string; t: string; tone: "unmet" | "hold" | "ok"; d: string; href: string; go: string }[] = [];
+  const cards: TodoCard[] = [];
 
   if (audit.unmet > 0) {
     cards.push({
@@ -162,42 +166,17 @@ function NextSteps({ audit, search }: { audit: AuditResult; search: string }) {
     });
   }
 
-  cards.push({
-    k: "有疑問",
-    t: "直接問",
-    tone: "ok",
-    d: "還差多少、為什麼超修不能算，都可以直接問。",
-    href: `/assistant${search}`,
-    go: "開始對話",
-  });
-
-  cards.push({
-    k: "可查核",
-    t: "本次執行紀錄",
-    tone: "ok",
-    d: "判定過程、工具調用與耗時均留存，可供查核。",
-    href: `/trace${search}`,
-    go: "查看執行紀錄",
-  });
-
   return (
     <section className="panel">
       <div className="panel-hd">
         <h2>接下來</h2>
-
+        <span className="todo-more">
+          有疑問可以<Link href={`/assistant${search}`}>直接問</Link>
+          <span className="sep">・</span>
+          判定過程見<Link href={`/trace${search}`}>執行紀錄</Link>
+        </span>
       </div>
-      <div className="next">
-        {cards.map((c) => (
-          <div className="nextcard" key={c.k + c.t}>
-            <div className="k">{c.k}</div>
-            <div className={`t ${c.tone}`}>{c.t}</div>
-            <div className="d">{c.d}</div>
-            <div className="go">
-              <Link href={c.href}>{c.go} →</Link>
-            </div>
-          </div>
-        ))}
-      </div>
+      <TodoGrid cards={cards} />
     </section>
   );
 }

@@ -30,11 +30,14 @@ type Result =
 export function RulePackUpload() {
   const [busy, setBusy] = useState(false);
   const [res, setRes] = useState<Result | null>(null);
+  const [over, setOver] = useState(false);
+  const [name, setName] = useState<string | null>(null);
   const ref = useRef<HTMLInputElement>(null);
 
   const send = async (file: File) => {
     setBusy(true);
     setRes(null);
+    setName(file.name);
     const fd = new FormData();
     fd.append("file", file);
     try {
@@ -49,26 +52,52 @@ export function RulePackUpload() {
 
   return (
     <>
-      <div className="upload">
+      {/* 拖進來或點一下都可以；整塊都是按鈕 */}
+      <div
+        className={`drop${over ? " over" : ""}${busy ? " busy" : ""}`}
+        role="button"
+        tabIndex={0}
+        aria-label="選擇或拖曳規劃表檔案"
+        onClick={() => !busy && ref.current?.click()}
+        onKeyDown={(e) => {
+          if ((e.key === "Enter" || e.key === " ") && !busy) {
+            e.preventDefault();
+            ref.current?.click();
+          }
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setOver(true);
+        }}
+        onDragLeave={() => setOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setOver(false);
+          const f = e.dataTransfer.files?.[0];
+          if (f && !busy) void send(f);
+        }}
+      >
         <input
           ref={ref}
           type="file"
           accept=".pdf,.json,application/pdf,application/json"
           disabled={busy}
+          hidden
           onChange={(e) => {
             const f = e.target.files?.[0];
+            e.target.value = "";
             if (f) void send(f);
           }}
         />
-        <button
-          type="button"
-          className="btn btn-primary"
-          disabled={busy}
-          onClick={() => ref.current?.click()}
-        >
-          {busy ? <Spinner label="檢查中…" /> : "選擇檔案"}
-        </button>
-        <span className="upload-hint">接受 .pdf（原始規劃表）或 .json（規則包格式），上限 8 MB</span>
+        <span className="drop-ic" aria-hidden />
+        {busy ? (
+          <Spinner label={`檢查 ${name ?? ""} 中…`} />
+        ) : (
+          <>
+            <b>{over ? "放開就上傳" : "把規劃表拖到這裡，或點一下選檔案"}</b>
+            <span className="drop-hint">.pdf 原始規劃表　或　.json 規則包・上限 8 MB</span>
+          </>
+        )}
       </div>
 
       {res ? <ResultView r={res} /> : null}

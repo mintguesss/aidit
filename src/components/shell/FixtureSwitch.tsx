@@ -9,6 +9,11 @@ import { FIXTURES, type FixtureId } from "@/lib/providers/fixtures";
  * 這是 Demo 用的資料來源選擇器，不是產品功能，因此外觀刻意做成
  * 校務系統常見的「資料區間」下拉，而不是一排看起來像正式功能的按鈕。
  */
+const GROUPS = [
+  { label: "真實資料", synthetic: false },
+  { label: "評測案例（合成資料）", synthetic: true },
+];
+
 export function FixtureSwitch({ current }: { current: FixtureId }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -28,12 +33,19 @@ export function FixtureSwitch({ current }: { current: FixtureId }) {
           router.push(`?${next.toString()}`);
         }}
       >
-        {/* 以真實資料為主：合成的評測案例不列出（仍可用網址 ?fixture= 打開，正在看的那個照樣顯示） */}
-        {FIXTURES.filter((f) => (f.record.student.school ?? "demo") !== "demo" || f.id === current).map((f) => (
-          <option key={f.id} value={f.id} title={f.tests}>
-            {f.title}
-          </option>
-        ))}
+        {/* 所有案例都列出，分成真實資料與合成的評測案例兩組 */}
+        {GROUPS.map((g) => {
+          const list = FIXTURES.filter((f) => ((f.record.student.school ?? "demo") === "demo") === g.synthetic);
+          return list.length > 0 ? (
+            <optgroup key={g.label} label={g.label}>
+              {list.map((f) => (
+                <option key={f.id} value={f.id} title={f.tests}>
+                  {f.title}
+                </option>
+              ))}
+            </optgroup>
+          ) : null;
+        })}
       </select>
     </label>
   );

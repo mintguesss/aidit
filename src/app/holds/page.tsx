@@ -25,16 +25,15 @@ export default async function Holds({
           <PageHead
             title="待確認事項"
             stamp={`${outcome.audit.holds.length} 項`}
-            lead="這些項目未計入學分判定 —— 系統檢索所有可得依據後仍無法判定，已停止自動推論。"
+            lead="系統查過所有依據仍判定不了，這些項目未計入學分判定。點卡片看原因。"
           />
-          {/* 沒有待確認事項時只是一句說明，不包白底面板 */}
+          {/* 一則一張卡，不再包一層白底面板 */}
           {outcome.audit.holds.length > 0 ? (
-            <section className="panel">
-              <HoldList
-                holds={outcome.audit.holds}
-                contactSubject={outcome.audit.student.className ?? outcome.audit.student.dept}
-              />
-            </section>
+            <HoldList
+              holds={outcome.audit.holds}
+              contactSubject={outcome.audit.student.className ?? outcome.audit.student.dept}
+              scope={fixture}
+            />
           ) : (
             <HoldList holds={[]} contactSubject="" />
           )}

@@ -229,7 +229,8 @@ function searchRules(topic: string, pack: RulePack, audit: AuditResult): RuleHit
   const school = pack.school ?? "demo";
   // 學分學程：問到有收錄的學程，先講它自己的修習規定，再講學校通則
   // 學程的課程設計每年不同：依現在申請會適用的那一學年選版本
-  const program = programPackIn(t, school, Number(audit.nextTerm.split("-")[0]));
+  const startYear = audit.nextTerm ? Number(audit.nextTerm.split("-")[0]) : undefined;
+  const program = programPackIn(t, school, startYear);
   if (program) hits.push({ text: programSummary(program), citation: programCitation(program) });
   for (const { clause, citation } of programClausesFor(school, t)) {
     hits.push({ text: `${clause.program}：${clause.text}`, citation });

@@ -70,6 +70,7 @@ export const reconcileConflictsStep: Step = {
                 reason: r.reason,
                 quote: r.citation?.quote ?? null,
                 mode: r.mode,
+                cached: r.cached ?? false,
                 costUsd: r.costUsd,
               },
             };

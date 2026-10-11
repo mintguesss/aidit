@@ -601,7 +601,7 @@ export async function askTurn(
   } else if (
     intent.kind === "clarify" &&
     rules.kind === "intent" &&
-    rules.intent === "regulation" &&
+    (rules.intent === "regulation" || rules.intent === "procedure") &&
     programClausesFor(schoolOf(ctx.record.student), forRules).length > 0
   ) {
     // 「雙主修會不會延畢」：學校辦法有對應的條文就直接講，不必反問「哪一個雙主修組合」

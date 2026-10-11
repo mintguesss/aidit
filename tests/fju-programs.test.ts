@@ -123,3 +123,21 @@ describe("依開始修讀的學年選科目表（雙主修辦法第六條）", (
     expect(findExtraPack("double-major", { dept, school: "fju", startYear })?.id).toBe(id);
   });
 });
+
+describe("學校的學程辦法", () => {
+  it.each([
+    ["學程要修幾學分", "第四條"],
+    ["學程沒申請可以拿證明嗎", "第六條"],
+    ["學程大四修不完怎麼辦", "第七條"],
+    ["學程要收費嗎", "第五條"],
+    ["學程要怎麼申請", "第一條"],
+  ])("%s → %s", (said, locator) => {
+    expect(programClausesFor("fju", said).map((h) => h.clause.locator)).toContain(locator);
+  });
+  it("條文都查得到原文", () => {
+    const corpus = new Map([...loadCorpus(), ...extraCorpus()]);
+    for (const h of programClausesFor("fju", "學程 學分 認定 修不完 收費 怎麼申請")) {
+      expect(verifyCitation(h.citation, corpus).ok, `${h.citation.docId} ${h.citation.locator}`).toBe(true);
+    }
+  });
+});

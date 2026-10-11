@@ -101,6 +101,8 @@ const ANNOUNCEMENT_CORPUS: [string, string][] = [
   // 學校的雙主修、輔系辦法（rules/program-regs.ts 引用）
   ["fju-double-major", "fju-double-major.txt"],
   ["fju-minor", "fju-minor.txt"],
+  ["fju-program-setup", "fju-program-setup.txt"],
+  ["fju-program-rules", "fju-program-rules.txt"],
 ];
 
 export type ResolveOutcome =

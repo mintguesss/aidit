@@ -10,7 +10,7 @@ import type { Citation } from "@/lib/types";
  * keys：問題裡出現這些字就引用這一條；都沒對到時用 main 那一條回答。
  */
 
-export type ProgramKind = "雙主修" | "輔系";
+export type ProgramKind = "雙主修" | "輔系" | "學程";
 
 export type ProgramClause = {
   program: ProgramKind;
@@ -20,6 +20,8 @@ export type ProgramClause = {
   quote: string;
   keys: RegExp;
   main?: true;
+  /** 這一條出自另一份文件（學程的施行細則）；沒填就是該類的主要文件 */
+  docId?: string;
 };
 
 type ProgramDoc = { docId: string; title: string; url: string; publishedAt: string; corpusFile: string };
@@ -40,7 +42,27 @@ export const PROGRAM_DOCS: Record<string, Record<ProgramKind, ProgramDoc>> = {
       publishedAt: "2025-11-27",
       corpusFile: "fju-minor.txt",
     },
+    學程: {
+      docId: "fju-program-setup",
+      title: "輔仁大學學程設置辦法",
+      url: "https://docsacademic.fju.edu.tw/edulaw/學程設置辦法.pdf",
+      publishedAt: "2022-11-24",
+      corpusFile: "fju-program-setup.txt",
+    },
   },
+};
+
+/** 不是某一類主要文件、但有條文被引用的文件 */
+export const PROGRAM_EXTRA_DOCS: Record<string, ProgramDoc[]> = {
+  fju: [
+    {
+      docId: "fju-program-rules",
+      title: "輔仁大學學生修讀學分學程施行細則",
+      url: "https://docsacademic.fju.edu.tw/edulaw/學生修讀學分學程施行細則.pdf",
+      publishedAt: "2022-11-24",
+      corpusFile: "fju-program-rules.txt",
+    },
+  ],
 };
 
 export const PROGRAM_CLAUSES: Record<string, ProgramClause[]> = {
@@ -124,6 +146,43 @@ export const PROGRAM_CLAUSES: Record<string, ProgramClause[]> = {
       quote: "應於延長修業年限內修畢或申請放棄修讀",
       keys: /延畢|延長|修不完|來不及|放棄|會不會延/,
     },
+    {
+      program: "學程",
+      locator: "第四條",
+      text: "學分學程至少 15 學分，微學程 6～12 學分；學程科目學分至少一半不能是本系、雙主修學系或輔系的必修。",
+      quote: "學分學程規劃課程學分數學士班至少為15學分",
+      keys: /學分|幾學分|多少|微學程|差在哪|差別|不同|必修|一半|抵|算進/,
+      main: true,
+    },
+    {
+      program: "學程",
+      locator: "第六條",
+      text: "可以事先向開設單位申請（核定後下一學年起修讀），也可以不申請、畢業前修完規定的科目後，檢附成績單向開設單位申請資格認定。",
+      quote: "未依前項規定申請修讀學分學程，而於畢業前修畢學分學程規定應修科目與學分者，得檢附成績單以書面向各學分學程設置單位申請資格認定",
+      keys: /申請|認定|沒申請|來不及申請|修完了|已經修完|怎麼拿|證明/,
+    },
+    {
+      program: "學程",
+      locator: "第七條",
+      text: "事先申請的人，到四年級下學期加退選後還沒修完，要在期中考後一週內書面申請保留學程資格，否則視同放棄。",
+      quote: "應於第二學期期中考試後一週內以書面申請，經學分學程設置單位與主學系主管同意後送請教務處備查，始得保留學分學程資格",
+      keys: /延畢|延長|修不完|來不及|保留|放棄|大四/,
+    },
+    {
+      program: "學程",
+      locator: "第五條",
+      text: "學程以隨班修習為原則，不另外收費；修習人數 20 人以上才可以申請另外開班。",
+      quote: "學分學程修讀以隨班修習為原則，不另收費",
+      keys: /收費|費用|要錢|學分費|開班/,
+    },
+    {
+      program: "學程",
+      docId: "fju-program-rules",
+      locator: "第一條",
+      text: "註冊組每年 4 月中旬公布申請辦法；申請單要經本系系主任簽章同意，再交給開設學程的單位審核；一次只能申請一個學程，認定後一學年內不能更改。",
+      quote: "擬申請學分學程者，依公告規定日期，先至各學程設置單位辦公室",
+      keys: /怎麼申請|如何申請|申請流程|去哪|什麼時候|期限|幾個學程|同時/,
+    },
   ],
 };
 
@@ -132,7 +191,9 @@ export function programClausesFor(school: string, text: string): { clause: Progr
   const clauses = PROGRAM_CLAUSES[school] ?? [];
   const docs = PROGRAM_DOCS[school];
   if (!docs) return [];
-  const kinds = (["雙主修", "輔系"] as ProgramKind[]).filter((k) => (k === "雙主修" ? /雙主修|雙學位/ : /輔系|輔修/).test(text));
+  const kinds = (["雙主修", "輔系", "學程"] as ProgramKind[]).filter((k) =>
+    (k === "雙主修" ? /雙主修|雙學位/ : k === "輔系" ? /輔系|輔修/ : /學程/).test(text),
+  );
   const out: ProgramClause[] = [];
   for (const k of kinds) {
     const mine = clauses.filter((c) => c.program === k);
@@ -140,7 +201,7 @@ export function programClausesFor(school: string, text: string): { clause: Progr
     out.push(...(hit.length > 0 ? hit : mine.filter((c) => c.main)));
   }
   return out.map((clause) => {
-    const doc = docs[clause.program];
+    const doc = (clause.docId && PROGRAM_EXTRA_DOCS[school]?.find((d) => d.docId === clause.docId)) || docs[clause.program];
     return {
       clause,
       citation: { docId: doc.docId, docTitle: doc.title, locator: clause.locator, quote: clause.quote, url: doc.url, publishedAt: doc.publishedAt },

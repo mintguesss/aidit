@@ -388,6 +388,12 @@ function anotherRuleSet(input: SimulateInput, kind: string, name: string): WhatI
         );
       }
     }
+    // 學程已經修完：沒事先申請也拿得到（學程設置辦法第六條的認定制）
+    const recognise =
+      kind === "學分學程" && unmet === 0 && !r.nonMainShortfall
+        ? programClausesFor(school, "學程 認定").find((x) => x.clause.locator === "第六條")
+        : undefined;
+    if (recognise) notes.push(`規定的科目已經修完。${recognise.clause.text}`);
     if (extra.caveat) notes.push(extra.caveat);
     if (extra.provenance !== "approved") notes.push("這份規定是從學校公開文件抄錄的，還沒經人工校對鎖版；實際應修與免修以承辦單位認定為準。");
 
@@ -402,6 +408,7 @@ function anotherRuleSet(input: SimulateInput, kind: string, name: string): WhatI
       citations: dedupe([
         ...r.requirements.map((q) => q.citation),
         r.overlapCitation,
+        ...(recognise ? [recognise.citation] : []),
         ...(extra.waiverByName && r.waiverCandidates?.length
           ? [{ docId: extra.waiverByName.citation.docId, docTitle: extra.waiverByName.citation.docId, locator: extra.waiverByName.citation.locator, quote: extra.waiverByName.citation.quote }]
           : []),
@@ -411,7 +418,7 @@ function anotherRuleSet(input: SimulateInput, kind: string, name: string): WhatI
   }
 
   // 沒收錄該系（該學程）的規定：學校辦法有的就講，缺的資料講清楚，不推算
-  const rules = kind === "學分學程" ? [] : programClausesFor(school, kind);
+  const rules = programClausesFor(school, kind === "學分學程" ? "學程" : kind);
   const main = rules.find((x) => x.clause.main) ?? rules[0];
   return {
     headline: `還沒收錄${label}的科目表，無法算出還差哪些課`,

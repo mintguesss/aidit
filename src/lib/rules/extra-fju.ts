@@ -8,7 +8,8 @@
  *   - 心理系：雙學位學生必修課程一覽表（109 學年度起雙主修學生適用）
  *   - 雲端服務學程：課程一覽表（112 學年起適用）
  *
- * provenance 一律是 draft：抄錄與課號對照還沒經人工校對鎖版，畫面上要照實標示。
+ * 2026-10-12 逐字對照原檔影像校對（條文、科目名稱、學分；各表的學分加總也對過），使用者確認後鎖版為 approved。
+ * 物理系分組的但書（caveat）不是抄錄問題，鎖版後照樣在結果裡講。
  * 這裡刻意寫成 unknown[]，由 extra-packs.ts 的 schema 驗證，避免兩個檔案互相 import 型別。
  */
 
@@ -81,8 +82,8 @@ export const FJU_EXTRA_PACKS: unknown[] = [
     caveat:
       "物理系沒有另訂雙主修科目表，依雙主修辦法第六條以該系入學生的必修科目為準；物理系分物理組、光電物理組、電子物理組，群組必修各不相同，這裡以光電物理組計算，實際以申請的組別為準。",
     admissionYear: 110,
-    version: "draft-1",
-    provenance: "draft",
+    version: "1",
+    provenance: "approved",
     minCredits: 72,
     document: {
       id: "fju-phy-oe-plan-110",
@@ -122,8 +123,8 @@ export const FJU_EXTRA_PACKS: unknown[] = [
     dept: "39",
     title: "心理學系雙主修（109 學年度起雙主修學生適用）",
     admissionYear: 109,
-    version: "draft-1",
-    provenance: "draft",
+    version: "1",
+    provenance: "approved",
     minCredits: 64,
     document: {
       id: "fju-psy-double-major-109",
@@ -164,8 +165,8 @@ export const FJU_EXTRA_PACKS: unknown[] = [
     program: "雲端服務學程",
     title: "雲端服務學程（112 學年起適用）",
     admissionYear: 112,
-    version: "draft-1",
-    provenance: "draft",
+    version: "1",
+    provenance: "approved",
     minCredits: 20,
     document: {
       id: "fju-cloud-program-112",
@@ -243,8 +244,8 @@ export const FJU_EXTRA_PACKS: unknown[] = [
     caveat:
       "物理系沒有另訂輔系科目表，依輔系辦法第三、四條：輔系課程以該系專業必修科目為依據，至少修畢 20 學分；實際可修哪些科目由物理系認定。",
     admissionYear: 110,
-    version: "draft-1",
-    provenance: "draft",
+    version: "1",
+    provenance: "approved",
     minCredits: 20,
     document: {
       id: "fju-phy-oe-plan-110",
@@ -272,8 +273,8 @@ export const FJU_EXTRA_PACKS: unknown[] = [
     dept: "39",
     title: "心理學系輔系（112 學年度輔系必選修科目表）",
     admissionYear: 112,
-    version: "draft-1",
-    provenance: "draft",
+    version: "1",
+    provenance: "approved",
     minCredits: 24,
     document: {
       id: "fju-psy-minor-112",
@@ -309,8 +310,8 @@ export const FJU_EXTRA_PACKS: unknown[] = [
     caveat:
       "物理系沒有另訂雙主修科目表，依雙主修辦法第六條以開始修讀那一年該系入學生的必修科目為準；物理系分物理組、光電物理組、電子物理組，群組必修各不相同，這裡以光電物理組計算，實際以申請的組別為準。",
     admissionYear: 113,
-    version: "draft-1",
-    provenance: "draft",
+    version: "1",
+    provenance: "approved",
     minCredits: 69,
     document: {
       id: "fju-phy-oe-plan-113",
@@ -347,8 +348,8 @@ export const FJU_EXTRA_PACKS: unknown[] = [
     caveat:
       "物理系沒有另訂輔系科目表，依輔系辦法第三、四條：輔系課程以該系專業必修科目為依據，至少修畢 20 學分；實際可修哪些科目由物理系認定。",
     admissionYear: 113,
-    version: "draft-1",
-    provenance: "draft",
+    version: "1",
+    provenance: "approved",
     minCredits: 20,
     document: {
       id: "fju-phy-oe-plan-113",
@@ -376,8 +377,8 @@ export const FJU_EXTRA_PACKS: unknown[] = [
     dept: "39",
     title: "心理學系雙主修（113 學年度起雙主修學生適用）",
     admissionYear: 113,
-    version: "draft-1",
-    provenance: "draft",
+    version: "1",
+    provenance: "approved",
     minCredits: 64,
     document: {
       id: "fju-psy-double-major-113",

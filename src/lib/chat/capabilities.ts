@@ -186,10 +186,17 @@ export function answerRegulation(topic: string, pack: RulePack, audit: AuditResu
     };
   }
 
+  // 講到某個學程、但沒收錄它的修習要點：學校的通則照講，並說明那個學程本身的規定沒收錄
+  const named = programNameIn(topic);
+  const uncollected =
+    named && !programPackIn(topic, pack.school ?? "demo")
+      ? `目前沒收錄「${named}${/微學程/.test(topic) ? "微學程" : "學程"}」的修習要點，應修科目與學分以開設單位公告為準。`
+      : undefined;
+  const more = [...(hits.length > 1 ? hits.slice(1, 3).map((h) => h.text) : []), ...(uncollected ? [uncollected] : [])];
   return {
     kind: "決定",
     headline: hits[0]!.text,
-    detail: hits.length > 1 ? hits.slice(1, 3).map((h) => h.text).join("\n") : undefined,
+    detail: more.length > 0 ? more.join("\n") : undefined,
     citations: hits.slice(0, 3).map((h) => h.citation),
     uncountedHolds: audit.holds.length,
   };
@@ -211,12 +218,12 @@ function searchRules(topic: string, pack: RulePack, audit: AuditResult): RuleHit
 
   // 雙主修、輔系：學校辦法的條文（申請時間、學分下限、免修、延畢）
   const school = pack.school ?? "demo";
+  // 學分學程：問到有收錄的學程，先講它自己的修習規定，再講學校通則
+  const program = programPackIn(t, school);
+  if (program) hits.push({ text: programSummary(program), citation: programCitation(program) });
   for (const { clause, citation } of programClausesFor(school, t)) {
     hits.push({ text: `${clause.program}：${clause.text}`, citation });
   }
-  // 學分學程：問到有收錄的學程就講它的修習規定
-  const program = programPackIn(t, school);
-  if (program) hits.push({ text: programSummary(program), citation: programCitation(program) });
 
   if (want("超修", "流用", "溢出", "多修的")) {
     for (const [catId, policy] of Object.entries(pack.overflowPolicy)) {
@@ -313,7 +320,9 @@ function searchRules(topic: string, pack: RulePack, audit: AuditResult): RuleHit
   }
 
   // 最低畢業學分：問總學分時答；只說了「畢業」的，有更具體的答案（英文門檻、某一類）就不搶第一句
-  if (want("最低", "總學分", "幾學分") || (want("畢業") && hits.length === 0)) {
+  // 問的是雙主修、輔系、學程的學分，不是本系畢業學分
+  const aboutProgram = /雙主修|雙學位|輔系|輔修|學程/.test(t);
+  if ((want("最低", "總學分", "幾學分") && !aboutProgram) || (want("畢業") && hits.length === 0)) {
     hits.push({
       text: `本系（${pack.program === "day" ? "日間部" : "進修部"}）最低畢業學分 ${pack.minCredits} 學分。`,
       citation: pack.minCreditsCitation
@@ -345,12 +354,19 @@ export function mentionsGraduationCheck(text: string, pack: RulePack): boolean {
 
 /** 句子裡講到的、有收錄的學分學程（「雲端學程」→ 雲端服務學程） */
 export function programPackIn(text: string, school: string): ExtraPack | undefined {
+  const name = programNameIn(text);
+  return name ? findExtraPack("cert-program", { program: name, school }) : undefined;
+}
+
+/** 句子裡講到的學程名稱（「AI微學程」→ AI）；只說「學程」「學分學程」的回 undefined */
+export function programNameIn(text: string): string | undefined {
   if (!/學程/.test(text)) return undefined;
   const m = /([A-Za-z一-龥]{2,14}?)(?:學分|微)?學程/.exec(text);
   const name = (m?.[1] ?? "")
     .replace(/^.*?(?:加修|申請|想修|修讀|要修|能修|修|讀|念)/, "")
-    .replace(/^(?:我|想要?|要|能不能|可不可以|可以|一個|這個|那個)+/, "");
-  return name.length >= 2 ? findExtraPack("cert-program", { program: name, school }) : undefined;
+    .replace(/^(?:我|想要?|要|能不能|可不可以|可以|一個|這個|那個)+/, "")
+    .replace(/(?:學分|微)$/, "");
+  return name.length >= 2 && !/^(?:什麼|哪個|哪些|跨領域|學分|這|那)$/.test(name) ? name : undefined;
 }
 
 function programSummary(p: ExtraPack): string {
@@ -371,11 +387,13 @@ export function answerProgramProcedure(text: string, pack: RulePack): Reply | nu
   const school = pack.school ?? "demo";
   const program = programPackIn(text, school);
   if (program?.apply) {
+    // 學校的學程辦法：沒事先申請、畢業前修完也能申請認定；申請單要本系系主任簽章
+    const school_ = programClausesFor(school, "學程 認定 怎麼申請").filter((x) => x.clause.locator === "第六條" || x.clause.docId);
     return {
       kind: "決定",
       headline: `${program.title}的申請方式：${program.apply.text}`,
-      detail: programSummary(program),
-      citations: [programCitation(program, program.apply.citation), programCitation(program)],
+      detail: [programSummary(program), ...school_.map((x) => `學校規定：${x.clause.text}`)].join(String.fromCharCode(10)),
+      citations: [programCitation(program, program.apply.citation), programCitation(program), ...school_.map((x) => x.citation)],
     };
   }
   const clauses = programClausesFor(school, `${text} 怎麼申請 什麼時候`);

@@ -395,8 +395,13 @@ function withExtraRules(
   const cite: Citation[] = [...r.requirements.map((q) => q.citation), r.overlapCitation];
 
   // 一、規定
+  // 標籤已經寫了門數或學分（「基礎（3 選 1）」「織品服飾應用課程（至少 2 學分）」）就不再重複
   const parts = extra.requirements.map((q) =>
-    q.minCourses ? (/選/.test(q.label) ? q.label : `${q.label.replace(/（.*）$/, "")} ${q.minCourses} 門`) : `${q.label} ${q.credits} 學分`,
+    /選|學分/.test(q.label)
+      ? q.label
+      : q.minCourses
+        ? `${q.label.replace(/（.*）$/, "")} ${q.minCourses} 門`
+        : `${q.label} ${q.credits} 學分`,
   );
   sections.push({
     title: "規定",

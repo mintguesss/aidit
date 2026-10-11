@@ -30,11 +30,33 @@ export async function preloadOfferings(force = false): Promise<void> {
   if (!supabaseConfigured()) return;
   if (!force && Date.now() - loadedAt < TTL_MS) return;
   try {
-    const db = await supabaseClient();
-    const { data, error } = await db.from("offerings").select("school, year, term, rows");
-    if (error) throw new Error(error.message);
+    // 跨執行個體共用快取：學期清單一項、每學期一項（全部加起來約 1.4 MB，單一項目有 2 MB 上限，所以拆開）
+    const { shared } = await import("@/lib/util/shared-cache");
+    const ttl = TTL_MS / 1000;
+    const terms = await shared(["offering-terms"], ttl, async () => {
+      const db = await supabaseClient();
+      const { data, error } = await db.from("offerings").select("school, year, term");
+      if (error) throw new Error(error.message);
+      return (data ?? []) as { school: string; year: number; term: number }[];
+    });
+    const data = await Promise.all(
+      terms.map((t) =>
+        shared(["offerings", t.school, String(t.year), String(t.term)], ttl, async () => {
+          const db = await supabaseClient();
+          const { data, error } = await db
+            .from("offerings")
+            .select("school, year, term, rows")
+            .eq("school", t.school)
+            .eq("year", t.year)
+            .eq("term", t.term)
+            .single();
+          if (error) throw new Error(error.message);
+          return data as { school: string; year: number; term: number; rows: RawOffering[] };
+        }),
+      ),
+    );
     const rows: RawOffering[] = [];
-    for (const r of (data ?? []) as { school: string; year: number; term: number; rows: RawOffering[] }[]) {
+    for (const r of data) {
       // 每一列的學校、學年、學期以這一學期的欄位為準，避免上傳的檔案內容與欄位對不上
       for (const o of r.rows) rows.push({ ...o, school: r.school, year: r.year, term: r.term as 1 | 2 });
     }

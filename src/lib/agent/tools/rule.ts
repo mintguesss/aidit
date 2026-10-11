@@ -3,7 +3,8 @@ import type { Citation, Student, TransferApproval } from "@/lib/types";
 import type { RulePack } from "@/lib/rules/schema";
 import { resolveRulePack, loadCorpus, type ResolveOutcome } from "@/lib/rules/loader";
 import { announcementsFor, citationOf, type Announcement } from "@/lib/rules/announcements";
-import { structured, type LlmBudget } from "@/lib/llm/client";
+import { MODEL_LABEL, llmAvailable, structured, type LlmBudget } from "@/lib/llm/client";
+import { readReconcileCache, reconcileKey, writeReconcileCache } from "./reconcile-cache";
 import type { ConflictNote, DeptDefinedResolution } from "@/lib/audit/engine";
 
 /** rule.resolve —— 純查表，不經 LLM */
@@ -91,6 +92,8 @@ export type ReconcileOutcome = {
   costUsd: number;
   inputTokens: number;
   outputTokens: number;
+  /** 判斷結果取自快取（同一則公告、同一入學年度與學制，之前問過模型）。不花錢，trace 照實標示 */
+  cached?: boolean;
 };
 
 const SYSTEM = [
@@ -115,6 +118,24 @@ export async function ruleReconcile(
   const corpus = loadCorpus();
   const text = corpus.get(conflict.announcement.contentDocId) ?? "";
 
+  // 同一則公告對同一入學年度、系所、學制的判斷，每次都一樣：問過模型就存起來。
+  // 不存的話每次審查都要再問一次 —— Vercel 的執行個體隨時重開，同一個學生開一頁就花一次錢、等 5–7 秒。
+  // 鍵值含公告全文、提示詞與模型，任何一個改了就重新判斷
+  const key = reconcileKey([SYSTEM, MODEL_LABEL, conflict.announcement.id, conflict.announcement.appliesToRaw ?? "", text, student.admissionYear, student.dept, student.program]);
+  const hit = llmAvailable() ? await readReconcileCache(key) : null;
+  if (hit) {
+    return {
+      conflict,
+      ...hit,
+      citation: hit.quote.trim() === "" ? null : citationOf(conflict.announcement, locatorFor(conflict.announcement), hit.quote),
+      mode: "api",
+      costUsd: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      cached: true,
+    };
+  }
+
   const res = await structured(
     {
       system: SYSTEM,
@@ -135,6 +156,9 @@ export async function ruleReconcile(
   );
 
   const d = res.data;
+  if (res.mode === "api") {
+    await writeReconcileCache(key, { resolved: d.resolved, appliesToStudent: d.appliesToStudent, reason: d.reason, quote: d.quote });
+  }
   const citation =
     d.quote.trim() === ""
       ? null

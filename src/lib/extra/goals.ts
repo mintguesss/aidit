@@ -136,7 +136,12 @@ export function summariseExtraGoals(
     const pack =
       goal.kind === "transfer"
         ? undefined
-        : findExtraPack(goal.kind, { dept: dept?.code, program: goal.target, school: audit.student.school ?? "demo" });
+        : findExtraPack(goal.kind, {
+            dept: dept?.code,
+            program: goal.target,
+            school: audit.student.school ?? "demo",
+            startYear: Number(audit.nextTerm.split("-")[0]),
+          });
 
     const usable = courses.filter((c) => c.status !== "failed" && c.status !== "withdrawn");
 

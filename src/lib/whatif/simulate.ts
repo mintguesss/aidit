@@ -339,7 +339,9 @@ function anotherRuleSet(input: SimulateInput, kind: string, name: string): WhatI
   const { audit, record } = input;
   const school = schoolOf(record.student);
   const dept = kind === "學分學程" ? undefined : resolveDept(name);
-  const extra = findExtraPack(KIND_OF[kind]!, { dept: dept?.code, program: name, school });
+  // 現在打算加修，就是從下學期那一學年開始修讀
+  const startYear = Number(audit.nextTerm.split("-")[0]);
+  const extra = findExtraPack(KIND_OF[kind]!, { dept: dept?.code, program: name, school, startYear });
   const label = kind === "學分學程" ? (extra?.title ?? `「${name}」學程`) : `${dept?.name ?? name}${kind}`;
 
   if (extra) {
@@ -368,8 +370,8 @@ function anotherRuleSet(input: SimulateInput, kind: string, name: string): WhatI
     }
     if (r.waiverCandidates?.length) {
       notes.push(
-        `你修過的 ${r.waiverCandidates.map((c) => c.name).join("、")} 跟${dept?.name ?? "該系"}的科目同名，` +
-          `可以申請免修，由${dept?.name ?? "該系"}主任認定；上面的數字沒有算進去。`,
+        `你修過的 ${r.waiverCandidates.map((c) => c.name).join("、")} 跟${dept?.name ?? "該系"}的科目同名：` +
+          (extra.waiverByName?.text ?? `可以申請免修，由${dept?.name ?? "該系"}主任認定；上面的數字沒有算進去。`),
       );
     }
     // 雙主修、輔系：兩邊加起來每學期要修多少（學分學程多半跟本系課重疊，不估）
@@ -386,6 +388,7 @@ function anotherRuleSet(input: SimulateInput, kind: string, name: string): WhatI
         );
       }
     }
+    if (extra.caveat) notes.push(extra.caveat);
     if (extra.provenance !== "approved") notes.push("這份規定是從學校公開文件抄錄的，還沒經人工校對鎖版；實際應修與免修以承辦單位認定為準。");
 
     return {

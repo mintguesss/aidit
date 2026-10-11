@@ -66,7 +66,9 @@ const zExtraPack = z.object({
    */
   nonMainRequiredShare: z.object({ min: z.number().min(0).max(1), citation: zCite }).optional(),
   /** 雙主修：與主系相同或高度相似（同課名）的課可申請免修，由雙主修學系主任認定。只列出，不算進去 */
-  waiverByName: z.object({ citation: zCite }).optional(),
+  waiverByName: z.object({ citation: zCite, text: z.string().optional() }).optional(),
+  /** 這份規定本身的但書（例如分組不同、沒有專用科目表），試算結果要一併講 */
+  caveat: z.string().optional(),
   /** 申請方式（修業問答「怎麼申請」用） */
   apply: z.object({ text: z.string(), citation: zCite }).optional(),
 });
@@ -251,9 +253,10 @@ export function loadExtraPacks(): ExtraPack[] {
 /** 找不到就回 undefined —— 沒有收錄的規定就是沒有 */
 export function findExtraPack(
   kind: ExtraPack["kind"],
-  key: { dept?: string; program?: string; school?: string },
+  /** startYear：打算哪一學年開始修讀。雙主修辦法第六條：依開始修讀那一年該系入學生的科目表 */
+  key: { dept?: string; program?: string; school?: string; startYear?: number },
 ): ExtraPack | undefined {
-  return loadExtraPacks().find(
+  const all = loadExtraPacks().filter(
     (p) =>
       p.kind === kind &&
       // 學校要對：輔大學生問雙主修，不能拿合成學校的規定回答
@@ -262,6 +265,10 @@ export function findExtraPack(
         ? Boolean(key.program) && Boolean(p.program) && sameProgram(p.program!, key.program!)
         : p.dept === key.dept),
   );
+  if (all.length <= 1 || key.startYear === undefined) return all.sort((a, b) => b.admissionYear - a.admissionYear)[0];
+  // 同一系有好幾版：取開始修讀那一年適用的（admissionYear 是該版開始適用的學年）
+  const usable = all.filter((p) => p.admissionYear <= key.startYear!).sort((a, b) => b.admissionYear - a.admissionYear);
+  return usable[0] ?? all.sort((a, b) => a.admissionYear - b.admissionYear)[0];
 }
 
 const normalise = (s: string) => s.replace(/\s|微學程|學分學程|學程|服務|趨勢/g, "");

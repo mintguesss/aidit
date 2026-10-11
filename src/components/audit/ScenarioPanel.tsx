@@ -163,6 +163,7 @@ export function ScenarioPanel({
           <span className="wi-word">如果我</span>
           <span className={`wi-blank${shake ? " pop" : ""}`}>
             <input
+              data-anon-keep
               ref={inputRef}
               type="text"
               aria-label="輸入試算情境"
@@ -365,7 +366,9 @@ function EntryView({ entry, fallbackHolds }: { entry: Entry; fallbackHolds: numb
     <article className="entry">
       <div className="entry-hd">
         <span className="entry-no">#{String(entry.no).padStart(2, "0")}</span>
-        <span className="entry-q">{entry.asked}</span>
+        <span className="entry-q" data-anon-keep>
+          {entry.asked}
+        </span>
         <span className="entry-time">{entry.at}</span>
       </div>
 

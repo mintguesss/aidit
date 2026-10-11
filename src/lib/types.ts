@@ -264,6 +264,13 @@ export type HoldItem = {
   impact: string;
   contact: string;
   affectedCategory?: string;
+  /**
+   * body 的結構化拆解，給介面分開呈現（原因一句、涉及科目、已查過的來源）。
+   * body 仍是完整文字，複製與詢問信用它。
+   */
+  reason?: string;
+  courses?: { code: string; name: string; credits: number }[];
+  searched?: string[];
 };
 
 export type Verdict = {

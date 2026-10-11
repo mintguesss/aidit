@@ -25,7 +25,7 @@ export default async function ScenarioPage({
           <PageHead
             title="情境試算"
             stamp={`未計入 ${outcome.audit.holds.length} 項待確認`}
-            lead="以本次審查結果為基礎，改變條件後重新推算。"
+            lead="改一個條件，用你目前的修課紀錄重算一次。"
           />
           <ScenarioPanel
             fixture={fixture}

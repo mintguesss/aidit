@@ -10,7 +10,8 @@
 - 課名符合某一類的課名規則（完全相同或開頭相同，見 lib/courses/names.ts）→ 那一類
 - 通識單位（PT／NT／ST／DT）開的課 → 通識，並記下領域
 - 本系（規則包的系所）開的選修 → 系專選、其他選修（扣掉規則包排除的課名）
-- 有收錄的系所（DEPT_UNITS）開的其他課 → 照收，類別留空，網站排課時依學生的規則包判斷
+- 其他單位開的課（外系、學程、TAICA）→ 有學分、對外系開放（外系名額 > 0、備註沒限本系）就收，
+  類別依規則包的承接類別（輔大：選修課程），網站排課時依學生的規則包判斷
 - 其他（0 學分的體育與軍訓等）不收，列在輸出訊息裡
 
 修課人數只有上限（totNum），沒有已選人數 —— 未知不是 0，enrolled 不填。
@@ -107,7 +108,12 @@ def main():
                 category, domain = [general_cat], GENERAL_UNITS[unit]
             elif unit in DEPT_UNITS and DEPT_UNITS[unit][0] == pack["dept"] and r["reqSel"] == "S":
                 category = [c for c in elective_cats if not (c == major and norm(name) in excluded)]
-            elif unit in DEPT_UNITS and DEPT_UNITS[unit][0] != pack["dept"] and r["credit"] > 0:
+            elif not (unit in DEPT_UNITS and DEPT_UNITS[unit][0] == pack["dept"]) and r["credit"] > 0:
+                # 外系的課只要對外系開放就能算選修（輔大：外系名額 outNum 為 0、或備註限本系的不收）。
+                # TAICA 等跨校、學程的課一樣：使用者實際選過、採計為選修
+                if r.get("outNum") == 0 or re.search(r"限本系|不開放外系|限.{0,6}系學生", r.get("avaNote") or ""):
+                    skipped[f"{unit}（不開放外系）"] += 1
+                    continue
                 # 別系（對轉換用的規則包而言）開的課：一樣收進來，網站排課時依學生自己的規則包判斷類別。
                 # 規則包本系沒列的必修、0 學分的導師時間照舊不收
                 # 與網站即時判斷一致（lib/offerings 的 categoriesFor）：別系的課對這份規則包只算承接類別

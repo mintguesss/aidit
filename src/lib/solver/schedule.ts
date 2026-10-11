@@ -406,12 +406,31 @@ function filterCandidates(ctx: SolveContext): {
   // 以前照課號取前幾門，與使用者的條件無關；改成有非早八班的課優先
   const capClasses = (list: Candidate[]) => {
     const nonEarly = new Set(list.filter((c) => !c.early).map((c) => c.offering.code));
-    const ordered = [...list].sort((a, b) => Number(nonEarly.has(b.offering.code)) - Number(nonEarly.has(a.offering.code)));
+    // 只能補承接類別的課只留幾門，留下來的要排得進去：跟必修、學年課下半、要保留的課撞堂的往後放。
+    // 只看早八與學分的話，留下的 8 門可能全跟必修撞堂，等於沒有外系課可選（113-1 實測）
+    const anchors = list.filter(
+      (c) => uncapped(c) || c.continues || c.creditIdx.some((k) => !ctx.requirements[k]!.catchAll),
+    );
+    const anchorSingle = new Map<string, Candidate[]>();
+    for (const a of anchors) anchorSingle.set(a.offering.code, [...(anchorSingle.get(a.offering.code) ?? []), a]);
+    // 只有一個班的必修一定在那個時段；有好幾班的不算（不知道會排哪一班）
+    const fixedSlots = [...anchorSingle.values()].filter((g) => g.length === 1).flatMap((g) => g[0]!.offering.slots);
+    const clash = (c: Candidate) => (fixedSlots.length > 0 && clashes(c.offering.slots, fixedSlots) ? 1 : 0);
+    const ordered = [...list].sort(
+      (a, b) =>
+        clash(a) - clash(b) ||
+        Number(nonEarly.has(b.offering.code)) - Number(nonEarly.has(a.offering.code)) ||
+        b.offering.credits - a.offering.credits,
+    );
     const codesByClass = new Map<string, Set<string>>();
     const kept = new Set(
       ordered.filter((c) => {
         if (uncapped(c) || c.continues) return true;
-        const key = `${[...c.satisfies].sort().join("|")}:${c.offering.credits}`;
+        // 只能補承接類別（輔大的「選修課程」）的課，對排課來說全都可以互換：學分數不同也一樣，
+        // 不分學分數合成一組。收進全校外系課之後這一組有上千班，照學分分組的話每組各 8 門，
+        // 搜尋從 2 秒變 12 秒（113-1 實測）
+        const onlyCatchAll = [...c.creditIdx, ...c.domainIdx].every((k) => ctx.requirements[k]!.catchAll && !isSub(ctx.requirements[k]!));
+        const key = onlyCatchAll ? "catch-all" : `${[...c.satisfies].sort().join("|")}:${c.offering.credits}`;
         const codes = codesByClass.get(key) ?? new Set<string>();
         codesByClass.set(key, codes);
         if (codes.has(c.offering.code)) return true;
@@ -454,6 +473,8 @@ function summarize(exclusions: Exclusion[], before: number): ExclusionSummary {
 
 type Score = {
   unmetAfter: number;
+  /** 超過一門的通識門數（見 score） */
+  extraGeneral: number;
   /** 扣掉承接類別之後還缺多少（見 shortfallParts） */
   unmetSpecific: number;
   /** 有開課、卻沒排進來的學年課下半 */
@@ -648,6 +669,12 @@ function score(sel: Candidate[], ctx: SolveContext, parts = shortfallParts(sel, 
         ? 0
         : sel.filter((c) => !(ctx.keep ?? []).includes(c.offering.code) && c.offering.credits !== ctx.constraints.newCourseCredits).length,
     courseCount: sel.length,
+    // 一學期通常只修一門通識（使用者回饋：除非另外要求）。指定的、畫面上要保留的不算；
+    // 主題課（「加一門 AI 課」）要算：有非通識的 AI 課可選時，不該再多塞一門通識
+    extraGeneral: Math.max(
+      0,
+      sel.filter((c) => (c.offering.generalDomain || c.offering.selectType === "general") && !c.pinned && !(ctx.keep ?? []).includes(c.offering.code)).length - 1,
+    ),
     earlyMorningCount: sel.filter((c) => c.early).length,
     belowTermMin: Math.max(0, ctx.termMinCredits - totalCredits),
     totalCredits,
@@ -700,14 +727,14 @@ function objectiveFor(ctx: SolveContext): (s: Score) => number[] {
   switch (p.goal) {
     // 最快畢業：補滿未修後盡量多修，並湊到學期下限
     case "asap":
-      return (s) => [s.unmetAfter, gap(s), cm(s), s.belowTermMin, early(s), -s.totalCredits, compact(s), s.courseCount];
+      return (s) => [s.unmetAfter, gap(s), cm(s), s.belowTermMin, early(s), s.extraGeneral, -s.totalCredits, compact(s), s.courseCount];
     // 這學期輕一點：堂數優先，其次才是早八與集中度
     case "light":
-      return (s) => [s.unmetAfter, s.courseCount, gap(s), cm(s), early(s), compact(s), s.totalCredits];
+      return (s) => [s.unmetAfter, s.courseCount, gap(s), cm(s), early(s), s.extraGeneral, compact(s), s.totalCredits];
     // 正常進度：先滿足時段偏好與期望堂數，再考慮學分下限
     case "balanced":
     default:
-      return (s) => [s.unmetAfter, early(s), gap(s), cm(s), compact(s), s.belowTermMin, s.courseCount];
+      return (s) => [s.unmetAfter, early(s), gap(s), cm(s), s.extraGeneral, compact(s), s.belowTermMin, s.courseCount];
   }
 }
 

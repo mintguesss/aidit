@@ -344,7 +344,7 @@ function anotherRuleSet(input: SimulateInput, kind: string, name: string): WhatI
     headline: `無法試算${kind}：尚未收錄「${name}」的規定`,
     level: "infeasible",
     detail:
-      `本系統的規則包目前只收錄 ${packs.map((p) => `${p.dept} ${p.admissionYear} 學年度`).join("、")}，` +
+      `本系統的規則包目前只收錄 ${[...new Set(packs.map((p) => `${p.dept} ${p.admissionYear} 學年度`))].join("、")}，` +
       `查無「${name}」${kind}的規定。沒有規則依據時，系統不就${kind}的可行性作任何推算 ——` +
       `${kind}與其他兩種（${Object.keys(RULE_SET_NEEDS).filter((k) => k !== kind).join("、")}）` +
       `適用的規定不同，拿其中一種代替另一種等於換掉一整套畢業條件。` +

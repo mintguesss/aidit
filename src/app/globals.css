@@ -2314,3 +2314,17 @@ html[data-anon] a[aria-disabled="true"]{color:inherit;text-decoration:none;curso
 .turn-version button{font:inherit;font-size:12.5px;padding:4px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink-2);cursor:pointer}
 .turn-version button:disabled{opacity:.5;cursor:default}
 .turn-version .now{font-size:12.5px;color:var(--ok)}
+
+/* 資料與隱私：沿用免責聲明的版型。上方聲明是說明不是警告，用藍色系 */
+.pv-decl{border-color:var(--line);border-left-color:var(--ink-2);box-shadow:none}
+.pv-decl .decl-ic{background:var(--ink-2);font-style:italic;font-family:Georgia,serif}
+.pv-decl .decl-h{color:var(--ink)}
+.legal + .legal,.pv-decl + .legal{margin-top:18px}
+.art .pv-actions{margin-top:14px}
+.art .pv-danger{margin-top:18px}
+.pv-confirm{display:flex;flex-direction:column;gap:14px;font-size:14px;line-height:1.8}
+.pv-confirm p{margin:0}
+.pv-confirm label{display:flex;flex-direction:column;gap:6px;font-weight:600}
+.pv-confirm input{font-weight:400}
+.pv-confirm .pv-actions{justify-content:flex-end;margin:0}
+.pv-confirm input{padding:9px 12px;border:1px solid var(--line-2);border-radius:8px;font-size:14px;background:var(--paper);color:var(--text)}

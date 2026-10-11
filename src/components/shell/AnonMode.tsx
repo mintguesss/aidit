@@ -91,10 +91,21 @@ export function AnonMode() {
       observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: [...ATTRS, "href"] });
     };
 
-    fetch("/api/anon-terms")
+    // 等 React 把整頁接手完再改字。這個元件在最外層，掛載時頁面內容還在分段串流、
+    // 還沒全部接手；那時就改字，React 會發現文字跟伺服器給的不一樣而報 #418（實測約一半的載入會中）。
+    // 畫面在 data-anon-ready 之前本來就藏著，延後只是晚一點顯示
+    const afterHydration = (cb: () => void) => {
+      const idle = () =>
+        "requestIdleCallback" in window ? requestIdleCallback(() => cb(), { timeout: 500 }) : setTimeout(cb, 200);
+      if (document.readyState === "complete") idle();
+      else window.addEventListener("load", idle, { once: true });
+    };
+
+    const terms = fetch("/api/anon-terms")
       .then((r) => (r.ok ? r.json() : { teachers: [] }))
-      .then((d: { teachers?: string[] }) => run(d.teachers ?? []))
-      .catch(() => run([]));
+      .then((d: { teachers?: string[] }) => d.teachers ?? [])
+      .catch(() => [] as string[]);
+    afterHydration(() => void terms.then(run));
 
     return () => {
       cancelled = true;

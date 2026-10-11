@@ -228,7 +228,8 @@ function searchRules(topic: string, pack: RulePack, audit: AuditResult): RuleHit
   // 雙主修、輔系：學校辦法的條文（申請時間、學分下限、免修、延畢）
   const school = pack.school ?? "demo";
   // 學分學程：問到有收錄的學程，先講它自己的修習規定，再講學校通則
-  const program = programPackIn(t, school);
+  // 學程的課程設計每年不同：依現在申請會適用的那一學年選版本
+  const program = programPackIn(t, school, Number(audit.nextTerm.split("-")[0]));
   if (program) hits.push({ text: programSummary(program), citation: programCitation(program) });
   for (const { clause, citation } of programClausesFor(school, t)) {
     hits.push({ text: `${clause.program}：${clause.text}`, citation });
@@ -362,9 +363,9 @@ export function mentionsGraduationCheck(text: string, pack: RulePack): boolean {
 }
 
 /** 句子裡講到的、有收錄的學分學程（「雲端學程」→ 雲端服務學程） */
-export function programPackIn(text: string, school: string): ExtraPack | undefined {
+export function programPackIn(text: string, school: string, startYear?: number): ExtraPack | undefined {
   const name = programNameIn(text);
-  return name ? findExtraPack("cert-program", { program: name, school }) : undefined;
+  return name ? findExtraPack("cert-program", { program: name, school, startYear }) : undefined;
 }
 
 /** 句子裡講到的學程名稱（「AI微學程」→ AI）；只說「學程」「學分學程」的回 undefined */

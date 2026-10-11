@@ -37,7 +37,13 @@ export async function preloadPublishedRules(force = false): Promise<void> {
   if (!force && Date.now() - preloadedAt < PRELOAD_TTL_MS) return;
   try {
     const { fetchPublishedRules } = await import("./published");
-    published = await fetchPublishedRules();
+    // 規則包與原文約 70 KB：放進跨執行個體的共用快取，新執行個體不必再向 Supabase 要（存取時要是純 JSON）
+    const { shared } = await import("@/lib/util/shared-cache");
+    const plain = await shared(["published-rules"], PRELOAD_TTL_MS / 1000, async () => {
+      const r = await fetchPublishedRules();
+      return { packs: r.packs, corpus: [...r.corpus] };
+    });
+    published = { packs: plain.packs, corpus: new Map(plain.corpus) };
     preloadedAt = Date.now();
     packsCache = null;
     corpusCache = null;

@@ -72,6 +72,76 @@ const MINOR_RULE = {
   overlapCitation: { docId: "fju-minor", locator: "第五條", quote: "輔系學分，應在主系規定最低畢業學分以外加修之" },
 };
 
+/**
+ * 電子商務學分學程（資管系辦公室承辦）。每學年的課程設計不一樣，依申請那一學年選版本：
+ *   112、113 學年同一套；114 起行銷管理移到電子商務應用課程，選修拿掉知識探索與資料採擷、量化交易系統，
+ *   加入智慧零售管理、智慧零售；115 再拿掉全球運籌與供應鏈。
+ * 模組（織品服飾應用、電子商務應用）多修的學分可以認列為選修，所以選修的課名清單把模組的課也放進去。
+ */
+function ecProgram(year: 112 | 114 | 115): unknown {
+  const textile = ["織品服飾工商業導論", "服飾零售學", "服飾物流與管理", "織品服飾商品消費學"];
+  const ecApps = year >= 114 ? ["商業自動化", "網路行銷", "行銷管理", "數位金融"] : ["商業自動化", "網路行銷", "數位金融"];
+  const electives = [
+    "消費者行為", "國際企業管理", "服飾商店管理", "織品服飾採購", "服飾消費心理", "時尚消費專題",
+    ...(year >= 114 ? ["智慧零售管理", "智慧零售"] : ["行銷管理", "知識探索與資料採擷", "量化交易系統"]),
+    "行銷專業實習", "服飾專業實習", "織品專業實習", "服務科學", "雲端應用平台概論", "程式設計概論", "供應鏈管理",
+    ...(year <= 114 ? ["全球運籌與供應鏈"] : []),
+  ];
+  const label = year === 112 ? "112、113" : String(year);
+  return {
+    id: `fju-ec-program-${year}`,
+    school: "fju",
+    kind: "cert-program",
+    program: "電子商務學程",
+    title: `電子商務學分學程（${label} 學年課程設計）`,
+    admissionYear: year,
+    version: "1",
+    provenance: "approved",
+    minCredits: 20,
+    document: { id: "fju-ec-program", title: "輔仁大學電子商務學分學程規則與課程設計", publishedAt: "", corpusFile: "fju-ec-program.txt" },
+    requirements: [
+      {
+        id: "core",
+        label: "共同必修：電子商務",
+        credits: 3,
+        match: { type: "courseNames", names: ["電子商務"] },
+        citation: { docId: "fju-ec-program", locator: `${year} 學年課程設計`, quote: "必修基礎課程（ 3 學分） 織品服飾應用課程（ 2 學分） 電子商務（ 3 學分）" },
+      },
+      {
+        id: "textile",
+        label: "織品服飾應用課程（至少 2 學分）",
+        credits: 2,
+        match: { type: "courseNames", names: textile },
+        citation: { docId: "fju-ec-program", locator: `${year} 學年課程設計`, quote: "需至少修滿 2 學分；多選之學分可認列為選修學分" },
+      },
+      {
+        id: "ec-apps",
+        label: "電子商務應用課程（至少 5 學分）",
+        credits: 5,
+        match: { type: "courseNames", names: ecApps },
+        citation: { docId: "fju-ec-program", locator: `${year} 學年課程設計`, quote: "需至少修滿 5 學分；多選之學分可認列為選修學分" },
+      },
+      {
+        id: "electives",
+        label: "電子商務相關選修",
+        credits: 10,
+        match: { type: "courseNames", names: [...electives, ...textile, ...ecApps] },
+        citation: { docId: "fju-ec-program", locator: `${year} 學年課程設計`, quote: "電子商務相關選修課程（ 10 學分）" },
+      },
+    ],
+    overlapPolicy: "學程科目學分中，至少一半不能是本系的必修。",
+    overlapCitation: { docId: "fju-program-setup", locator: "第四條", quote: "學生修習學分學程科目學分中，至少有1/2比例之學分數不得為學生主系、所、雙主修學系及輔系之必修學分" },
+    nonMainRequiredShare: {
+      min: 0.5,
+      citation: { docId: "fju-program-setup", locator: "第四條", quote: "學生修習學分學程科目學分中，至少有1/2比例之學分數不得為學生主系、所、雙主修學系及輔系之必修學分" },
+    },
+    apply: {
+      text: "依每年公告的時程，到學生資訊入口網「學籍註冊 → 跨領域學習申請 → 學分學程申請」填申請表，列印後經本系主管簽准，連同歷年成績單正本交到資管系辦公室（利瑪竇 LM306）。限學業成績沒有被 1/2 的紀錄；名額 60 名，隨班附讀、須達 20 人才成立。",
+      citation: { docId: "fju-ec-program", locator: "申請方式及開班要求", quote: "限學業成績無1/2不及格學分數紀錄" },
+    },
+  };
+}
+
 export const FJU_EXTRA_PACKS: unknown[] = [
   {
     id: "fju-ph-double-major-110",
@@ -472,4 +542,7 @@ export const FJU_EXTRA_PACKS: unknown[] = [
       citation: { docId: "fju-ai-micro-114", locator: "申請須知", quote: "申請資料請繳交至利瑪竇大樓 LM210 室" },
     },
   },
+  ecProgram(112),
+  ecProgram(114),
+  ecProgram(115),
 ];

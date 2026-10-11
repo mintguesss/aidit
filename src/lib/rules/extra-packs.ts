@@ -271,7 +271,7 @@ export function findExtraPack(
   return usable[0] ?? all.sort((a, b) => a.admissionYear - b.admissionYear)[0];
 }
 
-const normalise = (s: string) => s.replace(/\s|微學程|學分學程|學程|服務|趨勢/g, "");
+const normalise = (s: string) => s.replace(/電商/g, "電子商務").replace(/\s|微學程|學分學程|學程|服務|趨勢/g, "");
 /** 「雲端學程」對得到「雲端服務學程」：去掉學程、服務這類字後，一邊包含另一邊 */
 const sameProgram = (a: string, b: string) => {
   const x = normalise(a);

@@ -136,8 +136,14 @@ describe("確定性推算", () => {
     if (!pack.ok) throw new Error(pack.detail);
     const base = { audit, record: fixture("demo").record, pack: pack.pack };
 
-    const dbl = simulate({ ...base, scenario: { type: "double-major", dept: "財金" } });
-    expect(dbl.alternatives.join()).toContain("兩系");
+    // 沒收錄的系：講學校規定與缺哪份資料，替代路徑指向去索取科目表
+    const dbl = simulate({ ...base, scenario: { type: "double-major", dept: "機械" } });
+    expect(dbl.detail).toContain("科目表");
+    expect(dbl.alternatives.join()).toContain("索取");
+    // 有收錄的系：替代路徑是真的另一條路（改修輔系），不是重講規定
+    const fn = simulate({ ...base, scenario: { type: "double-major", dept: "財金" } });
+    expect(fn.alternatives.join()).toContain("輔系");
+    expect(fn.sections?.map((x) => x.title)).toEqual(expect.arrayContaining(["規定", "你的進度"]));
     const move = simulate({ ...base, scenario: { type: "change-major", dept: "財金" } });
     expect(move.alternatives.join()).toContain("採計");
   });

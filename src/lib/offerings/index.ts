@@ -49,6 +49,7 @@ export function normalizeOffering(raw: RawOffering): Offering {
     ...(raw.outline ? { outline: raw.outline } : {}),
     ...(raw.rooms ? { rooms: raw.rooms } : {}),
     ...(raw.classGroup ? { classGroup: raw.classGroup } : {}),
+    ...(raw.closedToOthers ? { closedToOthers: true } : {}),
     ...(raw.language ? { language: raw.language } : {}),
     ...(raw.tags ? { tags: raw.tags } : {}),
     prerequisites: toPrerequisites(raw),
@@ -124,8 +125,17 @@ export function allOfferings(school?: string): Offering[] {
  * 給了規則包，就用它重新判斷每一班可採計的類別（categoriesFor）：開課資料只存事實，
  * 「算哪一類」依學生自己的規則。規則改版、別的系所的學生，都不用重產開課資料（TODO H10）。
  */
-export function offeringsFor(year: number, term: Term, school: string = DEFAULT_SCHOOL, pack?: RulePack): Offering[] {
-  const list = allOfferings(school).filter((o) => o.year === year && o.term === term);
+export function offeringsFor(
+  year: number,
+  term: Term,
+  school: string = DEFAULT_SCHOOL,
+  pack?: RulePack,
+  /** 連不對外系開放的課也要（雙主修、輔系試算用）。排課一律不要 */
+  includeClosed = false,
+): Offering[] {
+  const list = allOfferings(school).filter(
+    (o) => o.year === year && o.term === term && (includeClosed || !o.closedToOthers || (pack !== undefined && o.dept === pack.dept)),
+  );
   return pack ? list.map((o) => withCategories(o, pack)) : list;
 }
 

@@ -106,12 +106,31 @@ export function ReplyText({ r }: { r: Reply }) {
   );
 }
 
+/** 試算結果的分段（規定、你的進度、每學期要修多少、要注意） */
+export function WhatIfSections({ sections }: { sections: NonNullable<WhatIfResult["sections"]> }) {
+  return (
+    <div className="wi-secs">
+      {sections.map((s) => (
+        <div className="wi-sec" key={s.title}>
+          <b>{s.title}</b>
+          <ul className="wi-sec-list">
+            {s.lines.map((l) => (
+              <li key={l}>{l}</li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function WhatIfCard({ r }: { r: WhatIfResult }) {
-  // 沒有衝突也沒有替代路徑時，這張卡片是空的 —— 空卡片比沒有卡片更糟
-  if (!r.conflict && r.alternatives.length === 0) return null;
+  // 沒有衝突、分段也沒有替代路徑時，這張卡片是空的 —— 空卡片比沒有卡片更糟
+  if (!r.conflict && r.alternatives.length === 0 && !r.sections?.length) return null;
   return (
     <div className="r-card">
       <div className="r-card-hd">試算結果</div>
+      {r.sections?.length ? <WhatIfSections sections={r.sections} /> : null}
       {r.conflict ? (
         <p className="r-detail">
           <b>條件衝突</b>　「{r.conflict.a}」對「{r.conflict.b}」：{r.conflict.explanation}
@@ -119,7 +138,7 @@ export function WhatIfCard({ r }: { r: WhatIfResult }) {
       ) : null}
       {r.alternatives.length > 0 ? (
         <p className="r-detail">
-          <b>替代路徑</b>　{r.alternatives.join("／")}
+          <b>替代路徑</b>　{r.alternatives.join("　／　")}
         </p>
       ) : null}
     </div>

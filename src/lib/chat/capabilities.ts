@@ -8,6 +8,8 @@ import { termLimitsFor } from "@/lib/rules/term-limits";
 import { DEFAULT_SCHOOL } from "@/lib/schools";
 import { periodScheme, periodLabel } from "@/lib/offerings/period-scheme";
 import { programClausesFor } from "@/lib/rules/program-regs";
+import { findProgramUnit } from "@/lib/rules/program-units";
+import { programUnitLine } from "@/lib/whatif/simulate";
 import { findExtraPack, type ExtraPack } from "@/lib/rules/extra-packs";
 
 /**
@@ -190,7 +192,14 @@ export function answerRegulation(topic: string, pack: RulePack, audit: AuditResu
   const named = programNameIn(topic);
   const uncollected =
     named && !programPackIn(topic, pack.school ?? "demo")
-      ? `目前沒收錄「${named}${/微學程/.test(topic) ? "微學程" : "學程"}」的修習要點，應修科目與學分以開設單位公告為準。`
+      ? [
+          `目前沒收錄「${named}${/微學程/.test(topic) ? "微學程" : "學程"}」的修習要點，應修科目與學分以開設單位公告為準。`,
+          ...(() => {
+            const unit = findProgramUnit(pack.school ?? "demo", named);
+            const line = unit ? programUnitLine(unit, pack.school ?? "demo") : undefined;
+            return line ? [line] : [];
+          })(),
+        ].join(String.fromCharCode(10))
       : undefined;
   const more = [...(hits.length > 1 ? hits.slice(1, 3).map((h) => h.text) : []), ...(uncollected ? [uncollected] : [])];
   return {

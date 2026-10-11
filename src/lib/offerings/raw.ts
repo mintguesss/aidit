@@ -31,6 +31,8 @@ export type RawOffering = {
   outline?: { id: number; tchNo: string };
   /** 開課班級（輔大 avaDptCNa），如「資管二甲」「CT-管理學院」「資管系專倫」。見 lib/offerings/class-group.ts */
   classGroup?: string;
+  /** 不對外系開放（外系名額 0），只收錄有雙主修、輔系規定的系所的課；一般排課不用（見 offeringsFor） */
+  closedToOthers?: boolean;
   /** 上課教室 */
   rooms?: string[];
   /** 授課語言，如「中文」「全英文」 */

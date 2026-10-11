@@ -2,7 +2,8 @@ import Link from "next/link";
 import { getAuditSession } from "@/lib/audit/session";
 import { parsePageParams } from "@/lib/ui/params";
 import { Shell, PageHead } from "@/components/shell/Shell";
-import { allSources } from "@/lib/rules/sources";
+import { allSources, sourcesFor } from "@/lib/rules/sources";
+import { schoolOf } from "@/lib/schools";
 import { SourcesBrowser } from "@/components/sources/SourcesBrowser";
 
 export const dynamic = "force-dynamic";
@@ -21,7 +22,8 @@ export default async function SourcesPage({
 }) {
   const { fixture, term } = parsePageParams(await searchParams);
   const session = await getAuditSession(fixture, term);
-  const docs = allSources();
+  const student = session.outcome.ok ? session.outcome.audit.student : session.outcome.state.record?.student;
+  const docs = student ? sourcesFor(schoolOf(student), student.dept) : allSources();
   const total = docs.reduce((a, d) => a + d.passages.length, 0);
 
   return (

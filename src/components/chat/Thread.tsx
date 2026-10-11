@@ -13,6 +13,7 @@ import {
   useAutosize,
   type ChatView,
   type Turn,
+  redirectLinks,
 } from "./shared";
 
 /**
@@ -166,11 +167,11 @@ function Answer({ t, planHref }: { t: Turn; planHref?: string }) {
         <span className={`qa-kind ${KIND_CLASS[r.kind]}`}>{KIND_LABEL[r.kind]}</span>
         <ReplyText r={r} />
         {t.whatif ? <WhatIfCard r={t.whatif} /> : null}
-        {t.redirect === "plan" && planHref ? (
-          <Link className="qa-go" href={planHref}>
-            前往選課建議 →
+        {redirectLinks(t.redirect, planHref).map((l) => (
+          <Link key={l.href} className="qa-go" href={l.href}>
+            {l.label}
           </Link>
-        ) : null}
+        ))}
         <div className="qa-a-foot">
           <span>{t.at}</span>
           {t.traceId ? (

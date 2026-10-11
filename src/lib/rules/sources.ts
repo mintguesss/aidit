@@ -36,6 +36,9 @@ export type SourceDoc = {
   provenance?: string;
   hasCorpus: boolean;
   passages: SourcePassage[];
+  /** 哪一所學校、哪一系的文件。沒填＝不分（原文出處頁依學生篩選，見 sourcesFor） */
+  school?: string;
+  dept?: string;
 };
 
 type Raw = { docId: string; locator: string; quote?: string; usedBy: string };
@@ -69,6 +72,14 @@ function walk(v: unknown, label: string, out: Raw[]): void {
 
 let cache: SourceDoc[] | null = null;
 
+/**
+ * 這位學生看得到的文件：同一所學校，系所不限或是他的系。
+ * 輔大資管的學生不該在原文出處看到合成學校或物理系的文件
+ */
+export function sourcesFor(school: string, dept: string): SourceDoc[] {
+  return allSources().filter((d) => (!d.school || d.school === school) && (!d.dept || d.dept === dept));
+}
+
 export function allSources(): SourceDoc[] {
   if (cache) return cache;
 
@@ -87,9 +98,11 @@ export function allSources(): SourceDoc[] {
         title: doc.title,
         shortTitle: shortTitleOf(doc.title),
         publishedAt: doc.publishedAt,
-        kind: doc.id.startsWith("plan") ? "plan" : "regulation",
+        kind: /(?:^|-)plan(?:-|$)/.test(doc.id) ? "plan" : "regulation",
         provenance: pack.provenance,
         hasCorpus: corpus.has(doc.id),
+        school: pack.school ?? "demo",
+        dept: pack.dept,
       });
     }
     walk(pack, pack.dept, raws);
@@ -105,6 +118,8 @@ export function allSources(): SourceDoc[] {
       kind: "extra",
       provenance: p.provenance,
       hasCorpus: extra.has(p.document.id),
+      // 加修規定（輔系、學程）目前只有合成學校的
+      school: "demo",
     });
     walk(p, p.title, raws);
   }
@@ -117,6 +132,8 @@ export function allSources(): SourceDoc[] {
       publishedAt: a.publishedAt,
       kind: "announcement",
       hasCorpus: corpus.has(a.contentDocId),
+      school: a.school,
+      dept: a.dept,
     });
     if (a.appliesToRaw) {
       raws.push({

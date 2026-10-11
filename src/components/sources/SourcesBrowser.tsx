@@ -108,7 +108,7 @@ export function SourcesBrowser({ docs }: { docs: SourceDoc[] }) {
       {view.length === 0 ? <p className="sx-empty">沒有符合的條文，換個關鍵字試試。</p> : null}
 
       <div className="dwall">
-        {view.map(({ d, passages }, n) => {
+        {view.map(({ d, passages }) => {
           const empty = d.passages.length === 0;
           const peek = passages[0];
           return (
@@ -118,30 +118,30 @@ export function SourcesBrowser({ docs }: { docs: SourceDoc[] }) {
               id={`doc-${d.id}`}
               className={`dwall-card k-${d.kind}${empty ? " empty" : ""}`}
               disabled={empty}
-              style={{ animationDelay: `${n * 40}ms` }}
               onClick={() => {
                 setHit(null);
                 setOpen(d.id);
               }}
             >
-              <span className="dwall-top">
-                <span className="sx-ic" aria-hidden>
-                  <KindIcon kind={d.kind} />
+              <span className="sx-ic" aria-hidden>
+                <KindIcon kind={d.kind} />
+              </span>
+              <span className="dwall-main">
+                <span className="dwall-line">
+                  <b className="dwall-title">{d.title}</b>
+                  <span className="dwall-kind">{KIND_LABEL[d.kind]}</span>
+                  <span className="dwall-ver">
+                    {d.publishedAt ? `${d.publishedAt} 版` : "未標版本"}
+                    {d.provenance === "synthetic" ? "・合成資料" : ""}
+                  </span>
                 </span>
-                <span className="dwall-kind">{KIND_LABEL[d.kind]}</span>
-                <span className="dwall-count">{empty ? "未引用" : `${passages.length} 段`}</span>
+                {peek?.quote ? (
+                  <span className="dwall-peek">「{mark(peek.quote, needle)}」</span>
+                ) : (
+                  <span className="dwall-peek none">{empty ? "本次判定沒有引用這份文件。" : "未留存原文片段。"}</span>
+                )}
               </span>
-              <b className="dwall-title">{d.title}</b>
-              <span className="dwall-ver">
-                {d.publishedAt ? `${d.publishedAt} 版` : "未標版本"}
-                {d.provenance === "synthetic" ? "・合成資料" : ""}
-              </span>
-              {peek?.quote ? (
-                <span className="dwall-peek">「{mark(peek.quote, needle)}」</span>
-              ) : (
-                <span className="dwall-peek none">{empty ? "本次判定沒有引用這份文件。" : "未留存原文片段。"}</span>
-              )}
-              {!empty ? <span className="dwall-go">看全部條文 →</span> : null}
+              <span className="dwall-count">{empty ? "未引用" : `${passages.length} 段`}</span>
             </button>
           );
         })}

@@ -123,9 +123,10 @@ function NextSteps({ audit, search }: { audit: AuditResult; search: string }) {
   if (unmetChecks.length > 0) {
     cards.push({
       k: "畢業條件未通過",
-      t: unmetChecks.map((g) => g.name).join("、"),
+      // 一項就寫名稱；好幾項寫項數，名稱放進展開說明（名稱都很長，擠在一格裡只看得到半個）
+      t: unmetChecks.length === 1 ? unmetChecks[0]!.name : `${unmetChecks.length} 項`,
       tone: "unmet",
-      d: "依各條件的承辦單位辦理。",
+      d: `${unmetChecks.map((g) => g.name).join("、")}。依各條件的承辦單位辦理。`,
       href: `/audit${search}`,
       go: "查看條件依據",
     });
@@ -136,9 +137,9 @@ function NextSteps({ audit, search }: { audit: AuditResult; search: string }) {
   if (holdChecks.length > 0) {
     cards.push({
       k: "畢業條件待確認",
-      t: holdChecks.map((g) => g.name).join("、"),
+      t: holdChecks.length === 1 ? holdChecks[0]!.name : `${holdChecks.length} 項`,
       tone: "hold",
-      d: "修課紀錄看不出是否通過，請自行確認或洽承辦單位。",
+      d: `${holdChecks.map((g) => g.name).join("、")}：修課紀錄看不出是否通過，請自行確認或洽承辦單位。`,
       href: `/audit${search}`,
       go: "查看條件依據",
     });

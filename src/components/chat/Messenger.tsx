@@ -14,6 +14,7 @@ import {
   type ChatView,
   type PlanUpdate,
   type Turn,
+  redirectLinks,
 } from "./shared";
 
 /**
@@ -165,7 +166,11 @@ function MsgView({ t, v, version }: { t: Turn; v: ChatView; version: number }) {
             />
           ) : null}
           {t.whatif ? <WhatIfCard r={t.whatif} /> : null}
-          {t.redirect === "plan" && v.planHref ? <Link href={v.planHref}>前往選課建議 →</Link> : null}
+          {redirectLinks(t.redirect, v.planHref).map((l) => (
+            <Link key={l.href} href={l.href}>
+              {l.label}
+            </Link>
+          ))}
         </div>
         <span className="msg-time">
           {t.at}

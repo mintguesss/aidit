@@ -77,7 +77,8 @@ export type TurnResult = {
   /** §1.6 為什麼沒選某門課 */
   explanation?: ExclusionReason;
   /** B 介面導向 A 介面 */
-  redirect?: "plan";
+  /** 這句話該去別頁問：plan＝選課建議；scenario＝情境試算（附修業問答） */
+  redirect?: "plan" | "scenario";
 };
 
 const TURN_LIMIT_REPLY = (n: number) =>
@@ -99,6 +100,23 @@ export async function planTurn(
 
   // 「要拿掉一門，還是這學期都不排？」之後的回答（「一門」「全部」）要接回上一句才看得懂（TODO G12）
   const raw = withDropAnswer(messages) ?? lastUser(messages);
+
+  // 在選課建議問雙主修、輔系、學程、轉系、提前畢業、停修：這裡只調整下學期的課表，答不了，
+  // 但不該只回「不在範圍」—— 指到情境試算（試算）與修業問答（問規定）。不叫模型，省一次錢
+  if (SCENARIO_TOPIC.test(raw) && !TIMETABLE_CUE.test(raw)) {
+    return {
+      reply: {
+        kind: "決定",
+        headline: "這個問題要到「情境試算」或「修業問答」處理，這裡只調整下學期的課表。",
+        detail: "想知道如果改了會怎樣（例如提前畢業、停修、加修雙主修），用情境試算；想問規定或申請流程，用修業問答。",
+        citations: [],
+      },
+      tools: [],
+      intent: "redirect-scenario",
+      clarifying: false,
+      redirect: "scenario",
+    };
+  }
   // 規則看的句子：學生自己學校的稱呼換成「本校」，「輔大」才不會被當成他校
   const forRules = withoutOwnSchool(raw, schoolOf(ctx.record.student));
   const tools = ["chat.intent"];
@@ -890,6 +908,11 @@ export function isDropCategory(category: string | null | undefined, raw: string,
   const mine = pairs(word);
   return pack.categories.some((c) => [...pairs(c.name.replace(/課程|\s/g, ""))].some((p) => mine.has(p)));
 }
+
+/** 選課建議答不了、該去情境試算或修業問答的主題 */
+const SCENARIO_TOPIC = /雙主修|雙學位|輔系|輔修|學程|轉系|提前畢業|延畢|停修|退選/;
+/** 但講的是課表本身（「把學程的課排進來」「停修之後課表怎麼排」）就照常處理 */
+const TIMETABLE_CUE = /排(?:進|課|在|到)|課表|加一?[堂門]|多一?[堂門]|空出|早八|換掉|拿掉|保留/;
 
 /** 我們問「要拿掉一門，還是這學期都不排？」時的固定問句；用來認出下一句是在回答它 */
 const DROP_ASK = "還是這學期都不排";

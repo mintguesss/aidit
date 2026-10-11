@@ -1,6 +1,6 @@
 import { loadRulePacks, loadCorpus } from "./loader";
 import { loadExtraPacks, extraCorpus } from "./extra-packs";
-import { PROGRAM_CLAUSES, PROGRAM_DOCS } from "./program-regs";
+import { PROGRAM_CLAUSES, PROGRAM_DOCS, PROGRAM_EXTRA_DOCS } from "./program-regs";
 import { ANNOUNCEMENTS } from "./announcements";
 import { anchorOf, shortTitleOf } from "./anchor";
 
@@ -140,8 +140,11 @@ export function allSources(): SourceDoc[] {
         school,
       });
     }
+    for (const d of PROGRAM_EXTRA_DOCS[school] ?? []) {
+      put({ id: d.docId, title: d.title, shortTitle: shortTitleOf(d.title), publishedAt: d.publishedAt, kind: "regulation", hasCorpus: corpus.has(d.docId), school });
+    }
     for (const c of PROGRAM_CLAUSES[school] ?? []) {
-      raws.push({ docId: docsOf[c.program].docId, locator: c.locator, quote: c.quote, usedBy: `${c.program}問答與試算` });
+      raws.push({ docId: c.docId ?? docsOf[c.program].docId, locator: c.locator, quote: c.quote, usedBy: `${c.program}問答與試算` });
     }
   }
 

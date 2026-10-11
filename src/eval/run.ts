@@ -260,6 +260,7 @@ function report(results: CaseResult[], baselineRows: string[]) {
   lines.push("固定 workflow ＝ 貪婪指派、不檢索補充依據、不處理規則缺口，一律作答。");
   for (const r of baselineRows) lines.push(r);
   lines.push("");
+  lines.push("基準 A（人工計算）：由同學對照規劃表自行計算，耗時與錯誤率須以紙本實測填入 eval/manual-baseline.md。");
   lines.push(
     singleLlmAvailable()
       ? "基準 C（單次 LLM）：可執行，請以 --with-llm 另行啟動（本次未執行以免產生非預期費用）。"

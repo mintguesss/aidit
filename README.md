@@ -398,6 +398,6 @@ npm run eval
   同一所學校新增系所或入學年度只需新增規則包；新學校另外要補課號格式與節次表。
 - `session` provider 未啟用；`api` provider 不實作。
 - 輔系／學分學程的情境試算會明確回報「尚未收錄該修習規定」，不作任何推算。
-- 基準 C（單次 LLM，`npm run eval:baseline-c`）程式已完成、尚未正式執行。人工計算的對照不實施。
+- 基準 A（人工計算）尚未實測；基準 C（單次 LLM，`npm run eval:baseline-c`）程式已完成、尚未正式執行。
   評測報告標示為未執行，不填入未實測的數字。
 - 對話理解跑分：`npm run eval:understanding`（只有規則）／`-- --live`（接模型）。

@@ -4,7 +4,7 @@ import type { RulePack } from "@/lib/rules/schema";
 import { allOfferings } from "@/lib/offerings";
 import { applyParams, sanitiseConstraintSet } from "@/lib/chat/apply";
 import { fillEmpty } from "@/lib/chat/route";
-import { ruleAskIntent } from "@/lib/chat/intent";
+import { dayCues, ruleAskIntent } from "@/lib/chat/intent";
 import type { AuditResult, CategoryResult } from "@/lib/types";
 import type { ConstraintSet } from "@/lib/chat/types";
 import type { PlanParams } from "@/lib/chat/intent";
@@ -247,5 +247,16 @@ describe("原句是否在問本系的畢業條件（模型判超出範圍時的�
   });
   it.each(["我想學程式", "今天天氣如何", "學習是什麼", "專業是什麼", "我英文很爛"])("%s → 不是", (said) => {
     expect(mentionsGraduationCheck(said, pack)).toBe(false);
+  });
+});
+
+describe("星期的意思要照分句判斷（Vercel 接 Haiku 實測）", () => {
+  it.each([
+    ["我想再修一堂ai相關的課程，但是不要早八，最好在禮拜一、禮拜二或禮拜四。", { block: [], free: [], prefer: [1, 2, 4] }],
+    ["解除「空出星期一、二、四」", { block: [], free: [1, 2, 4], prefer: [] }],
+    ["空出星期一跟三", { block: [1, 3], free: [], prefer: [] }],
+    ["星期五不要排課", { block: [5], free: [], prefer: [] }],
+  ])("%s", (said, want) => {
+    expect(dayCues(said)).toEqual(want);
   });
 });

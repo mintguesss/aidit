@@ -2,7 +2,7 @@ import { DEFAULT_PREFERENCES, type Constraints, type CoursePreferences, type Off
 import { isCourseCode } from "@/lib/courses/code";
 import { allOfferings } from "@/lib/offerings";
 import type { ConstraintDelta, ConstraintSet } from "./types";
-import { BLOCK_CUE, DAY_WORDS, PART_WORDS, parseNum, type PlanParams } from "./intent";
+import { BLOCK_CUE, DAY_WORDS, PART_WORDS, dayCues, parseNum, type PlanParams } from "./intent";
 import { DEFAULT_SCHOOL } from "@/lib/schools";
 import { periodScheme, periodLabel } from "@/lib/offerings/period-scheme";
 import { topicCodes } from "./topics";
@@ -358,6 +358,19 @@ export function applyParams(
   const unresolved: string[] = [];
 
   const dayName = (d: number) => "一二三四五六日"[d - 1];
+
+  // 原句是「最好在禮拜一」「解除空出星期一」的，模型給成空出就是反了（Haiku 5.5 實測）。
+  // 擋下；原句說解除的，改當成開放
+  const cues = dayCues(raw);
+  const wrongWay = params.avoidDays.filter((d) => !cues.block.includes(d) && (cues.prefer.includes(d) || cues.free.includes(d)));
+  if (wrongWay.length > 0) {
+    refusedParams.push(`空出星期${wrongWay.map(dayName).join("、")}（原句不是要空出這幾天）`);
+    params = {
+      ...params,
+      avoidDays: params.avoidDays.filter((d) => !wrongWay.includes(d)),
+      allowDays: [...new Set([...params.allowDays, ...wrongWay.filter((d) => cues.free.includes(d))])],
+    };
+  }
 
   if (params.avoidDays.length > 0) {
     requested = true;

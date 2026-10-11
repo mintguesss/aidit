@@ -322,6 +322,16 @@ export async function planTurn(
   }
   const notDone = [...undone.reasons, ...kept, ...light, ...unsupportedAsks(raw)];
 
+  // 條件沒變（做不到、已是現狀、沒抓到要改什麼）：回覆說「課表維持原樣」，就真的回畫面上那份。
+  // 重新求解的結果可能換了別的課或別的班 —— 嘴上說沒改、課表卻變了（「少一堂課」實測）
+  if (outcome.changed.length === 0 && shown && outcome.solve.ok) {
+    outcome = {
+      ...outcome,
+      solve: { ...outcome.solve, plans: [shown, ...outcome.solve.plans.slice(1)] },
+      diff: { added: [], removed: [], moved: [], unchanged: true },
+    };
+  }
+
   if (applied.unresolved.length > 0) {
     return {
       reply: uncertain({

@@ -416,6 +416,33 @@ export const DAY_WORDS: [RegExp, number][] = [
   [/星期日|星期天|週日|禮拜天/, 7],
 ];
 
+/**
+ * 句子裡每個星期是什麼意思，以分句判斷（「不要早八，最好在禮拜一」的「不要」不能算到禮拜一頭上）：
+ *   block   不要排、空出（「星期五不要排課」）
+ *   free    解除空出、可以排（「解除「空出星期一」」「星期三可以排」）
+ *   prefer  想排在這天（「最好在禮拜一、二、四」）—— 系統沒有「某門課排哪天」的條件，不能當成空出
+ * 「星期一、二、四」這種簡寫先展開。
+ */
+export function dayCues(text: string): { block: number[]; free: number[]; prefer: number[] } {
+  const t = text.replace(/(星期|禮拜|週|周)([一二三四五六日天])((?:\s*[、,，和跟及或與]\s*[一二三四五六日天](?![一-龥]{0,0}[期拜]))+)/g, (_m, w: string, first: string, more: string) =>
+    [first, ...more.split(/\s*[、,，和跟及或與]\s*/).filter(Boolean)].map((d) => w + d).join("、"),
+  ).replace(/周/g, "週");
+  const out = { block: [] as number[], free: [] as number[], prefer: [] as number[] };
+  for (const clause of t.split(/[，,。；;！!？?]|但是|不過|然後/)) {
+    const days = DAY_WORDS.filter(([re]) => re.test(clause)).map(([, d]) => d);
+    if (days.length === 0) continue;
+    const kind = /解除|取消|恢復|不用空|不必空|可以排|能排|可以有課|沒關係/.test(clause)
+      ? "free"
+      : BLOCK_CUE.test(clause)
+        ? "block"
+        : /最好|希望|想要?|排在|安排在|放在|^.{0,4}在/.test(clause)
+          ? "prefer"
+          : "block";
+    out[kind].push(...days);
+  }
+  return out;
+}
+
 export type DayPart = "morning" | "afternoon" | "evening";
 export const PART_WORDS: [RegExp, DayPart][] = [
   [/早上|上午/, "morning"],
@@ -543,12 +570,14 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
     reasons.push("不排晚上的課");
   }
 
-  for (const [re, day] of DAY_WORDS) {
-    if (!re.test(rest)) continue;
-    const free = /可以|能排|沒關係/.test(rest) && !/空|不要|別|拿掉/.test(rest);
-    if (free) d.allowDays.push(day);
-    else d.avoidDays.push(day);
-    reasons.push(`${free ? "開放" : "空出"}星期${"一二三四五六日"[day - 1]}`);
+  const cues = dayCues(rest);
+  for (const day of cues.block) {
+    d.avoidDays.push(day);
+    reasons.push(`空出星期${"一二三四五六日"[day - 1]}`);
+  }
+  for (const day of cues.free) {
+    d.allowDays.push(day);
+    reasons.push(`開放星期${"一二三四五六日"[day - 1]}`);
   }
   // 「少一堂」「少修一門」「少選一堂」「減少一堂」；動詞可有可無
   const less = /(?:減)?少(?:修|選|排|上)?(\d+|[一二兩三四])?[堂門]/.exec(t);

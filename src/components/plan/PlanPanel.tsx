@@ -30,7 +30,6 @@ const TIPS = [
   "空出星期五",
   "少一堂課",
   "課盡量集中",
-  "為什麼沒有企業流程管理？",
   "再給我一版",
   "重來",
 ];
@@ -130,7 +129,8 @@ export function PlanPanel({
       ...s,
       plans: u.plans,
       constraints: u.constraints,
-      constraintLabels: u.constraintLabels,
+      // 「目前生效的條件」只放個人設定裡改得到的條件；對話裡加的（加一門 AI 課、期望 6 堂）
+      // 已在對話卡片上列出，混進來會分不清哪些是設定、哪些只是這次對話的調整
       conflicts: u.conflicts,
       message: undefined,
     }));

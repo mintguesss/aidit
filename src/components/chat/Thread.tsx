@@ -87,7 +87,7 @@ export function Thread(v: ChatView) {
               {p.q.text ? (
                 <div className="qa-q">
                   <span className="qa-n">Q{i + 1}</span>
-                  <h3>{p.q.text}</h3>
+                  <h3 data-anon-keep>{p.q.text}</h3>
                 </div>
               ) : null}
               {p.a ? <Answer t={p.a} planHref={v.planHref} /> : null}
@@ -106,6 +106,7 @@ export function Thread(v: ChatView) {
           }}
         >
           <textarea
+            data-anon-keep
             ref={taRef}
             rows={1}
             placeholder={v.placeholder}

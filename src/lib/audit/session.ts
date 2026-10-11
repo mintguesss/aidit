@@ -12,6 +12,9 @@ import { fixture as fixtureOf } from "@/lib/providers/fixtures";
 import { prefsStore } from "@/lib/store/prefs-store";
 import { studentHash } from "@/lib/util/identity";
 import type { Declarations } from "@/lib/types";
+import { unstable_cache, revalidateTag } from "next/cache";
+import { fetchedAt } from "@/lib/offerings";
+import { schoolOf } from "@/lib/schools";
 
 /**
  * 審查結果快取（docs/BACKEND.md §8）。
@@ -51,6 +54,46 @@ export async function getAuditSession(fixture: FixtureId, currentTerm: string): 
   if (hit && Date.now() - hit.at < TTL_MS) return hit.value;
 
   const declarations = await declarationsOf(fixture);
+  const value = await sharedSession(fixture, currentTerm, declarations);
+
+  // 清掉過期項目，避免長時間執行的 dev server 一直長大
+  for (const [k, v] of cache) if (Date.now() - v.at >= TTL_MS) cache.delete(k);
+  cache.set(key, { at: Date.now(), value });
+  return value;
+}
+
+/**
+ * 跨執行個體共用的審查結果（Vercel 的資料快取）。
+ *
+ * 上面的記憶體快取只在同一個執行個體裡有效。Vercel 每一頁各自是一個函式，剛部署或閒置後
+ * 每一頁第一次開都要重跑整份審查與排課（實測首頁、修業明細冷啟動 13 秒）。
+ * 這裡讓第一個算完的結果給所有執行個體用。
+ *
+ * 鍵值包含會改變結果的每一樣東西：學生、學期、自行勾選、程式版本、規則包內容、開課資料時間 ——
+ * 任何一樣變了就是新的鍵，不會拿到舊答案。結果是純 JSON（實測 390 KB，沒有 Set／Map）。
+ * 不在 Next 的執行環境裡（單元測試、腳本）就直接算。
+ */
+async function sharedSession(fixture: FixtureId, currentTerm: string, declarations: Declarations | undefined): Promise<AuditSession> {
+  const student = fixtureOf(fixture).record.student;
+  const pack = resolveRulePack(student);
+  const version = [
+    process.env.VERCEL_GIT_COMMIT_SHA ?? "dev",
+    pack.ok ? (pack.pack.contentHash ?? pack.pack.version) : "no-pack",
+    fetchedAt(schoolOf(student)),
+    JSON.stringify(declarations ?? {}),
+  ].join("|");
+  try {
+    return await unstable_cache(() => computeSession(fixture, currentTerm, declarations), ["audit-session", fixture, currentTerm, version], {
+      revalidate: TTL_MS / 1000,
+      tags: [`audit:${fixture}`],
+    })();
+  } catch (e) {
+    if (!/incrementalCache|static generation store|outside of a request/i.test(String(e))) console.warn(`[aidit][session] 共用快取失敗，直接計算：${String(e)}`);
+    return computeSession(fixture, currentTerm, declarations);
+  }
+}
+
+async function computeSession(fixture: FixtureId, currentTerm: string, declarations: Declarations | undefined): Promise<AuditSession> {
   const outcome = await runAudit({ providerKind: "mock", fixture, currentTerm, declarations });
   const store = traceStore();
   await store.saveTrace(outcome.trace).catch(() => undefined);
@@ -66,17 +109,12 @@ export async function getAuditSession(fixture: FixtureId, currentTerm: string): 
     preferences = preferencesOf(record.preferences);
   }
 
-  const value: AuditSession = {
+  return {
     outcome,
     termLimits,
     preferences,
     appliedConstraints: describeConstraints(constraintsFrom(preferences, termLimits), preferences),
   };
-
-  // 清掉過期項目，避免長時間執行的 dev server 一直長大
-  for (const [k, v] of cache) if (Date.now() - v.at >= TTL_MS) cache.delete(k);
-  cache.set(key, { at: Date.now(), value });
-  return value;
 }
 
 export function __clearAuditCache(): void {
@@ -86,6 +124,12 @@ export function __clearAuditCache(): void {
 /** 自行勾選改了之後，這位學生的審查結果要重算（所有學期） */
 export function invalidateAuditSession(fixture: FixtureId): void {
   for (const k of cache.keys()) if (k.startsWith(`${fixture}:`)) cache.delete(k);
+  // 共用快取的鍵值本來就含自行勾選，勾選一改就是新鍵；這裡再把舊的標成過期，免得留著佔空間
+  try {
+    revalidateTag(`audit:${fixture}`);
+  } catch {
+    // 不在 Next 的執行環境裡（測試）就算了
+  }
 }
 
 /**

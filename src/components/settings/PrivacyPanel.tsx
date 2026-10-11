@@ -109,14 +109,8 @@ export function PrivacyPanel({
         </div>
       </div>
 
-      <div className="legal">
-        <nav className="legal-toc" aria-label="段落索引">
-          <a href="#pv-1"><span>一</span>必填偏好</a>
-          <a href="#pv-2"><span>二</span>選填偏好</a>
-          <a href="#pv-3"><span>三</span>畢業條件自行勾選</a>
-          <a href="#pv-4"><span>四</span>保存與刪除期限</a>
-          <a href="#pv-5"><span>五</span>你可以做的</a>
-        </nav>
+      {/* 只有五段，不需要左側索引；內容置中 */}
+      <div className="legal pv-legal">
 
         <div className="legal-body">
           <article className="art" id="pv-1">

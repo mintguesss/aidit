@@ -100,6 +100,7 @@ export function Messenger(v: ChatView) {
           ＋
         </button>
         <textarea
+          data-anon-keep
           ref={taRef}
           rows={1}
           placeholder={v.placeholder}
@@ -122,7 +123,10 @@ function MsgView({ t, v, version }: { t: Turn; v: ChatView; version: number }) {
     return (
       <div className="msg me">
         <div className="msg-col">
-          <div className="bubble">{t.text}</div>
+          {/* 使用者自己打的字，匿名模式不換（見 AnonMode） */}
+          <div className="bubble" data-anon-keep>
+            {t.text}
+          </div>
           <span className="msg-time">{t.at}</span>
         </div>
       </div>

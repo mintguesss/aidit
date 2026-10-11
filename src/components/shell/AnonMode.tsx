@@ -23,7 +23,10 @@ export function AnonMode() {
     const run = (teachers: string[]) => {
       if (cancelled) return;
       const anon = makeAnonymizer(teachers);
+      // 使用者自己打的字不換：打「物理系」卻在自己的對話泡泡裡變成「D 系」，看起來像系統改了他的話
+      const kept = (n: Node) => Boolean((n.nodeType === Node.ELEMENT_NODE ? (n as Element) : n.parentElement)?.closest("[data-anon-keep]"));
       const fixText = (n: Node) => {
+        if (kept(n)) return;
         const v = n.nodeValue;
         if (v && v.trim()) {
           const w = anon(v);
@@ -48,7 +51,7 @@ export function AnonMode() {
             if (w !== v) el.setAttribute(a, w);
           }
         }
-        if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+        if ((el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) && !kept(el)) {
           // 使用者正在輸入的不動；只換程式填進去的預設值
           if (document.activeElement !== el && el.value) {
             const w = anon(el.value);

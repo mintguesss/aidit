@@ -262,3 +262,29 @@ describe("星期的意思要照分句判斷（Vercel 接 Haiku 實測）", () =>
     expect(dayCues(said)).toEqual(want);
   });
 });
+
+describe("雙主修、輔系、轉系、學程：沒說哪一系／哪個學程就是在問規定，不是試算（2026-10-11 實測）", () => {
+  it.each([
+    ["雙主修的規定是什麼", "regulation"],
+    ["雙主修跟輔系差在哪", "regulation"],
+    ["雙主修要怎麼申請", "procedure"],
+    ["轉系的條件是什麼", "regulation"],
+    ["學程的學分可以算進畢業學分嗎", "regulation"],
+    ["學分學程跟微學程差在哪", "regulation"],
+  ])("%s → %s", (said, intent) => {
+    const r = ruleAskIntent(said);
+    expect(r.kind === "intent" && r.intent).toBe(intent);
+  });
+  it.each([
+    ["我想雙主修資工系", "double-major", "資工"],
+    ["我想加修法律系的雙主修", "double-major", "法律"],
+    ["我想申請輔系心理系", "add-minor", "心理"],
+    ["我想修人工智慧學程", "add-cert-program", "人工智慧"],
+    ["我能不能修大數據學程", "add-cert-program", "大數據"],
+  ])("%s → 試算 %s（%s）", (said, type, name) => {
+    const r = ruleAskIntent(said);
+    const sc = r.kind === "intent" ? r.params.scenario : null;
+    expect(sc?.type).toBe(type);
+    expect(sc?.dept ?? sc?.program).toBe(name);
+  });
+});

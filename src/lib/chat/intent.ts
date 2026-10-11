@@ -300,6 +300,8 @@ const ASK_SYSTEM = [
   "2. 缺少必要參數時回傳 clarify，只問一個問題。",
   `3. ${FORBIDDEN_RULE}`,
   "   問自己的修業進度、規定、開課資訊、辦理流程永遠不是 forbidden。",
+  "   「我想申請學程」「我想加修輔系」是在問能不能、要怎麼辦，不是要系統代辦；",
+  "   只有要系統替他送出申請、選課、填表才是 act-on-behalf。",
 ].join("\n");
 
 export async function parseAskIntent(
@@ -837,15 +839,20 @@ function offlineAskIntent(raw: string): z.infer<typeof zAskIntent> {
     if (/^我?想(?:要)?(?:修|申請)?(?:輔系|輔修).?$/.test(t)) return { ...base, clarify: "想加修哪一個學系的輔系？" };
     return generic(scenarioOf(/輔系|輔修/)!);
   }
-  if (/學程/.test(t) && /加修|申請|想修|修得|能不能/.test(t)) {
-    const m = /([一-龥]{2,10}?)學程/.exec(t);
-    const program = (m?.[1] ?? "").replace(/加修|申請|想修/g, "");
-    if (!program) return { ...base, clarify: "想加修哪一個學分學程？" };
-    return {
-      ...base,
-      intent: "what-if",
-      scenario: { type: "add-cert-program", targetTerm: null, dept: null, program, code: null },
-    };
+  // 學程同上：名稱只取緊貼「學程」前面的那段，去掉「我想」「能不能修」這類字。
+  // 以前整段照抓，「我想申請學程」被當成試算「我想學程」（2026-10-11 實測）
+  if (/學程/.test(t)) {
+    const m = /([A-Za-z一-龥]{2,14}?)(?:學分|微)?學程/.exec(t);
+    const program = (m?.[1] ?? "")
+      .replace(/^.*?(?:加修|申請|想修|修讀|要修|能修|修|讀|念)/, "")
+      .replace(/^(?:我|想要?|要|能不能|可不可以|可以|一個|這個|那個)+/, "")
+      .replace(/(?:學分|微)$/, "");
+    const named = program.length >= 2 && !/^(?:什麼|哪個|哪些|這|那|學分|微|跨領域)$/.test(program) && !/[跟和與或的是嗎]/.test(program);
+    if (named && /加修|申請|想修|修得|能不能|可不可以|想讀|會怎樣|如果/.test(t)) {
+      return { ...base, intent: "what-if", scenario: { type: "add-cert-program", targetTerm: null, dept: null, program, code: null } };
+    }
+    if (/^我?想(?:要)?(?:加修|修|申請|讀)?(?:學分|微)?學程.?$/.test(t)) return { ...base, clarify: "想加修哪一個學程？" };
+    if (!named || !/加修|想修/.test(t)) return generic(scenarioOf(/學程/)!);
   }
   if (/成績門檻|甄試|書審|推甄|加權平均|我的平均/.test(t)) {
     return {

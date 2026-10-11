@@ -159,6 +159,20 @@ export function answerRegulation(topic: string, pack: RulePack, audit: AuditResu
     `公告庫（${announcementsFor(pack.school).length} 則）`,
   ];
 
+  // 問的是雙主修、輔系、學程、轉系，查到的卻是別的條文（「雙主修的學分可以抵本系選修嗎」→「選修課程應修 32 學分」）：
+  // 那是答非所問。這幾類的規定目前都沒收錄，直接講，並指向辦理單位
+  const program = /雙主修|雙學位|輔系|輔修|學程|轉系/.exec(topic)?.[0];
+  if (program && !hits.some((h) => h.text.includes(program))) {
+    return {
+      kind: "不確定",
+      headline: `目前收錄的規章沒有${program}的規定，系統不就此作答。`,
+      detail: `已收錄的是本系的修業規則與課程規劃表；${program}的申請資格、應修學分與採計方式，以學校的相關辦法與擬修習單位的公告為準。`,
+      searched,
+      contact: program === "轉系" ? "教務處註冊組、擬轉入學系系辦" : "教務處註冊組、擬修習之學系或學程辦公室",
+      citations: [],
+    };
+  }
+
   if (hits.length === 0) {
     return {
       kind: "不確定",

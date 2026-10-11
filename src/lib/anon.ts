@@ -40,7 +40,8 @@ export const ANON_REPLACEMENTS: [string, string][] = [
 ];
 
 /** 匿名模式下停用的連結：學校網站（網址帶校名）、/api 下的原始資料（JSON、原文，不經顯示層替換） */
-export const ANON_BLOCKED_HREF = /fju\.edu\.tw|\/api\//i;
+// 原文下載（/api/corpus）放行：伺服器端依同一個 cookie 遮好再給（app/api/corpus）
+export const ANON_BLOCKED_HREF = /fju\.edu\.tw|\/api\/(?!corpus\/)/i;
 
 /** 網址裡的示範學生代號改用別名（lib/ui/params.ts 收到時換回來） */
 export const anonUrl = (s: string) => s.replace(/([?&]fixture=)fju-/g, "$1school-a-");

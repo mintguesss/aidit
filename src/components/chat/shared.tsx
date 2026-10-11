@@ -30,10 +30,24 @@ export type Turn = {
   plan?: PlanUpdate;
   whatif?: WhatIfResult;
   explanation?: ExclusionReason;
-  redirect?: "plan";
+  redirect?: "plan" | "scenario";
   traceId?: string;
   pending?: boolean;
 };
+
+/**
+ * 「這題要去別頁問」的連結。網址沿用選課建議那條的參數（示範學生、學期），只換路徑。
+ * scenario 附兩條：試算去情境試算、問規定去修業問答
+ */
+export function redirectLinks(redirect: Turn["redirect"], planHref?: string): { href: string; label: string }[] {
+  if (!redirect || !planHref) return [];
+  const to = (path: string) => planHref.replace(/^\/plan/, path);
+  if (redirect === "plan") return [{ href: planHref, label: "前往選課建議 →" }];
+  return [
+    { href: to("/scenario"), label: "前往情境試算 →" },
+    { href: to("/assistant"), label: "到修業問答問規定 →" },
+  ];
+}
 
 export type Tip = string | { q: string; k: string };
 export const tipText = (t: Tip) => (typeof t === "string" ? t : t.q);

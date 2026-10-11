@@ -218,6 +218,8 @@ export function PlanPanel({
         constraints={state.constraints}
         shownCourses={shownOf(state.plans[0])}
         rulepackHref={`/rulepack${search}`}
+        // 問雙主修、提前畢業這類要去情境試算的，連結沿用這條的參數（見 redirectLinks）
+        planHref={`/plan${search}`}
         onPlanUpdate={onPlanUpdate}
         onOpenPlan={(u, label) => {
           const p = u.plans[0];

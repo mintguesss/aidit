@@ -162,7 +162,7 @@ export function ChatPanel({
         plan?: PlanUpdate;
         whatif?: WhatIfResult;
         explanation?: ExclusionReason;
-        redirect?: "plan";
+        redirect?: "plan" | "scenario";
         traceId?: string;
         error?: string;
       };

@@ -368,22 +368,22 @@ a.nm:hover{color:var(--link);text-decoration:none;background:var(--surface)}
  */
 .todo{list-style:none;margin:0 -1px -1px 0;padding:0;display:grid;
   grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}
-.todo-item{position:relative;--tone:var(--ok);display:grid;grid-template-columns:1fr auto;align-items:end;
+.todo-item{position:relative;--tone:var(--ok);display:grid;grid-template-columns:1fr auto;align-items:end;min-height:104px;
   border-right:1px solid var(--line);border-bottom:1px solid var(--line);border-left:3px solid var(--tone);
   transition:background .15s}
 .todo-item.unmet{--tone:var(--unmet)}
 .todo-item.hold{--tone:var(--hold)}
 .todo-item:hover,.todo-item.open{background:var(--surface)}
 .todo-row{appearance:none;font:inherit;background:none;border:0;cursor:pointer;text-align:left;
-  display:flex;flex-direction:column;min-width:0;padding:10px 6px 11px 13px;color:var(--text)}
-.todo-k{font-size:12px;color:var(--text-3);line-height:1.5;display:flex;align-items:center;gap:6px}
+  display:flex;flex-direction:column;gap:4px;min-width:0;padding:18px 8px 16px 18px;color:var(--text)}
+.todo-k{font-size:13px;color:var(--text-3);line-height:1.5;display:flex;align-items:center;gap:6px}
 /* 小箭頭：看得出格子點得開，展開時翻轉 */
 .todo-k::after{content:"";width:5px;height:5px;border-right:1.5px solid currentColor;
   border-bottom:1.5px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .15s}
 .todo-item.open .todo-k::after{transform:rotate(-135deg) translate(-1px,-1px)}
-.todo-t{font-size:15px;font-weight:700;color:var(--tone);min-width:0;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.todo-go{font-size:12.5px;color:var(--text-3);white-space:nowrap;padding:0 14px 12px 6px}
+.todo-t{font-size:19px;font-weight:700;color:var(--tone);min-width:0;line-height:1.4;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.todo-go{font-size:13px;color:var(--text-3);white-space:nowrap;padding:0 16px 17px 6px}
 .todo-go:hover,.todo-item.open .todo-go{color:var(--link)}
 .todo-d{position:absolute;left:-3px;right:-1px;top:calc(100% + 1px);z-index:20;
   background:var(--paper);border:1px solid var(--line-2);border-top:2px solid var(--tone);
@@ -1618,30 +1618,28 @@ details.fset > *:last-child{margin-bottom:14px}
 .sx-found b{color:var(--ink)}
 .sx-empty{margin:0;padding:30px;text-align:center;color:var(--text-3);background:var(--paper);border-radius:14px;border:1px dashed var(--line-2)}
 
-/* 卡片牆（.dwall；.sw 已是進度條圖例色塊，不能共用）：一份文件一張卡，左上種類圖示、右上段數，下方第一段原文摘錄 */
-.dwall{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
-.dwall-card{appearance:none;font:inherit;text-align:left;cursor:pointer;display:flex;flex-direction:column;gap:6px;min-width:0;
-  padding:16px 18px 14px;border-radius:16px;border:1px solid var(--line);border-top:4px solid var(--k);background:var(--paper);color:var(--text);
-  box-shadow:0 1px 2px rgba(16,36,59,.04),0 6px 18px rgba(16,36,59,.06);
-  transition:transform .2s,box-shadow .2s,border-color .2s;animation:msg-in .35s ease-out both}
-.dwall-card:hover:not(:disabled){transform:translateY(-4px);box-shadow:0 14px 30px rgba(16,36,59,.12);border-color:color-mix(in srgb,var(--k) 35%,#fff)}
-.dwall-card:disabled{cursor:default;border-top-color:var(--line-2);background:#FAFBFC;box-shadow:none}
-.dwall-top{display:flex;align-items:center;gap:8px;margin-bottom:4px}
-.dwall-kind{font-size:12px;font-weight:600;color:var(--k)}
-.dwall-card.empty .dwall-kind,.dwall-card.empty .sx-ic{color:var(--text-3)}
-.dwall-count{margin-left:auto;font-size:12px;font-weight:700;color:var(--k);background:color-mix(in srgb,var(--k) 10%,#fff);
-  padding:1px 10px;border-radius:999px}
-.dwall-card.empty .dwall-count{color:var(--text-3);background:var(--surface);font-weight:400}
-.dwall-title{font-size:15.5px;font-weight:700;line-height:1.5}
-.dwall-card.empty .dwall-title{color:var(--text-3);font-weight:500}
+/* 文件清單（.dwall；.sw 已是進度條圖例色塊，不能共用）：一份文件一列，左邊種類圖示、中間標題與第一段原文、右邊段數。
+ * 以前是彩色上緣的卡片牆，使用者回饋太花，改成條列 */
+.dwall{display:flex;flex-direction:column;background:var(--paper);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.dwall-card{appearance:none;font:inherit;text-align:left;cursor:pointer;display:grid;grid-template-columns:30px minmax(0,1fr) auto;
+  align-items:center;column-gap:14px;padding:14px 18px;border:0;border-radius:0;background:transparent;color:var(--text);
+  transition:background .15s}
+.dwall-card + .dwall-card{border-top:1px solid var(--line)}
+.dwall-card:hover:not(:disabled){background:var(--surface)}
+.dwall-card:disabled{cursor:default}
+.dwall-card .sx-ic{width:30px;height:30px;color:var(--ink-3)}
+.dwall-main{display:flex;flex-direction:column;gap:3px;min-width:0}
+.dwall-line{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 10px}
+.dwall-title{font-size:14.5px;font-weight:700;line-height:1.5}
+.dwall-kind{font-size:11.5px;color:var(--text-2);background:var(--surface-2);padding:0 8px;border-radius:999px}
 .dwall-ver{font-size:12px;color:var(--text-3)}
-.dwall-peek{margin-top:6px;padding:10px 12px;border-radius:10px;background:var(--surface);font-size:13px;line-height:1.75;color:var(--text-2);
-  display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.dwall-peek{font-size:13px;line-height:1.7;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .dwall-peek mark{background:#FFE8A8;color:inherit;padding:0 2px;border-radius:3px}
 .dwall-peek.none{color:var(--text-3);font-size:12.5px}
-.dwall-go{margin-top:auto;padding-top:6px;font-size:12.5px;font-weight:600;color:var(--k);opacity:.75;transition:opacity .2s,transform .2s}
-.dwall-card:hover .dwall-go{opacity:1;transform:translateX(3px)}
-.dwall-card .sx-ic{width:30px;height:30px}
+.dwall-count{font-size:12px;font-weight:600;color:var(--text-2);white-space:nowrap}
+.dwall-count::after{content:" ›";color:var(--text-3)}
+.dwall-card.empty .dwall-title,.dwall-card.empty .dwall-count{color:var(--text-3);font-weight:500}
+.dwall-card.empty .dwall-count::after{content:""}
 /* 彈窗裡的條文 */
 .modal .sx-body{padding:0;background:none;border:0}
 .sx-body{position:relative;display:flex;flex-direction:column;gap:12px}
@@ -1671,7 +1669,6 @@ details.fset > *:last-child{margin-bottom:14px}
 .srcb-foot{margin-top:6px}
 @media(max-width:700px){
   .sx-kinds{border-radius:14px}
-  .dwall{grid-template-columns:1fr}
   .sheet{grid-template-columns:44px minmax(0,1fr)}
   .sheet-no b{font-size:20px}
   .sheet-entry{padding:12px 13px}
@@ -1685,24 +1682,19 @@ details.fset > *:last-child{margin-bottom:14px}
  */
 .scen{display:flex;flex-direction:column;gap:16px}
 
-.wi{position:relative;overflow:hidden;background:var(--ink);color:#fff;border-radius:20px;padding:30px 32px 22px;
-  box-shadow:0 14px 34px rgba(16,36,59,.22)}
-/* 背景一團慢慢飄的光，讓這塊看起來是「活的」 */
-.wi::before{content:"";position:absolute;width:420px;height:420px;right:-120px;top:-180px;border-radius:50%;
-  background:radial-gradient(circle,rgba(127,168,214,.35),rgba(127,168,214,0) 70%);animation:drift 9s ease-in-out infinite alternate;
-  pointer-events:none}
-@keyframes drift{from{transform:translate(0,0)}to{transform:translate(-160px,90px)}}
+/* 跟其他頁的面板一樣：白底、細框、藍色主按鈕。以前是深藍底配黃按鈕，使用者回饋跟整站不搭 */
+.wi{position:relative;background:var(--paper);color:var(--text);border:1px solid var(--line);border-radius:14px;padding:22px 24px 18px}
 .wi-line{position:relative;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;
-  font-size:28px;font-weight:700;letter-spacing:.02em;line-height:1.5;cursor:text}
-.wi-word{flex:0 0 auto;color:#DCE7F3}
-.wi-blank{position:relative;flex:1 1 280px;min-width:180px;border-bottom:3px solid #7FA8D6;
+  font-size:22px;font-weight:700;letter-spacing:.02em;line-height:1.5;cursor:text}
+.wi-word{flex:0 0 auto;color:var(--text)}
+.wi-blank{position:relative;flex:1 1 280px;min-width:180px;border-bottom:2px solid var(--line-2);
   transition:border-color .2s,box-shadow .2s}
-.wi-blank:focus-within{border-color:#FFD27A;box-shadow:0 6px 14px -8px rgba(255,210,122,.7)}
-.wi-blank input{width:100%;background:none;border:0;color:#fff;font:inherit;padding:0 2px 2px;caret-color:#FFD27A}
+.wi-blank:focus-within{border-color:var(--ink-2)}
+.wi-blank input{width:100%;background:none;border:0;color:var(--text);font:inherit;padding:0 2px 2px;caret-color:var(--ink-2)}
 .wi-blank input:focus{outline:none}
-.wi-ghost{position:absolute;left:2px;bottom:2px;color:rgba(255,255,255,.42);pointer-events:none;white-space:nowrap;
+.wi-ghost{position:absolute;left:2px;bottom:2px;color:var(--text-3);font-weight:500;pointer-events:none;white-space:nowrap;
   overflow:hidden;max-width:100%}
-.wi-caret{display:inline-block;width:3px;height:.95em;margin-left:3px;vertical-align:-.1em;background:#FFD27A;
+.wi-caret{display:inline-block;width:3px;height:.95em;margin-left:3px;vertical-align:-.1em;background:var(--ink-2);
   animation:caret 1s steps(1) infinite}
 @keyframes caret{50%{opacity:0}}
 .wi-blank.pop{animation:pop .4s cubic-bezier(.3,1.6,.5,1)}
@@ -1712,24 +1704,24 @@ details.fset > *:last-child{margin-bottom:14px}
 
 .wi-row{position:relative;display:flex;align-items:center;gap:12px;margin-top:22px}
 .wi-dice{appearance:none;font:inherit;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;
-  padding:7px 14px;border-radius:999px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.08);color:#DCE7F3;
+  padding:7px 14px;border-radius:8px;border:1px solid var(--line-2);background:var(--paper);color:var(--text-2);
   transition:background .2s}
-.wi-dice:hover{background:rgba(255,255,255,.16);color:#fff}
+.wi-dice:hover{background:var(--surface);color:var(--text)}
 .wi-dice:disabled{opacity:.5;cursor:default}
 /* 骰子：方框裡兩個點，按的時候轉一圈 */
 .wi-dice-ic{position:relative;width:14px;height:14px;border:1.6px solid currentColor;border-radius:3px;transition:transform .4s}
 .wi-dice-ic::before,.wi-dice-ic::after{content:"";position:absolute;width:3px;height:3px;border-radius:50%;background:currentColor}
 .wi-dice-ic::before{left:2px;top:2px}.wi-dice-ic::after{right:2px;bottom:2px}
 .wi-dice:hover .wi-dice-ic{transform:rotate(180deg)}
-.wi-count{font-size:12.5px;color:rgba(255,255,255,.55)}
+.wi-count{font-size:12.5px;color:var(--text-3)}
 .wi-go{margin-left:auto;appearance:none;font:inherit;font-size:15px;font-weight:700;cursor:pointer;
-  padding:10px 24px;border-radius:999px;border:0;background:#FFD27A;color:var(--ink);
+  padding:9px 22px;border-radius:8px;border:0;background:var(--ink-2);color:#fff;
   display:inline-flex;align-items:center;gap:8px;transition:transform .15s,box-shadow .2s}
 .wi-go span{display:inline-block;transition:transform .2s}
-.wi-go:hover:not(:disabled){box-shadow:0 6px 18px rgba(255,210,122,.45);transform:translateY(-1px)}
+.wi-go:hover:not(:disabled){background:var(--ink)}
 .wi-go:hover:not(:disabled) span{transform:translateX(4px)}
 .wi-go:disabled{opacity:.75;cursor:default}
-.wi-go .spin-label{color:var(--ink)}
+.wi-go .spin-label{color:#fff}
 
 .scen-log{background:var(--paper);border:1px solid var(--line);border-radius:14px;overflow:hidden;
   animation:msg-in .3s ease-out}
@@ -1835,7 +1827,7 @@ details.fset > *:last-child{margin-bottom:14px}
 
 @media(max-width:760px){
   .wi{padding:22px 18px 18px;border-radius:16px}
-  .wi-line{font-size:21px}
+  .wi-line{font-size:19px}
   .wi-blank{flex:1 1 100%}
   .wi-count{display:none}
   .scen-grid,.bound{grid-template-columns:1fr}
@@ -1843,7 +1835,7 @@ details.fset > *:last-child{margin-bottom:14px}
   .bound-flow li + li::before{left:50%;top:-11px;transform:translateX(-50%) rotate(135deg)}
 }
 @media(prefers-reduced-motion:reduce){
-  .wi::before,.wi-caret,.wi-blank.pop{animation:none}
+  .wi-caret,.wi-blank.pop{animation:none}
   .scard-in{transition:none}
 }
 
@@ -2328,3 +2320,5 @@ html[data-anon] a[aria-disabled="true"]{color:inherit;text-decoration:none;curso
 .pv-confirm input{font-weight:400}
 .pv-confirm .pv-actions{justify-content:flex-end;margin:0}
 .pv-confirm input{padding:9px 12px;border:1px solid var(--line-2);border-radius:8px;font-size:14px;background:var(--paper);color:var(--text)}
+.panel-hd .gcheck-hint{margin-left:auto;font-size:12.5px;color:var(--text-3)}
+.todo-row{align-self:start}

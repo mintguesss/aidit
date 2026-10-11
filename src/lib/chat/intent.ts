@@ -93,7 +93,9 @@ const zPlanIntent = z.object({
        * 「換成」「改成」：拿掉的課由新的課補上，堂數不變（TODO G12）。
        * 與「多一堂」「加一堂」不同：那是堂數 +1
        */
-      replace: z.boolean().nullable().optional(),
+      // 不用 nullable：Claude 的結構化輸出最多 16 個可為 null 的欄位，排課的格式原本有 18 個（Haiku 5.5 實測 400）。
+      // 用 optional：沒說就省略，程式本來也只看真假
+      replace: z.boolean().optional(),
       /**
        * 拿掉某一類的課（「拿掉一堂通識」「通識拿掉」「這學期不排通識」）。
        * category 填使用者說的類別（通識、選修、必修、全人…）；count 填幾門，「全部、這學期都不排」填 "all"，沒說填 null
@@ -103,7 +105,7 @@ const zPlanIntent = z.object({
         .nullable()
         .optional(),
       /** 「換另一門」：上一次拿掉的那門放回來，改拿同一類的另一門 */
-      dropAnother: z.boolean().nullable().optional(),
+      dropAnother: z.boolean().optional(),
       reset: z.boolean(),
     })
     .nullable(),
@@ -457,9 +459,9 @@ function emptyDelta() {
     pinCourses: [] as string[],
     addTopic: null as string | null,
     newCourseCredits: null as number | null,
-    replace: null as boolean | null,
+    replace: false,
     dropCategory: null as { category: string; count: number | "all" | null } | null,
-    dropAnother: null as boolean | null,
+    dropAnother: false,
     reset: false,
   };
 }

@@ -5,7 +5,7 @@ import { auditExtra } from "@/lib/extra/goals";
 import { programClausesFor } from "@/lib/rules/program-regs";
 import { answerProgramProcedure, programPackIn } from "@/lib/chat/capabilities";
 import { loadCorpus } from "@/lib/rules/loader";
-import { extraCorpus } from "@/lib/rules/extra-packs";
+import { extraCorpus, loadExtraPacks } from "@/lib/rules/extra-packs";
 import { verifyCitation } from "@/lib/verify/citation";
 import type { RulePack } from "@/lib/rules/schema";
 
@@ -62,8 +62,16 @@ describe("學校的雙主修、輔系辦法", () => {
     for (const h of programClausesFor("fju", "雙主修 輔系 學分 申請 什麼時候 延畢 免修 放棄 相同")) {
       expect(verifyCitation(h.citation, corpus).ok, `${h.citation.docId} ${h.citation.locator}`).toBe(true);
     }
+    for (const p of loadExtraPacks().filter((x) => x.school === "fju")) {
+      for (const q of p.requirements) {
+        expect(verifyCitation({ ...q.citation, docTitle: "" }, corpus).ok, `${p.id} ${q.citation.locator}`).toBe(true);
+      }
+    }
     for (const id of ["fju-cloud-program-112", "fju-psy-double-major-109"]) {
-      const p = [findExtraPack("cert-program", { program: "雲端", school: "fju" }), findExtraPack("double-major", { dept: "39", school: "fju" })].find((x) => x?.id === id)!;
+      const p = [
+        findExtraPack("cert-program", { program: "雲端", school: "fju" }),
+        findExtraPack("double-major", { dept: "39", school: "fju", startYear: 112 }),
+      ].find((x) => x?.id === id)!;
       for (const q of p.requirements) {
         expect(verifyCitation({ ...q.citation, docTitle: "" }, corpus).ok, `${id} ${q.citation.locator}`).toBe(true);
       }
@@ -80,5 +88,38 @@ describe("學程怎麼申請", () => {
   });
   it("雙主修怎麼申請 → 學校辦法的申請期間", () => {
     expect(answerProgramProcedure("雙主修要怎麼申請", fju)!.headline).toContain("教務處公告");
+  });
+});
+
+describe("輔系", () => {
+  it("心理系輔系：本系的統計學不能算，列出來並說要另選補足", () => {
+    const pack = findExtraPack("minor", { dept: "39", school: "fju" })!;
+    const r = auditExtra(pack, usable);
+    expect(r.unmet).toBe(24);
+    expect(r.waiverCandidates?.map((c) => c.name)).toEqual(["統計學"]);
+    expect(pack.waiverByName?.text).toContain("另選");
+  });
+  it("物理系沒有輔系科目表：依輔系辦法以專業必修、至少 20 學分，並講明但書", () => {
+    const pack = findExtraPack("minor", { dept: "PH", school: "fju" })!;
+    expect(pack.minCredits).toBe(20);
+    expect(pack.caveat).toContain("第三、四條");
+  });
+  it("物理系必修每一門都對得到課名（缺課清單不會只剩課號）", () => {
+    const pack = findExtraPack("double-major", { dept: "PH", school: "fju" })!;
+    for (const q of pack.requirements) {
+      if (q.match.type !== "courseList") continue;
+      for (const code of q.match.codes) expect(q.names?.[code], code).toBeTruthy();
+    }
+  });
+});
+
+describe("依開始修讀的學年選科目表（雙主修辦法第六條）", () => {
+  it.each([
+    [112, "39", "fju-psy-double-major-109"],
+    [113, "39", "fju-psy-double-major-113"],
+    [112, "PH", "fju-ph-double-major-110"],
+    [113, "PH", "fju-ph-double-major-113"],
+  ])("%i 學年開始、系所 %s → %s", (startYear, dept, id) => {
+    expect(findExtraPack("double-major", { dept, school: "fju", startYear })?.id).toBe(id);
   });
 });

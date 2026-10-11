@@ -22,6 +22,7 @@ import {
   subRuleNamed,
   answerProcedure,
   answerRegulation,
+  answerProgramProcedure,
   capabilityLimits,
   mentionsGraduationCheck,
 } from "./capabilities";
@@ -32,6 +33,7 @@ import { LIMITS } from "./types";
 import { schoolOf, withoutOwnSchool } from "@/lib/schools";
 import { isEarlyMorning } from "@/lib/solver/slots";
 import { slotTextOf } from "@/lib/solver/schedule";
+import { programClausesFor } from "@/lib/rules/program-regs";
 import { offeringsFor } from "@/lib/offerings";
 
 /**
@@ -597,6 +599,15 @@ export async function askTurn(
     intent = rules;
     tools.push("rule.fallback");
   } else if (
+    intent.kind === "clarify" &&
+    rules.kind === "intent" &&
+    rules.intent === "regulation" &&
+    programClausesFor(schoolOf(ctx.record.student), forRules).length > 0
+  ) {
+    // 「雙主修會不會延畢」：學校辦法有對應的條文就直接講，不必反問「哪一個雙主修組合」
+    intent = rules;
+    tools.push("rule.fallback");
+  } else if (
     intent.kind === "out-of-scope" &&
     !tools.includes("rule.other-institution") &&
     mentionsGraduationCheck(forRules, ctx.pack)
@@ -670,7 +681,8 @@ export async function askTurn(
     case "procedure":
       tools.push("procedure.lookup");
       return {
-        reply: lookup(p.procedure, p.raw, answerProcedure),
+        // 雙主修、輔系、有收錄的學程：照收錄的規定講申請方式；其他才用一般的辦理流程
+        reply: answerProgramProcedure(p.raw, ctx.pack) ?? lookup(p.procedure, p.raw, answerProcedure),
         tools,
         intent: intent.intent,
         clarifying: false,

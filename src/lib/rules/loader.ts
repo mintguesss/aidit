@@ -98,6 +98,9 @@ const ANNOUNCEMENT_CORPUS: [string, string][] = [
   ["ann-eng-cert", "ann-eng-cert.txt"],
   ["fju-hec-1141", "fju-hec-1141.txt"],
   ["fju-phy-oe-plan-113", "fju-phy-oe-plan-113.txt"],
+  // 學校的雙主修、輔系辦法（rules/program-regs.ts 引用）
+  ["fju-double-major", "fju-double-major.txt"],
+  ["fju-minor", "fju-minor.txt"],
 ];
 
 export type ResolveOutcome =

@@ -35,6 +35,9 @@ export type ExtraRequirementResult = {
   unmet: number;
   /** 指定科目清單時，還缺哪幾個課號 */
   missingCodes: string[];
+  /** 規定要幾門（「選修 3 門」）時：已採計幾門、還差幾門 */
+  courses?: number;
+  missingCourses?: number;
   citation: Citation;
 };
 
@@ -64,6 +67,10 @@ export type ExtraGoalSummary = {
     requirements: ExtraRequirementResult[];
     overlapPolicy: string;
     overlapCitation: Citation;
+    /** 跟規定科目同名、但不是該系開的課：可申請免修，由雙主修學系主任認定。不計入上面的數字 */
+    waiverCandidates?: { code: string; name: string; credits: number }[];
+    /** 「至少一半不能是主系必修」：還要再修幾學分非主系必修的學程課 */
+    nonMainShortfall?: number;
   };
   /** 尚未收錄時：為什麼算不出「還差哪些」，以及需要補齊什麼 */
   blocked?: string;
@@ -129,7 +136,7 @@ export function summariseExtraGoals(
     const pack =
       goal.kind === "transfer"
         ? undefined
-        : findExtraPack(goal.kind, { dept: dept?.code, program: goal.target });
+        : findExtraPack(goal.kind, { dept: dept?.code, program: goal.target, school: audit.student.school ?? "demo" });
 
     const usable = courses.filter((c) => c.status !== "failed" && c.status !== "withdrawn");
 
@@ -164,7 +171,7 @@ export function summariseExtraGoals(
     };
 
     if (pack) {
-      return { ...base, rulesLoaded: true, audit: auditExtra(pack, usable) };
+      return { ...base, rulesLoaded: true, audit: auditExtra(pack, usable, mainRequiredOf(audit)) };
     }
 
     const blocked =
@@ -180,12 +187,39 @@ export function summariseExtraGoals(
   });
 }
 
+/** 本系的必修類別（名稱有「必修」的類別）採計了哪些課 */
+export function mainRequiredOf(audit: AuditResult): (code: string) => boolean {
+  const codes = new Set(audit.categories.filter((c) => /必修/.test(c.name)).flatMap((c) => c.assignedCodes));
+  return (code) => codes.has(code);
+}
+
 /** 某一門課是否落在這份規定的任一項目範圍內 */
 function matchesAny(pack: ExtraPack, c: CourseRecord): boolean {
+  return pack.requirements.some((r) => hits(pack, r, c));
+}
+
+/** 課名比對：大小寫、全半形、空白、「-英」「-網」尾碼都不算差別；「普通心理學(一)」算「普通心理學」 */
+const normName = (s: string) =>
+  s.normalize("NFKC").toLowerCase().replace(/\s/g, "").replace(/-(英|網)+$/g, "");
+function nameMatches(names: string[], courseName: string): boolean {
+  const n = normName(courseName);
+  return names.some((x) => {
+    const want = normName(x);
+    return n === want || n.startsWith(`${want}(`);
+  });
+}
+
+/** 某一門課是否落在某一項的範圍內 */
+function hits(pack: ExtraPack, r: ExtraPack["requirements"][number], c: CourseRecord): boolean {
   const code = c.equivalentOf ?? c.code;
-  return pack.requirements.some((r) =>
-    r.match.type === "courseList" ? r.match.codes.includes(code) : c.offeringDept === r.match.dept,
-  );
+  switch (r.match.type) {
+    case "courseList":
+      return r.match.codes.includes(code);
+    case "deptElective":
+      return c.offeringDept === r.match.dept;
+    case "courseNames":
+      return nameMatches(r.match.names, c.name) && (!r.deptOnly || c.offeringDept === pack.dept);
+  }
 }
 
 /**
@@ -193,8 +227,14 @@ function matchesAny(pack: ExtraPack, c: CourseRecord): boolean {
  * 系選修只認該系開設的課，且**不得重複採計**（一門課只能滿足一個項目，
  * 指定科目優先）。超出應修學分的部分不流用到別的項目。
  */
-function auditExtra(pack: ExtraPack, courses: CourseRecord[]): NonNullable<ExtraGoalSummary["audit"]> {
+export function auditExtra(
+  pack: ExtraPack,
+  courses: CourseRecord[],
+  /** 這門課在本系是不是算必修（學程「至少一半不得為主系必修」要用） */
+  mainRequired: (code: string) => boolean = () => false,
+): NonNullable<ExtraGoalSummary["audit"]> {
   const used = new Set<string>();
+  const counted: CourseRecord[] = [];
   const requirements: ExtraRequirementResult[] = [];
 
   // 指定科目清單先分配，剩下的才給系選修 —— 反過來會讓必修課被選修吃掉
@@ -205,35 +245,39 @@ function auditExtra(pack: ExtraPack, courses: CourseRecord[]): NonNullable<Extra
   for (const r of ordered) {
     let earned = 0;
     let inProgress = 0;
+    let count = 0;
     const hitCodes = new Set<string>();
 
     for (const c of courses) {
       const code = c.equivalentOf ?? c.code;
       if (used.has(`${code}-${c.year}-${c.term}`)) continue;
-      const hit =
-        r.match.type === "courseList"
-          ? r.match.codes.includes(code)
-          : c.offeringDept === r.match.dept;
-      if (!hit) continue;
+      if (!hits(pack, r, c)) continue;
 
-      // 超過該項目應修學分之後就不再吃課，留給其他項目
-      if (earned + inProgress >= r.credits) continue;
+      // 超過該項目應修學分（或門數）之後就不再吃課，留給其他項目
+      const full = r.minCourses ? count >= r.minCourses && earned + inProgress >= r.credits : earned + inProgress >= r.credits;
+      if (full) continue;
       used.add(`${code}-${c.year}-${c.term}`);
+      counted.push(c);
+      // 學年課上下兩半是同一門課，門數只算一次
+      if (!hitCodes.has(code)) count += 1;
       hitCodes.add(code);
       if (c.status === "in_progress") inProgress += c.credits;
       else earned += c.credits;
     }
 
-    const counted = Math.min(r.credits, earned + inProgress);
+    const got = Math.min(r.credits, earned + inProgress);
+    // 規定的是門數時，門數夠了就算滿足（「核心選修 3 門」修了三門 2 學分的課也算）
+    const coursesOk = r.minCourses !== undefined && count >= r.minCourses;
     requirements.push({
       id: r.id,
       label: r.label,
       required: r.credits,
       earned: Math.min(r.credits, earned),
-      inProgress: Math.max(0, counted - Math.min(r.credits, earned)),
-      unmet: Math.max(0, r.credits - counted),
+      inProgress: Math.max(0, got - Math.min(r.credits, earned)),
+      unmet: coursesOk ? 0 : Math.max(0, r.credits - got),
       missingCodes:
         r.match.type === "courseList" ? r.match.codes.filter((x) => !hitCodes.has(x)) : [],
+      ...(r.minCourses !== undefined ? { courses: count, missingCourses: Math.max(0, r.minCourses - count) } : {}),
       citation: {
         docId: r.citation.docId,
         docTitle: pack.document.title,
@@ -248,7 +292,32 @@ function auditExtra(pack: ExtraPack, courses: CourseRecord[]): NonNullable<Extra
   const byId = new Map(requirements.map((r) => [r.id, r]));
   const rows = pack.requirements.map((r) => byId.get(r.id)!).filter(Boolean);
 
+  // 跟規定科目同名、但不是該系開的課（主系的「統計學」「微積分」）：可申請免修，由雙主修學系主任認定。
+  // 只列出來，不算進去 —— 認不認定不是規則推得出來的
+  const requiredNames = pack.requirements.flatMap((r) =>
+    r.match.type === "courseNames" ? r.match.names : r.match.type === "courseList" ? Object.values(r.names ?? {}) : [],
+  );
+  const usedKey = (c: CourseRecord) => `${c.equivalentOf ?? c.code}-${c.year}-${c.term}`;
+  const waiverCandidates = pack.waiverByName
+    ? [
+        ...new Map(
+          courses
+            .filter((c) => c.status === "passed" && !used.has(usedKey(c)) && nameMatches(requiredNames.map((n) => n.replace(/\(.*\)$/, "")), c.name))
+            .map((c) => [c.equivalentOf ?? c.code, { code: c.equivalentOf ?? c.code, name: c.name, credits: c.credits }]),
+        ).values(),
+      ]
+    : undefined;
+
+  // 至少一半不得為主系必修：只看已經採計的課；主系必修的部分超過一半，就還要再修非主系必修的學程課
+  let nonMainShortfall: number | undefined;
+  if (pack.nonMainRequiredShare) {
+    const nonMain = counted.filter((c) => !mainRequired(c.equivalentOf ?? c.code)).reduce((a, c) => a + c.credits, 0);
+    nonMainShortfall = Math.max(0, Math.ceil(pack.minCredits * pack.nonMainRequiredShare.min) - nonMain);
+  }
+
   return {
+    ...(waiverCandidates?.length ? { waiverCandidates } : {}),
+    ...(nonMainShortfall !== undefined ? { nonMainShortfall } : {}),
     packId: pack.id,
     title: pack.title,
     version: pack.version,

@@ -7,6 +7,8 @@ import type { Reply } from "./types";
 import { termLimitsFor } from "@/lib/rules/term-limits";
 import { DEFAULT_SCHOOL } from "@/lib/schools";
 import { periodScheme, periodLabel } from "@/lib/offerings/period-scheme";
+import { programClausesFor } from "@/lib/rules/program-regs";
+import { findExtraPack, type ExtraPack } from "@/lib/rules/extra-packs";
 
 /**
  * B 介面的能力層（docs/CONVERSATION.md §2.2）。
@@ -207,6 +209,15 @@ function searchRules(topic: string, pack: RulePack, audit: AuditResult): RuleHit
 
   const want = (...keys: string[]) => keys.some((k) => t.includes(k));
 
+  // 雙主修、輔系：學校辦法的條文（申請時間、學分下限、免修、延畢）
+  const school = pack.school ?? "demo";
+  for (const { clause, citation } of programClausesFor(school, t)) {
+    hits.push({ text: `${clause.program}：${clause.text}`, citation });
+  }
+  // 學分學程：問到有收錄的學程就講它的修習規定
+  const program = programPackIn(t, school);
+  if (program) hits.push({ text: programSummary(program), citation: programCitation(program) });
+
   if (want("超修", "流用", "溢出", "多修的")) {
     for (const [catId, policy] of Object.entries(pack.overflowPolicy)) {
       const cat = pack.categories.find((c) => c.id === catId);
@@ -330,6 +341,52 @@ export function mentionsGraduationCheck(text: string, pack: RulePack): boolean {
   const t = text.replace(/\s/g, "");
   if (!/畢業|門檻|規定|要考|考試|考到|是什麼|什麼是|要不要|需不需要|一定要|標準|條件|怎麼算|怎麼過/.test(t)) return false;
   return pack.graduationChecks.some((g) => t.includes(g.name) || nameKeys(g.name).some((k) => t.includes(k)));
+}
+
+/** 句子裡講到的、有收錄的學分學程（「雲端學程」→ 雲端服務學程） */
+export function programPackIn(text: string, school: string): ExtraPack | undefined {
+  if (!/學程/.test(text)) return undefined;
+  const m = /([A-Za-z一-龥]{2,14}?)(?:學分|微)?學程/.exec(text);
+  const name = (m?.[1] ?? "")
+    .replace(/^.*?(?:加修|申請|想修|修讀|要修|能修|修|讀|念)/, "")
+    .replace(/^(?:我|想要?|要|能不能|可不可以|可以|一個|這個|那個)+/, "");
+  return name.length >= 2 ? findExtraPack("cert-program", { program: name, school }) : undefined;
+}
+
+function programSummary(p: ExtraPack): string {
+  const parts = p.requirements.map((r) => (r.minCourses ? `${r.label.replace(/（.*）$/, "")} ${r.minCourses} 門` : `${r.label} ${r.credits} 學分`));
+  return `${p.title}：${parts.join("、")}，共至少 ${p.minCredits} 學分。${p.overlapPolicy}`;
+}
+
+function programCitation(p: ExtraPack, c: { docId: string; locator: string; quote: string } = p.requirements[0]!.citation): Citation {
+  return { docId: c.docId, docTitle: p.document.title, locator: c.locator, quote: c.quote, publishedAt: p.document.publishedAt || undefined };
+}
+
+/**
+ * 「我想修雲端學程，如何申請」「雙主修要怎麼申請」：有收錄的就照收錄的規定講，
+ * 沒有才交給一般的辦理流程（那只說得出「向開設單位申請」）
+ */
+export function answerProgramProcedure(text: string, pack: RulePack): Reply | null {
+  if (!/申請|報名|怎麼修|如何修/.test(text)) return null;
+  const school = pack.school ?? "demo";
+  const program = programPackIn(text, school);
+  if (program?.apply) {
+    return {
+      kind: "決定",
+      headline: `${program.title}的申請方式：${program.apply.text}`,
+      detail: programSummary(program),
+      citations: [programCitation(program, program.apply.citation), programCitation(program)],
+    };
+  }
+  const clauses = programClausesFor(school, `${text} 怎麼申請 什麼時候`);
+  if (clauses.length === 0) return null;
+  return {
+    kind: "決定",
+    headline: clauses.map((x) => `${x.clause.program}：${x.clause.text}`).join(""),
+    detail: "各系的資格與名額依教務處當學期公告，申請前請先看公告。",
+    citations: clauses.map((x) => x.citation),
+    contact: "教務處註冊組、擬修習學系系辦",
+  };
 }
 
 /** 畢業條件名稱裡可以拿來比對的字：去掉括號內容與「能力」「學分」這類每條都有的字，取兩字一組 */

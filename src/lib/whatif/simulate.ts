@@ -18,6 +18,10 @@ import {
 } from "@/lib/solver/schedule";
 import { offeringsFor, activeCourseCodes, allOfferings } from "@/lib/offerings";
 import { loadRulePacks } from "@/lib/rules/loader";
+import { findExtraPack, type ExtraPack } from "@/lib/rules/extra-packs";
+import { auditExtra, mainRequiredOf } from "@/lib/extra/goals";
+import { resolveDept } from "@/lib/offerings/depts";
+import { programClausesFor } from "@/lib/rules/program-regs";
 import { termLimitsFor } from "@/lib/rules/term-limits";
 import { schoolOf } from "@/lib/schools";
 import { continuingCourseCodes, takenCourseCodes } from "@/lib/solver/taken";
@@ -58,6 +62,7 @@ export function simulate(input: SimulateInput): WhatIfResult {
   }
 }
 
+const NL = String.fromCharCode(10);
 const uncounted = (a: AuditResult) => a.holds.length;
 
 // ---------------------------------------------------------- 提前畢業
@@ -318,46 +323,117 @@ const RULE_SET_NEEDS: Record<string, string[]> = {
   學分學程: ["該學程之應修科目與最低學分", "已修科目可否採計入學程", "學程證明之申請程序"],
 };
 
+const KIND_OF: Record<string, "minor" | "double-major" | "cert-program"> = {
+  輔系: "minor",
+  雙主修: "double-major",
+  學分學程: "cert-program",
+};
+
+/**
+ * 加修另一套規定（輔系、雙主修、學分學程）。
+ *
+ * 有收錄那一系（那個學程）的規定：照規定逐項算還差什麼（extra/goals 的 auditExtra，跟修業明細同一套），
+ * 再估一下兩邊加起來每學期要修多少。沒收錄：講學校辦法的規定（有收錄的話）與還缺哪一份資料，不推算數字。
+ */
 function anotherRuleSet(input: SimulateInput, kind: string, name: string): WhatIfResult {
   const { audit, record } = input;
-  const packs = loadRulePacks();
-  const has = packs.some((p) => p.dept === name || p.id.includes(name));
-  const needs = RULE_SET_NEEDS[kind] ?? ["該項目之應修科目與學分規定"];
+  const school = schoolOf(record.student);
+  const dept = kind === "學分學程" ? undefined : resolveDept(name);
+  const extra = findExtraPack(KIND_OF[kind]!, { dept: dept?.code, program: name, school });
+  const label = kind === "學分學程" ? (extra?.title ?? `「${name}」學程`) : `${dept?.name ?? name}${kind}`;
 
-  if (has) {
+  if (extra) {
+    const usable = record.courses.filter((c) => c.status !== "failed" && c.status !== "withdrawn");
+    const r = auditExtra(extra, usable, mainRequiredOf(audit));
+    const offered = allOfferings(school);
+    const nameOf = (code: string, req: ExtraPack["requirements"][number]) =>
+      req.names?.[code] ?? offered.find((o) => o.code === code)?.name ?? code;
+    const lines = r.requirements.map((q) => {
+      const req = extra.requirements.find((x) => x.id === q.id)!;
+      const done = `${q.label}：已修 ${q.earned}${q.inProgress ? `（修課中 ${q.inProgress}）` : ""}／${q.required} 學分`;
+      const left =
+        q.missingCourses !== undefined
+          ? q.missingCourses > 0 ? `，還差 ${q.missingCourses} 門` : "，門數已足"
+          : q.unmet > 0 ? `，還差 ${q.unmet} 學分` : "，已滿足";
+      const missing =
+        q.missingCodes.length > 0 && q.missingCodes.length <= 12
+          ? `（未修：${[...new Set(q.missingCodes.map((c) => nameOf(c, req)))].join("、")}）`
+          : "";
+      return done + left + missing;
+    });
+    const unmet = r.requirements.reduce((a, q) => a + q.unmet, 0);
+    const notes: string[] = [];
+    if (r.nonMainShortfall) {
+      notes.push(`學程至少一半學分不能是本系必修：已採計的課多半是本系必修，還要再修至少 ${r.nonMainShortfall} 學分不是本系必修的學程課。`);
+    }
+    if (r.waiverCandidates?.length) {
+      notes.push(
+        `你修過的 ${r.waiverCandidates.map((c) => c.name).join("、")} 跟${dept?.name ?? "該系"}的科目同名，` +
+          `可以申請免修，由${dept?.name ?? "該系"}主任認定；上面的數字沒有算進去。`,
+      );
+    }
+    // 雙主修、輔系：兩邊加起來每學期要修多少（學分學程多半跟本系課重疊，不估）
+    if (kind !== "學分學程" && unmet > 0) {
+      const last = `${record.student.admissionYear + 3}-2`;
+      const terms = termsBetween(audit.nextTerm, last);
+      const need = audit.unmet + unmet;
+      const cap = termLimitsFor(input.pack, record.student, audit.nextTerm).maxCredits;
+      if (terms > 0) {
+        const per = Math.ceil(need / terms);
+        notes.push(
+          `本系還差 ${audit.unmet} 學分，加上${kind}還差的 ${unmet} 學分，剩下 ${terms} 個學期平均每學期要修約 ${per} 學分` +
+            (per > cap ? `，超過每學期上限 ${cap}，照這個進度要延長修業年限。` : `（每學期上限 ${cap}）。`),
+        );
+      }
+    }
+    if (extra.provenance !== "approved") notes.push("這份規定是從學校公開文件抄錄的，還沒經人工校對鎖版；實際應修與免修以承辦單位認定為準。");
+
     return {
-      headline: `${kind}「${name}」之規則包已載入，但本版尚未開放跨規則包試算`,
+      headline:
+        unmet === 0 && !r.nonMainShortfall
+          ? `${label}：已修的課已經符合規定`
+          : `${label}：還要修約 ${Math.max(unmet, r.nonMainShortfall ?? 0)} 學分`,
       level: "conditional",
-      detail:
-        `系統已有「${name}」之規則包，惟本版僅支援單一主修之判定。` +
-        `跨規則包的學分歸屬會改變主修類別的指派結果，在未經驗證前不輸出數字。`,
-      alternatives: [`向系辦索取${kind}之修習規定後，由承辦人協助試算`],
-      citations: [],
+      detail: [...lines, ...notes].join(NL),
+      alternatives: [extra.overlapPolicy],
+      citations: dedupe([
+        ...r.requirements.map((q) => q.citation),
+        r.overlapCitation,
+        ...(extra.waiverByName && r.waiverCandidates?.length
+          ? [{ docId: extra.waiverByName.citation.docId, docTitle: extra.waiverByName.citation.docId, locator: extra.waiverByName.citation.locator, quote: extra.waiverByName.citation.quote }]
+          : []),
+      ]),
       uncountedHolds: uncounted(audit),
     };
   }
 
-  const related = record.courses.filter(
-    (c) => (c.status === "passed" || c.status === "waived") && c.offeringDept === name,
-  );
+  // 沒收錄該系（該學程）的規定：學校辦法有的就講，缺的資料講清楚，不推算
+  const rules = kind === "學分學程" ? [] : programClausesFor(school, kind);
+  const main = rules.find((x) => x.clause.main) ?? rules[0];
   return {
-    headline: `無法試算${kind}：尚未收錄「${name}」的規定`,
+    headline: `還沒收錄${label}的科目表，無法算出還差哪些課`,
     level: "infeasible",
-    detail:
-      `本系統的規則包目前只收錄 ${[...new Set(packs.map((p) => `${p.dept} ${p.admissionYear} 學年度`))].join("、")}，` +
-      `查無「${name}」${kind}的規定。沒有規則依據時，系統不就${kind}的可行性作任何推算 ——` +
-      `${kind}與其他兩種（${Object.keys(RULE_SET_NEEDS).filter((k) => k !== kind).join("、")}）` +
-      `適用的規定不同，拿其中一種代替另一種等於換掉一整套畢業條件。` +
-      (related.length > 0
-        ? `（參考：修課紀錄中有 ${related.length} 門由「${name}」開設之科目，合計 ${related.reduce((a, c) => a + c.credits, 0)} 學分，惟其是否可採計須依該${kind}之規定認定。）`
-        : ""),
-    alternatives: [
-      `需要補齊的資料：${needs.join("、")}`,
-      `取得後可到「適用規劃表」頁上傳，經人工校對鎖版後即可試算`,
-    ],
-    citations: [],
+    detail: [
+      main ? `學校的規定：${main.clause.text}` : "",
+      kind === "學分學程"
+        ? `各學程的應修科目由開設單位訂定，目前沒收錄「${name}」的修習要點。`
+        : `要算出還差哪些，需要${dept?.name ?? `「${name}」`}的${kind}科目表（${kind === "雙主修" ? "依開始修讀那一年該系入學生的必修科目" : "該系的專業必修科目"}）。`,
+    ]
+      .filter(Boolean)
+      .join(NL),
+    alternatives: [`可以向${kind === "學分學程" ? "開設學程的單位" : `${dept?.name ?? "該系"}系辦`}索取科目表，上傳後經人工校對即可試算`],
+    citations: main ? [main.citation] : [],
     uncountedHolds: uncounted(audit),
   };
+}
+
+/** 學期代號 a 到 b（含）共有幾個學期（只算上下學期） */
+function termsBetween(a: string, b: string): number {
+  const n = (t: string) => {
+    const [y, s] = t.split("-").map(Number);
+    return y! * 2 + (s === 2 ? 1 : 0);
+  };
+  return Math.max(0, n(b) - n(a) + 1);
 }
 
 // ---------------------------------------------------------- 轉系

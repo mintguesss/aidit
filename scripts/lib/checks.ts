@@ -116,6 +116,8 @@ const SECRET_ALLOW = [
   // 限定必須跟在 ICS 欄位名後面，不放寬成「任何八位數字」。
   /(?:DTSTART|DTEND|DTSTAMP|UNTIL)[:=]\d/,
   /max-age=\d+/, // HTTP 標頭的秒數（HSTS 一年的秒數長得跟學號一樣）
+  // 公文字號：法規沿革裡的「教育部…字第0930089837號函核定」。限定「字第…號」的格式，不放寬成任何長數字
+  /字第\d{7,12}號/,
 ];
 
 export function scanSecrets(): SecretHit[] {

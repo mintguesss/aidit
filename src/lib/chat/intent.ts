@@ -433,7 +433,7 @@ export function dayCues(text: string): { block: number[]; free: number[]; prefer
     if (days.length === 0) continue;
     const kind = /解除|取消|恢復|不用空|不必空|可以排|能排|可以有課|沒關係/.test(clause)
       ? "free"
-      : BLOCK_CUE.test(clause)
+      : BLOCK_CUE.test(clause) || /放假|休息|不上課|沒課|空下來|空出來/.test(clause)
         ? "block"
         : /最好|希望|想要?|排在|安排在|放在|^.{0,4}在/.test(clause)
           ? "prefer"
@@ -664,7 +664,7 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
   // 說了天數就是硬限制：「集中在一天」「兩天就好」「只想上三天」
   const DN = "(\\d+|[一二兩三四五六七])";
   const daysM =
-    new RegExp(`(?:集中在|排在|塞在|壓在|只(?:想)?(?:上|排))\\s*${DN}\\s*天`).exec(t) ??
+    new RegExp(`(?:集中(?:在|到|成)|排(?:在|到)|塞(?:在|到)|壓(?:在|到)|只(?:想)?(?:上|排))\\s*${DN}\\s*天`).exec(t) ??
     new RegExp(`${DN}\\s*天(?:內|以內|就好|上完)`).exec(t);
   const dayN = daysM ? numOf(daysM[1]) : null;
   if (dayN !== null && dayN >= 1 && dayN <= 6) {

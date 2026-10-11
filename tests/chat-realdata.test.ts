@@ -256,6 +256,8 @@ describe("星期的意思要照分句判斷（Vercel 接 Haiku 實測）", () =>
     ["解除「空出星期一、二、四」", { block: [], free: [1, 2, 4], prefer: [] }],
     ["空出星期一跟三", { block: [1, 3], free: [], prefer: [] }],
     ["星期五不要排課", { block: [5], free: [], prefer: [] }],
+    ["星期五想放假", { block: [5], free: [], prefer: [] }],
+    ["加一門程式設計的課，最好在禮拜三", { block: [], free: [], prefer: [3] }],
   ])("%s", (said, want) => {
     expect(dayCues(said)).toEqual(want);
   });

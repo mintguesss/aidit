@@ -74,7 +74,8 @@ export type ConstraintSet = {
   excludeCourses: string[];
   pinCourses: string[];
   /** 「想修一堂 AI 相關的課」：主題與下學期符合的課號（TODO G2） */
-  wantTopic?: { label: string; codes: string[] };
+  /** days：希望那門課排在哪幾天（「最好排在禮拜一、二、四」）。偏好：那幾天都沒開就照樣排別天 */
+  wantTopic?: { label: string; codes: string[]; days?: number[] };
   /** 「多選一堂兩學分的課」：新加的那門盡量是幾學分。偏好（TODO G1） */
   newCourseCredits?: number;
   /** 「這學期不排通識」：這幾類這學期整類不排（學分留到之後的學期）（TODO G12） */

@@ -186,7 +186,9 @@ export function toSolverConstraints(
     maxDays: c.maxDays,
     excludeCourses: c.excludeCourses,
     pinCourses: c.pinCourses,
-    ...(c.wantTopic ? { wantOneOf: c.wantTopic.codes, wantLabel: `${c.wantTopic.label} 相關` } : {}),
+    ...(c.wantTopic
+      ? { wantOneOf: c.wantTopic.codes, wantLabel: `${c.wantTopic.label} 相關`, ...(c.wantTopic.days?.length ? { wantDays: c.wantTopic.days } : {}) }
+      : {}),
     ...(c.newCourseCredits ? { newCourseCredits: c.newCourseCredits } : {}),
   };
 }
@@ -548,7 +550,9 @@ export function applyParams(
     if (codes.length === 0) unresolved.push(`${topic} 相關的課`);
     else {
       requested = true;
-      next.wantTopic = { label: topic, codes };
+      // 「最好幫我安排在禮拜一、二、四」：說的是這門課要排哪天，不是空出哪天（使用者回饋）
+      const days = cues.prefer.filter((d) => !cues.block.includes(d));
+      next.wantTopic = { label: topic, codes, ...(days.length > 0 ? { days: [...new Set(days)].sort((a, b) => a - b) } : {}) };
       // 沒有另外說堂數：多排一門給它，不擠掉眼前課表上的課。
       // 「換成」是替換，堂數不變；同時拿掉某一類時，堂數由呼叫端依拿掉幾門計算（route.ts）
       if (
@@ -594,7 +598,10 @@ export function describeSet(c: ConstraintSet, names: PeriodNames = DEMO_PERIOD_N
   for (const code of c.pinCourses) out.push(`保留 ${nameOf(code)}`);
   for (const code of c.excludeCourses) out.push(`排除 ${nameOf(code)}`);
   for (const x of c.skipCategories ?? []) out.push(`這學期不排「${x.name}」`);
-  if (c.wantTopic) out.push(`至少一門「${c.wantTopic.label}」相關的課`);
+  if (c.wantTopic) {
+    const on = c.wantTopic.days?.length ? `（排在星期${c.wantTopic.days.map((d) => "一二三四五六日"[d - 1]).join("、")}）` : "";
+    out.push(`至少一門「${c.wantTopic.label}」相關的課${on}`);
+  }
   if (c.newCourseCredits) out.push(`新加的課盡量 ${c.newCourseCredits} 學分`);
   if (c.goals.includes("minor")) out.push("另有輔系需求（尚未收錄規定）");
   if (c.goals.includes("cert-program")) out.push("另有學程需求（尚未收錄規定）");
@@ -671,7 +678,8 @@ export function describeDelta(
     out.push(`保留 ${nameOf(code)}`);
   }
   if (after.wantTopic && after.wantTopic.label !== before.wantTopic?.label) {
-    out.push(`加一門「${after.wantTopic.label}」相關的課`);
+    const on = after.wantTopic.days?.length ? `，排在星期${after.wantTopic.days.map((d) => "一二三四五六日"[d - 1]).join("、")}` : "";
+    out.push(`加一門「${after.wantTopic.label}」相關的課${on}`);
   }
   if (after.newCourseCredits && after.newCourseCredits !== before.newCourseCredits) {
     out.push(`新加的課盡量 ${after.newCourseCredits} 學分`);
@@ -737,6 +745,9 @@ export function sanitiseConstraintSet(c: ConstraintSet, fallback: ConstraintSet)
           wantTopic: {
             label: c.wantTopic.label.slice(0, 20),
             codes: [...new Set(c.wantTopic.codes.filter(isCourseCode))].slice(0, 200),
+            ...(Array.isArray(c.wantTopic.days)
+              ? { days: [...new Set(c.wantTopic.days.filter((d) => Number.isInteger(d) && d >= 1 && d <= 7))].sort((a, b) => a - b) }
+              : {}),
           },
         }
       : {}),

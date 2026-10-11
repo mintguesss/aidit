@@ -385,6 +385,8 @@ export type Constraints = {
   wantOneOf?: string[];
   /** wantOneOf 的說法，如「AI 相關」，回覆與警告用 */
   wantLabel?: string;
+  /** wantOneOf 的課希望排在哪幾天。那幾天都沒有班就不限（見 schedule.ts） */
+  wantDays?: number[];
   /** 「多選一堂兩學分的課」：新加的課（眼前課表上沒有的）盡量是這個學分數。偏好，不是硬限制（TODO G1） */
   newCourseCredits?: number;
   /** 已排定、不可衝突的時段（如已登記之必修） */

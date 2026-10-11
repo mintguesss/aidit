@@ -264,6 +264,12 @@ function filterCandidates(ctx: SolveContext): {
   const termYear = /^(\d{3})-/.exec(ctx.termLabel)?.[1];
   const studyYear =
     ctx.admissionYear !== undefined && termYear !== undefined ? Number(termYear) - ctx.admissionYear + 1 : undefined;
+  // 主題課希望排在哪幾天（「最好幫我安排在禮拜一、二、四」）：只有整門課都在那幾天的班才算數。
+  // 那幾天一班都沒有的話不限，照樣排別天 —— 這是偏好，不能因此排不出主題課
+  const wantDays = ctx.constraints.wantDays;
+  const inWantDays = (o: Offering) => !wantDays?.length || (o.slots.length > 0 && o.slots.every((s) => wantDays.includes(s.day)));
+  const anyOnWantDays = ctx.offerings.some((o) => ctx.constraints.wantOneOf?.includes(o.code) && inWantDays(o));
+  const onWantDays = (o: Offering) => !anyOnWantDays || inWantDays(o);
   const pinned = new Set(ctx.constraints.pinCourses ?? []);
   // 有本系保留班的課只排本系的班。輔大人生哲學一學期七十幾班，資管系自己的只有 2 班，
   // 其餘是開給別系的 —— 排到別系的班，學生選課時根本選不到。
@@ -361,7 +367,7 @@ function filterCandidates(ctx: SolveContext): {
       slotUnknownNote: o.slotsUnknown,
       pinned: pinned.has(o.code),
       classSection: ctx.classProfile ? sectionLetter(o.classGroup, ctx.classProfile) : undefined,
-      ...(ctx.constraints.wantOneOf?.includes(o.code) ? { wanted: true } : {}),
+      ...(ctx.constraints.wantOneOf?.includes(o.code) && onWantDays(o) ? { wanted: true } : {}),
       // 「這學期該修的課」：學年課的下半，以及規劃在這個年級（或更早、還沒修）的本系必修
       // 年級只對本系的必修有意義：開課資料有好幾個系之後（輔大資管＋物理），
       // 不檢查系所的話物理系大四會被要求修資管大一到大四的必修

@@ -31,6 +31,7 @@ import type { ChatMessage, ConstraintSet, Reply } from "./types";
 import { LIMITS } from "./types";
 import { schoolOf, withoutOwnSchool } from "@/lib/schools";
 import { isEarlyMorning } from "@/lib/solver/slots";
+import { slotTextOf } from "@/lib/solver/schedule";
 import { offeringsFor } from "@/lib/offerings";
 
 /**
@@ -54,6 +55,8 @@ export type TurnContext = {
    * 沒有的話（第一輪、舊版前端）就以目前條件重算。
    */
   shownCodes?: string[];
+  /** 畫面上每門課的時段（課號 → slotText）。同一門課有好幾班，重建時只用畫面上那一班 */
+  shownSlots?: Record<string, string>;
 };
 
 export type TurnResult = {
@@ -369,10 +372,18 @@ function shownPlan(ctx: TurnContext): Plan | undefined {
   // 畫面上那份要原樣重建：每一門都排進來、不多排（TODO G12）。只是「盡量保留」的話，
   // 重建出來的可能跟使用者看到的不一樣，「拿掉哪一門」「課表差在哪」就會對不上
   const shownCodes = ctx.shownCodes ?? [];
+  // 只有時段對得上的那一班可選；對不上任何一班（開課資料更新過）就不限制，免得整門課消失
+  const slots = ctx.shownSlots ?? {};
+  const sameSection = (o: Offering) => {
+    const want = slots[o.code];
+    if (!want || !base.offerings.some((x) => x.code === o.code && slotTextOf(x) === want)) return true;
+    return slotTextOf(o) === want;
+  };
   const solveCtx =
     shownCodes.length > 0
       ? {
           ...base,
+          offerings: base.offerings.filter(sameSection),
           keep: shownCodes,
           continueCodes: new Set([...(base.continueCodes ?? []), ...shownCodes]),
           constraints: { ...base.constraints, maxCourseCount: shownCodes.length },

@@ -549,10 +549,10 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
 
   // 「早上」（第 1–4 節）比「早八」（第 1 節）範圍大，兩者不得互相代用
   if (/早八|第一節|太早/.test(rest)) {
-    d.avoidEarly = !/可以早八|接受早八|不介意早八/.test(rest);
+    d.avoidEarly = !/(?:可以|能|接受|不介意)(?:排|上|有)?早八|早八(?:也)?(?:可以|沒關係|沒差)/.test(rest);
     reasons.push(d.avoidEarly ? "不排早八" : "接受早八");
   } else if (/早上|上午/.test(rest)) {
-    d.avoidMorning = !/可以早上|接受早上|不介意早上|可以上午|接受上午/.test(rest);
+    d.avoidMorning = !/(?:可以|能|接受|不介意)(?:排|上|有)?(?:早上|上午)|(?:早上|上午)(?:也)?(?:可以|沒關係|沒差)/.test(rest);
     reasons.push(d.avoidMorning ? "不排早上的課" : "接受早上的課");
   } else if (/下午|午後/.test(rest)) {
     if (BLOCK_CUE.test(rest)) {

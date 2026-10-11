@@ -8,7 +8,7 @@ import { Timetable } from "./Timetable";
 import { ExportButtons } from "./ExportButtons";
 import { PrefBar } from "./PrefBar";
 import type { ConstraintSet } from "@/lib/chat/types";
-import { ChatPanel, type PlanUpdate } from "../chat/ChatPanel";
+import { ChatPanel, shownOf, type PlanUpdate } from "../chat/ChatPanel";
 import { loadStored } from "@/lib/ui/prefs";
 import { Modal } from "../shell/Modal";
 import { Spinner } from "../shell/Spinner";
@@ -215,7 +215,7 @@ export function PlanPanel({
         fixture={fixture}
         term={term}
         constraints={state.constraints}
-        shownCourses={state.plans[0]?.courses.map((c) => c.code)}
+        shownCourses={shownOf(state.plans[0])}
         rulepackHref={`/rulepack${search}`}
         onPlanUpdate={onPlanUpdate}
         onOpenPlan={(u, label) => {

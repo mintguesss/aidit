@@ -27,6 +27,7 @@ type Body = {
   constraints?: ConstraintSet;
   /** 畫面上目前顯示的課表（課號）。不可信輸入，只拿來當比較基準與平手時的偏好 */
   shown?: string[];
+  shownSlots?: unknown;
 };
 
 /**
@@ -83,6 +84,14 @@ export async function POST(req: Request) {
     shownCodes: Array.isArray(body?.shown)
       ? body.shown.filter(isCourseCode).slice(0, 30)
       : undefined,
+    shownSlots:
+      body?.shownSlots && typeof body.shownSlots === "object"
+        ? Object.fromEntries(
+            Object.entries(body.shownSlots as Record<string, unknown>)
+              .filter(([k, v]) => isCourseCode(k) && typeof v === "string" && v.length <= 80)
+              .slice(0, 30),
+          ) as Record<string, string>
+        : undefined,
   };
 
   // §0.6 每輪都寫 trace

@@ -1275,9 +1275,7 @@ function toPlanCourse(c: Candidate, ctx: SolveContext): PlanCourse {
     ...(c.offering.outline ? { section: c.offering.outline.id } : {}),
     name: c.offering.name,
     credits: c.offering.credits,
-    slotText: c.offering.slotsUnknown
-      ? `時段未知（原始：${c.offering.rawSlotText ?? "—"}）`
-      : (c.offering.rawSlotText ?? formatSlots(c.offering.slots)),
+    slotText: slotTextOf(c.offering),
     slots: c.offering.slotsUnknown ? [] : c.offering.slots,
     teacher: c.offering.teacher,
     category: req?.categoryId ?? c.offering.category[0]!,
@@ -1394,4 +1392,9 @@ export function reservedFrom(commitments: { label: string; slotText: string }[] 
   slots: TimeSlot[];
 }[] {
   return (commitments ?? []).map((c) => ({ label: c.label, slots: parseSlots(c.slotText).slots }));
+}
+
+/** 課表上顯示的時段文字。對話用它認出畫面上是同一門課的哪一班，所以兩邊要用同一個寫法 */
+export function slotTextOf(o: Offering): string {
+  return o.slotsUnknown ? `時段未知（原始：${o.rawSlotText ?? "—"}）` : (o.rawSlotText ?? formatSlots(o.slots));
 }

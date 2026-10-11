@@ -379,7 +379,7 @@ const FORBIDDEN_PATTERNS: [RegExp, ForbiddenTopic][] = [
     /幫我(?:直接|先|去|順便)?(?:選課|加選|退選|申請|送件|報名|選上|選)|幫我把.{0,8}(?:送出|選上|加選|退選)|代為(?:選課|申請)/,
     "act-on-behalf",
   ],
-  [/法律|訴訟|律師|看醫生|生病|憂鬱|焦慮|失眠|睡不著|想不開|心理(?!學)|諮商/, "professional-advice"],
+  [/法律(?!系)|訴訟|律師|看醫生|生病|憂鬱|焦慮|失眠|睡不著|想不開|心理(?!學|系)|諮商/, "professional-advice"],
   [
     /他校|別的學校|其他學校|外校|台大|臺大|政大|清大|交大|成大|師大|北大|中興大學|中山大學|中正大學|輔大|淡江|東吳|逢甲/,
     "other-institution",
@@ -801,36 +801,41 @@ function offlineAskIntent(raw: string): z.infer<typeof zAskIntent> {
       scenario: { type: "withdraw-course", targetTerm: null, dept: null, program: null, code: key },
     };
   }
-  // 轉系、雙主修、輔系是三件不同的事，關鍵字由具體到一般比對，順序不能顛倒
+  // 轉系、雙主修、輔系是三件不同的事，關鍵字由具體到一般比對，順序不能顛倒。
+  // 學系名稱要明確寫出「某某系」才算試算：以前「雙主修」後面的幾個字照抓，
+  // 「雙主修的規定是什麼」被當成「試算加修『的規定是』系」（2026-10-11 實測）。
+  // 沒說哪一系的是在問規定或流程，交給後面的規則與模型
+  const scenarioOf = (kw: RegExp): "procedure" | "regulation" | null =>
+    kw.test(t) ? (/怎麼申請|如何申請|申請流程|怎麼辦|去哪|找誰|期限|什麼時候申請/.test(t) ? "procedure" : "regulation") : null;
+  const deptNear = (kw: string): string | null => {
+    const m =
+      new RegExp(`(?:${kw})(?:到|進|去|成)?\\s*[：:]?\\s*(?:加修|申請|修)?\\s*([一-龥]{2,8}?)學?系`).exec(t) ??
+      new RegExp(`([一-龥]{2,8}?)學?系的?(?:${kw})`).exec(t);
+    const dept = (m?.[1] ?? "").replace(/^(?:我想|想|申請|加修|修|要)+/, "");
+    // 「雙主修跟輔系差在哪」的「跟輔」不是學系
+    return dept.length >= 2 && !/^(?:本|外|他|別|各|該|哪個?|科|同|原|其他)$/.test(dept) && !/[跟和與或的是在嗎]|輔$|轉$/.test(dept) ? dept : null;
+  };
+  const generic = (kind: "procedure" | "regulation") =>
+    kind === "procedure"
+      ? { ...base, intent: "procedure" as const, procedure: t }
+      : { ...base, intent: "regulation" as const, topic: t };
   if (/轉系|轉入|轉到.*系/.test(t)) {
-    const m = /轉(?:系|入|到)[：:]?\s*([一-龥]{2,6}?)系?(?:$|[，,。？?])|([一-龥]{2,6})系轉/.exec(t);
-    const dept = (m?.[1] ?? m?.[2] ?? "").replace(/我想|申請|轉系|轉入/g, "") || null;
-    if (!dept) return { ...base, clarify: "想轉到哪一個學系？" };
-    return {
-      ...base,
-      intent: "what-if",
-      scenario: { type: "change-major", targetTerm: null, dept, program: null, code: null },
-    };
+    const dept = deptNear("轉系|轉入|轉到|轉");
+    if (dept) return { ...base, intent: "what-if", scenario: { type: "change-major", targetTerm: null, dept, program: null, code: null } };
+    if (/我想轉|想要轉|要轉/.test(t)) return { ...base, clarify: "想轉到哪一個學系？" };
+    return generic(scenarioOf(/轉系|轉入/)!);
   }
   if (/雙主修|雙學位/.test(t)) {
-    const m = /([一-龥]{2,4})系雙主修|雙主修[：:]?\s*([一-龥]{2,4})/.exec(t);
-    const dept = (m?.[1] ?? m?.[2] ?? "").replace(/申請|加修|我想/g, "") || null;
-    if (!dept) return { ...base, clarify: "想加修哪一個學系的雙主修？" };
-    return {
-      ...base,
-      intent: "what-if",
-      scenario: { type: "double-major", targetTerm: null, dept, program: null, code: null },
-    };
+    const dept = deptNear("雙主修|雙學位");
+    if (dept) return { ...base, intent: "what-if", scenario: { type: "double-major", targetTerm: null, dept, program: null, code: null } };
+    if (/^我?想(?:要)?(?:修|申請)?雙主修.?$/.test(t)) return { ...base, clarify: "想加修哪一個學系的雙主修？" };
+    return generic(scenarioOf(/雙主修|雙學位/)!);
   }
   if (/輔系|輔修/.test(t)) {
-    const m = /([一-龥]{2,4})系(?:輔系|輔修)|(?:輔系|輔修)[：:]?\s*([一-龥]{2,4})/.exec(t);
-    const dept = (m?.[1] ?? m?.[2] ?? "").replace(/申請|加修|我想/g, "") || null;
-    if (!dept) return { ...base, clarify: "想加修哪一個學系的輔系？" };
-    return {
-      ...base,
-      intent: "what-if",
-      scenario: { type: "add-minor", targetTerm: null, dept, program: null, code: null },
-    };
+    const dept = deptNear("輔系|輔修");
+    if (dept) return { ...base, intent: "what-if", scenario: { type: "add-minor", targetTerm: null, dept, program: null, code: null } };
+    if (/^我?想(?:要)?(?:修|申請)?(?:輔系|輔修).?$/.test(t)) return { ...base, clarify: "想加修哪一個學系的輔系？" };
+    return generic(scenarioOf(/輔系|輔修/)!);
   }
   if (/學程/.test(t) && /加修|申請|想修|修得|能不能/.test(t)) {
     const m = /([一-龥]{2,10}?)學程/.exec(t);

@@ -3,16 +3,9 @@ import { getAuditSession } from "@/lib/audit/session";
 import { parsePageParams } from "@/lib/ui/params";
 import { Shell, PageHead } from "@/components/shell/Shell";
 import { allSources } from "@/lib/rules/sources";
-import { SourceHighlight } from "@/components/sources/SourceHighlight";
+import { SourcesBrowser } from "@/components/sources/SourcesBrowser";
 
 export const dynamic = "force-dynamic";
-
-const KIND_LABEL: Record<string, string> = {
-  plan: "課程規劃表",
-  regulation: "學則",
-  announcement: "公告",
-  extra: "輔系／雙主修／學程規定",
-};
 
 /**
  * 原文出處。
@@ -44,56 +37,9 @@ export default async function SourcesPage({
         }
       />
 
-      <SourceHighlight />
+      <SourcesBrowser docs={docs} />
 
-      <nav className="src-toc">
-        {docs.map((d) => (
-          <a key={d.id} href={`#doc-${d.id}`}>
-            {d.shortTitle}
-            <em>{d.passages.length}</em>
-          </a>
-        ))}
-      </nav>
-
-      {docs.map((d) => (
-        <section className="panel" id={`doc-${d.id}`} key={d.id}>
-          <div className="panel-hd">
-            <h2>{d.title}</h2>
-            <span className="hint">
-              {KIND_LABEL[d.kind] ?? d.kind}
-              {d.publishedAt ? `・${d.publishedAt} 版` : ""}
-              {d.provenance === "synthetic" ? "・合成" : ""}
-            </span>
-            {d.hasCorpus ? (
-              <a className="src-dl" href={`/api/corpus/${d.id}`} download>
-                下載全文
-              </a>
-            ) : null}
-          </div>
-
-          {d.passages.length === 0 ? (
-            <p className="src-foot" style={{ padding: "14px 18px" }}>
-              本次判定未引用這份文件的條文。
-            </p>
-          ) : (
-            <ul className="src-list">
-              {d.passages.map((p) => (
-                <li id={p.anchor} key={p.anchor}>
-                  <div className="src-loc">{p.locator}</div>
-                  {p.quote ? (
-                    <blockquote>{p.quote}</blockquote>
-                  ) : (
-                    <blockquote className="none">本欄位未留存原文片段，無法回查原文。</blockquote>
-                  )}
-                  <div className="src-used">用於　{p.usedBy.join("、")}</div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      ))}
-
-      <p className="lead">
+      <p className="lead srcb-foot">
         引用是否對得上原文，由 <code>citation.verify</code> 在每次判定時逐條回查；
         對不上的結論會降級為待確認事項。過程見{" "}
         <Link href={`/trace?fixture=${fixture}&term=${term}`}>執行紀錄</Link>。

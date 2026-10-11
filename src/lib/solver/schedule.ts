@@ -656,6 +656,18 @@ function shortfallParts(sel: Candidate[], reqs: Requirement[]): { total: number;
   return { total, specific };
 }
 
+/**
+ * 超過一門的通識有幾門要扣分。一學期通常只修一門通識（使用者回饋：除非另外要求）。
+ * 門數要連畫面上原本的課一起算 —— 不算的話，原本有一門通識、再加一門 AI 通識，
+ * 新加的那門會被當成「第一門」而不扣分，排課就偏好它而不選外系的 AI 課（113-1 實測）。
+ * 但只扣新加的：原本課表上的兩門通識不會因為這條被拆掉
+ */
+function extraGeneralOf(sel: Candidate[], ctx: SolveContext): number {
+  const general = sel.filter((c) => c.offering.generalDomain || c.offering.selectType === "general");
+  const added = general.filter((c) => !c.pinned && !(ctx.keep ?? []).includes(c.offering.code)).length;
+  return Math.min(added, Math.max(0, general.length - 1));
+}
+
 function score(sel: Candidate[], ctx: SolveContext, parts = shortfallParts(sel, ctx.requirements)): Score {
   const totalCredits = sel.reduce((a, c) => a + c.offering.credits, 0);
   const days = new Set<number>();
@@ -675,12 +687,7 @@ function score(sel: Candidate[], ctx: SolveContext, parts = shortfallParts(sel, 
         ? 0
         : sel.filter((c) => !(ctx.keep ?? []).includes(c.offering.code) && c.offering.credits !== ctx.constraints.newCourseCredits).length,
     courseCount: sel.length,
-    // 一學期通常只修一門通識（使用者回饋：除非另外要求）。指定的、畫面上要保留的不算；
-    // 主題課（「加一門 AI 課」）要算：有非通識的 AI 課可選時，不該再多塞一門通識
-    extraGeneral: Math.max(
-      0,
-      sel.filter((c) => (c.offering.generalDomain || c.offering.selectType === "general") && !c.pinned && !(ctx.keep ?? []).includes(c.offering.code)).length - 1,
-    ),
+    extraGeneral: extraGeneralOf(sel, ctx),
     earlyMorningCount: sel.filter((c) => c.early).length,
     belowTermMin: Math.max(0, ctx.termMinCredits - totalCredits),
     totalCredits,

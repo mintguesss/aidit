@@ -18,6 +18,9 @@ export const DEPTS: Dept[] = [
   { code: "ST", name: "統計學系", short: "統計", college: "管理學院" },
   { code: "ME", name: "機械工程學系", short: "機械", college: "工學院" },
   { code: "GE", name: "通識教育中心", short: "通識", college: "共同教育" },
+  // 輔大：物理系三組在轉換開課資料時合併成 PH；心理系沿用課程系統的開課單位代碼
+  { code: "PH", name: "物理學系", short: "物理", college: "理工學院" },
+  { code: "39", name: "心理學系", short: "心理", college: "社會科學院" },
 ];
 
 /** 查不到就回 undefined —— 不做模糊猜測，猜錯等於把別系的課算進來 */

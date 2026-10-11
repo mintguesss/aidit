@@ -85,18 +85,29 @@ describe("確定性推算", () => {
     expect(r.headline).toContain("查無");
   });
 
-  it("輔系：規則包未收錄時不作任何推算", async () => {
+  it("輔系：規定未收錄時不作任何推算", async () => {
     const { audit } = await demo();
     const pack = resolveRulePack(audit.student);
     if (!pack.ok) throw new Error(pack.detail);
     const r = simulate({
-      scenario: { type: "add-minor", dept: "財金" },
+      scenario: { type: "add-minor", dept: "機械" },
       audit,
       record: fixture("demo").record,
       pack: pack.pack,
     });
     expect(r.level).toBe("infeasible");
-    expect(r.detail).toContain("不就");
+    expect(r.headline).toContain("還沒收錄");
+    expect(r.headline + r.detail).not.toMatch(/還差 \d+ 學分|還要修約/);
+  });
+
+  it("輔系、雙主修：有收錄規定就照規定逐項算", async () => {
+    const { audit } = await demo();
+    const pack = resolveRulePack(audit.student);
+    if (!pack.ok) throw new Error(pack.detail);
+    const r = simulate({ scenario: { type: "double-major", dept: "財金" }, audit, record: fixture("demo").record, pack: pack.pack });
+    expect(r.level).toBe("conditional");
+    expect(r.headline).toContain("雙主修");
+    expect(r.citations.length).toBeGreaterThan(0);
   });
 
   it("輔系、雙主修、轉系是三件不同的事，不得互相代用", async () => {
@@ -105,9 +116,10 @@ describe("確定性推算", () => {
     if (!pack.ok) throw new Error(pack.detail);
     const base = { audit, record: fixture("demo").record, pack: pack.pack };
 
-    const minor = simulate({ ...base, scenario: { type: "add-minor", dept: "財金" } });
-    const dbl = simulate({ ...base, scenario: { type: "double-major", dept: "財金" } });
-    const move = simulate({ ...base, scenario: { type: "change-major", dept: "財金" } });
+    // 用一個沒收錄任何規定的系：三種都要各講各的，而且都不給數字
+    const minor = simulate({ ...base, scenario: { type: "add-minor", dept: "機械" } });
+    const dbl = simulate({ ...base, scenario: { type: "double-major", dept: "機械" } });
+    const move = simulate({ ...base, scenario: { type: "change-major", dept: "機械" } });
 
     expect(minor.headline).toContain("輔系");
     expect(dbl.headline).toContain("雙主修");

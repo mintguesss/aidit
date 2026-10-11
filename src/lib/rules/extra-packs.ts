@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod/v4";
+import { FJU_EXTRA_PACKS } from "./extra-fju";
 
 /**
  * 額外修業規定：輔系、雙主修、學分學程。
@@ -25,15 +26,25 @@ const zRequirement = z.object({
   id: z.string(),
   label: z.string(),
   credits: z.number().int().positive(),
+  /** 另外要求門數（「選修 3 門」）。沒填就只看學分 */
+  minCourses: z.number().int().positive().optional(),
   match: z.union([
     z.object({ type: z.literal("courseList"), codes: z.array(z.string()).min(1) }),
     z.object({ type: z.literal("deptElective"), dept: z.string() }),
+    // 規定只列課名、沒有課號（輔大心理系的雙主修科目表、雲端學程的課程一覽表）
+    z.object({ type: z.literal("courseNames"), names: z.array(z.string()).min(1) }),
   ]),
+  /** courseNames 只認規定所屬學系（pack.dept）開的課：心理系雙主修的「統計學」要是心理系開的 */
+  deptOnly: z.boolean().optional(),
+  /** 課號清單的課名（顯示「還缺哪幾門」用）；沒列的到開課資料查 */
+  names: z.record(z.string(), z.string()).optional(),
   citation: zCite,
 });
 
 const zExtraPack = z.object({
   id: z.string(),
+  /** 哪一所學校的規定（lib/schools.ts）。沒填是合成的 demo 學校 */
+  school: z.string().optional(),
   kind: z.enum(["minor", "double-major", "cert-program"]),
   /** 輔系／雙主修：系所代碼。學分學程留空 */
   dept: z.string().optional(),
@@ -49,6 +60,15 @@ const zExtraPack = z.object({
   /** 與原學系的重複採計規定，畫面上要一併說明 */
   overlapPolicy: z.string(),
   overlapCitation: zCite,
+  /**
+   * 學程：至少這個比例的學分不得是主系（雙主修、輔系）的必修。
+   * 輔大雲端學程「至少有 1/2 比例之學分數不得為學生主系…之必修學分」
+   */
+  nonMainRequiredShare: z.object({ min: z.number().min(0).max(1), citation: zCite }).optional(),
+  /** 雙主修：與主系相同或高度相似（同課名）的課可申請免修，由雙主修學系主任認定。只列出，不算進去 */
+  waiverByName: z.object({ citation: zCite }).optional(),
+  /** 申請方式（修業問答「怎麼申請」用） */
+  apply: z.object({ text: z.string(), citation: zCite }).optional(),
 });
 
 export type ExtraPack = z.infer<typeof zExtraPack>;
@@ -214,13 +234,14 @@ const RAW: ExtraPack[] = [
 ];
 
 let cache: ExtraPack[] | null = null;
+const ALL = (): unknown[] => [...RAW, ...FJU_EXTRA_PACKS];
 
 export function loadExtraPacks(): ExtraPack[] {
   if (cache) return cache;
-  cache = RAW.map((p) => {
+  cache = ALL().map((p) => {
     const parsed = zExtraPack.safeParse(p);
     if (!parsed.success) {
-      throw new Error(`額外修業規定 ${p.id} 未通過 schema 驗證：${parsed.error.message}`);
+      throw new Error(`額外修業規定 ${(p as { id?: string }).id} 未通過 schema 驗證：${parsed.error.message}`);
     }
     return parsed.data;
   });
@@ -230,18 +251,26 @@ export function loadExtraPacks(): ExtraPack[] {
 /** 找不到就回 undefined —— 沒有收錄的規定就是沒有 */
 export function findExtraPack(
   kind: ExtraPack["kind"],
-  key: { dept?: string; program?: string },
+  key: { dept?: string; program?: string; school?: string },
 ): ExtraPack | undefined {
   return loadExtraPacks().find(
     (p) =>
       p.kind === kind &&
+      // 學校要對：輔大學生問雙主修，不能拿合成學校的規定回答
+      (key.school === undefined || (p.school ?? "demo") === key.school) &&
       (kind === "cert-program"
-        ? Boolean(key.program) && Boolean(p.program) && normalise(p.program!) === normalise(key.program!)
+        ? Boolean(key.program) && Boolean(p.program) && sameProgram(p.program!, key.program!)
         : p.dept === key.dept),
   );
 }
 
-const normalise = (s: string) => s.replace(/\s|學程|學分學程/g, "");
+const normalise = (s: string) => s.replace(/\s|微學程|學分學程|學程|服務|趨勢/g, "");
+/** 「雲端學程」對得到「雲端服務學程」：去掉學程、服務這類字後，一邊包含另一邊 */
+const sameProgram = (a: string, b: string) => {
+  const x = normalise(a);
+  const y = normalise(b);
+  return x.length >= 2 && y.length >= 2 && (x.includes(y) || y.includes(x));
+};
 
 const CORPUS_DIR = join(process.cwd(), "src", "lib", "rules", "corpus");
 

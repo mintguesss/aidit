@@ -1,5 +1,6 @@
 import { loadRulePacks, loadCorpus } from "./loader";
 import { loadExtraPacks, extraCorpus } from "./extra-packs";
+import { PROGRAM_CLAUSES, PROGRAM_DOCS } from "./program-regs";
 import { ANNOUNCEMENTS } from "./announcements";
 import { anchorOf, shortTitleOf } from "./anchor";
 
@@ -118,10 +119,30 @@ export function allSources(): SourceDoc[] {
       kind: "extra",
       provenance: p.provenance,
       hasCorpus: extra.has(p.document.id),
-      // 加修規定（輔系、學程）目前只有合成學校的
-      school: "demo",
+      school: p.school ?? "demo",
     });
+    // 雙主修、學程引用的是別系的文件（資管學生試算物理系雙主修，引的是物理系科目表）：不限系所
+    const doc = docs.get(p.document.id);
+    if (doc) doc.dept = undefined;
     walk(p, p.title, raws);
+  }
+
+  // 學校的雙主修、輔系辦法（rules/program-regs.ts）
+  for (const [school, docsOf] of Object.entries(PROGRAM_DOCS)) {
+    for (const d of Object.values(docsOf)) {
+      put({
+        id: d.docId,
+        title: d.title,
+        shortTitle: shortTitleOf(d.title),
+        publishedAt: d.publishedAt,
+        kind: "regulation",
+        hasCorpus: corpus.has(d.docId),
+        school,
+      });
+    }
+    for (const c of PROGRAM_CLAUSES[school] ?? []) {
+      raws.push({ docId: docsOf[c.program].docId, locator: c.locator, quote: c.quote, usedBy: `${c.program}問答與試算` });
+    }
   }
 
   for (const a of ANNOUNCEMENTS) {

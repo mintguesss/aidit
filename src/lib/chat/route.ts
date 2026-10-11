@@ -678,8 +678,20 @@ export async function askTurn(
         clarifying: false,
       };
 
-    case "procedure":
+    case "procedure": {
       tools.push("procedure.lookup");
+      // 「我想雙主修心理系 怎麼申請」：規則先比到「怎麼申請」就當成辦理流程，但這句講了哪一系，
+      // 照這位學生的狀況回答，並附上試算（還差多少、每學期要修多少）
+      const asked = ruleAskIntent(p.raw.replace(/怎麼申請|如何申請|申請流程|要怎麼辦|怎麼辦理|要去哪/g, ""));
+      const sc = asked.kind === "intent" && asked.intent === "what-if" ? asked.params.scenario : null;
+      const kindOf = { "double-major": "雙主修", "add-minor": "輔系", "add-cert-program": "學程" } as const;
+      const programKind = sc ? kindOf[sc.type as keyof typeof kindOf] : undefined;
+      const scenario = sc && programKind ? toScenario(sc) : null;
+      if (scenario && programKind) {
+        tools.push("whatif.simulate");
+        const result = simulate({ scenario, audit: ctx.audit, record: ctx.record, pack: ctx.pack });
+        return { reply: applyReply(programKind, p.raw, result, ctx), tools, intent: intent.intent, clarifying: false, whatif: result };
+      }
       return {
         // 雙主修、輔系、有收錄的學程：照收錄的規定講申請方式；其他才用一般的辦理流程
         reply: answerProgramProcedure(p.raw, ctx.pack) ?? lookup(p.procedure, p.raw, answerProcedure),
@@ -687,6 +699,7 @@ export async function askTurn(
         intent: intent.intent,
         clarifying: false,
       };
+    }
 
     case "what-if": {
       if (!p.scenario) {
@@ -698,11 +711,26 @@ export async function askTurn(
         return { reply: clarify("這個情境缺少必要的參數，可以再說明一次嗎？"), tools, intent: intent.intent, clarifying: true };
       }
       const result = simulate({ scenario, audit: ctx.audit, record: ctx.record, pack: ctx.pack });
+      // 「我想雙主修心理系，怎麼申請」：先回答怎麼申請（照這位學生的年級），試算放在下面一起看
+      const applying = /怎麼申請|如何申請|申請流程|要怎麼辦|怎麼辦理|要去哪/.test(p.raw);
+      const kindOf = { "double-major": "雙主修", "add-minor": "輔系", "add-cert-program": "學程" } as const;
+      const programKind = kindOf[scenario.type as keyof typeof kindOf];
+      if (applying && programKind) {
+        tools.push("procedure.lookup");
+        return {
+          reply: applyReply(programKind, p.raw, result, ctx),
+          tools,
+          intent: "procedure",
+          clarifying: false,
+          whatif: result,
+        };
+      }
       return {
         reply: {
           kind: result.level === "infeasible" ? "不確定" : "決定",
           headline: result.headline,
-          detail: result.detail,
+          // 有分段的話分段放在下面的試算卡片，泡泡裡不再整段重講一次
+          detail: result.sections?.length ? undefined : result.detail,
           citations: result.citations,
           searched: result.level === "infeasible" ? ["規則包與開課資料"] : undefined,
           contact: result.level === "infeasible" ? "系辦公室課務承辦人" : undefined,
@@ -745,6 +773,48 @@ export async function askTurn(
 }
 
 // ============================================================ 共用
+
+/**
+ * 雙主修、輔系、學程「怎麼申請」：照這位學生的年級講申請時間、要用哪一年的科目表、步驟，
+ * 試算結果（還差多少、每學期要修多少）由呼叫端附在下面。
+ */
+function applyReply(kind: "雙主修" | "輔系" | "學程", raw: string, result: ReturnType<typeof simulate>, ctx: TurnContext): Reply {
+  const school = schoolOf(ctx.record.student);
+  const [y, t] = ctx.audit.nextTerm.split("-").map(Number);
+  const grade = y! - ctx.record.student.admissionYear + 1;
+  const gradeName = `大${"一二三四五六"[grade - 1] ?? grade}${t === 1 ? "上" : "下"}`;
+  const clauses = programClausesFor(school, `${kind} 怎麼申請 什麼時候 認定`).filter((x) => x.clause.program === kind);
+  const target = result.headline.split("：")[0] ?? kind;
+  const steps: string[] = [];
+  if (kind === "學程") {
+    const program = answerProgramProcedure(raw, ctx.pack);
+    return {
+      ...(program ?? {
+        kind: "決定" as const,
+        headline: clauses.map((x) => x.clause.text).join(""),
+        citations: clauses.map((x) => x.citation),
+      }),
+      detail: undefined,
+    };
+  }
+  const inWindow = grade <= 4 && !(grade === 1 && t === 1);
+  steps.push(
+    inWindow
+      ? `你下學期是 ${ctx.audit.nextTerm}（${gradeName}），在可以申請的期間內（一年級下學期到四年級下學期）。`
+      : grade > 4
+        ? `你已經超過四年級下學期，依辦法不能再申請${kind}（延長修業年限期間不受理）。`
+        : `一年級下學期才開始可以申請${kind}。`,
+  );
+  steps.push(`步驟：① 看教務處公告的申請期間與各系的資格、名額；② 在期間內向${target.replace(new RegExp(`${kind}$`), "")}提出申請；③ 核定後依該系 ${y} 學年適用的科目表修讀。`);
+  if (kind === "雙主修") steps.push("核定後跟本系必修衝堂的，可以用跨學制選課或暑修處理；修不完要延長修業年限或申請放棄。");
+  return {
+    kind: "決定",
+    headline: `申請${target}：要在教務處公告的期間內，向該系提出申請。`,
+    detail: steps.join(String.fromCharCode(10)),
+    citations: clauses.map((x) => x.citation),
+    contact: "教務處註冊組、擬修習學系系辦",
+  };
+}
 
 /** forbidden／clarify／out-of-scope 三種在兩個介面的處理完全相同 */
 function guardCommon(

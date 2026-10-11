@@ -98,6 +98,13 @@ export const PROGRAM_CLAUSES: Record<string, ProgramClause[]> = {
     },
     {
       program: "雙主修",
+      locator: "第八條",
+      text: "加修的必修跟本系的課衝堂，可以依跨學制選課辦法或暑期開班辦法選課。",
+      quote: "加修他系必修科目，致上課時間衝突者，得依本校跨學制選課辦法或暑期班開班授課辦法辦理選課",
+      keys: /衝堂|撞課|時間衝突|暑修|暑期/,
+    },
+    {
+      program: "雙主修",
       locator: "第十條",
       text: "修業年限內沒修完，要在延長修業年限內修完或申請放棄；已達本系畢業資格、卻沒在期限內申請延長的，視同放棄雙主修。",
       quote: "應於延長修業年限內修畢或申請放棄修讀",
@@ -207,4 +214,12 @@ export function programClausesFor(school: string, text: string): { clause: Progr
       citation: { docId: doc.docId, docTitle: doc.title, locator: clause.locator, quote: clause.quote, url: doc.url, publishedAt: doc.publishedAt },
     };
   });
+}
+
+/** 學校辦法的文件名稱（引用顯示用）；不是辦法就回 undefined，由呼叫端用自己的文件名稱 */
+export function programDocTitle(school: string, docId: string): string | undefined {
+  return (
+    Object.values(PROGRAM_DOCS[school] ?? {}).find((d) => d.docId === docId)?.title ??
+    PROGRAM_EXTRA_DOCS[school]?.find((d) => d.docId === docId)?.title
+  );
 }

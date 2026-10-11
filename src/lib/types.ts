@@ -154,6 +154,8 @@ export type Offering = {
   outline?: { id: number; tchNo: string };
   /** 開課班級（輔大 avaDptCNa），如「資管二甲」「CT-管理學院」「資管系專倫」。見 lib/offerings/class-group.ts */
   classGroup?: string;
+  /** 不對外系開放（外系名額 0）。一般排課不用；雙主修、輔系試算列「下學期有開的」時會用到 */
+  closedToOthers?: boolean;
   /** 上課教室 */
   rooms?: string[];
   /** 授課語言，如「中文」「全英文」 */
@@ -535,6 +537,8 @@ export type WhatIfResult = {
   uncountedHolds: number;
   /** 無解時說明哪兩個條件在打架 */
   conflict?: { a: string; b: string; explanation: string };
+  /** 分段的細節（規定、你的進度、每學期要修多少、要注意）。有的話畫面用它，不用 detail */
+  sections?: { title: string; lines: string[] }[];
 };
 
 // ---------------------------------------------------------------- Trace

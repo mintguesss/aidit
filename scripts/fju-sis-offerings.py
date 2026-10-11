@@ -40,6 +40,10 @@ DEPT_UNITS = {
 }
 
 
+# 有收錄雙主修、輔系規定的系所（lib/rules/extra-fju.ts）的開課單位
+CLOSED_KEEP_UNITS = {"39", "55", "56", "1R"}
+
+
 def norm(s: str) -> str:
     return re.sub(r"\s+", "", s)
 
@@ -111,7 +115,10 @@ def main():
             elif not (unit in DEPT_UNITS and DEPT_UNITS[unit][0] == pack["dept"]) and r["credit"] > 0:
                 # 外系的課只要對外系開放就能算選修（輔大：外系名額 outNum 為 0、或備註限本系的不收）。
                 # TAICA 等跨校、學程的課一樣：使用者實際選過、採計為選修
-                if r.get("outNum") == 0 or re.search(r"限本系|不開放外系|限.{0,6}系學生", r.get("avaNote") or ""):
+                closed = r.get("outNum") == 0 or re.search(r"限本系|不開放外系|限.{0,6}系學生", r.get("avaNote") or "")
+                # 有收錄雙主修、輔系規定的系所（心理、物理三組），不對外系開放的課也收，標記起來：
+                # 一般排課不用，雙主修、輔系試算列「下學期有開的」時要用
+                if closed and unit not in CLOSED_KEEP_UNITS:
                     skipped[f"{unit}（不開放外系）"] += 1
                     continue
                 # 別系（對轉換用的規則包而言）開的課：一樣收進來，網站排課時依學生自己的規則包判斷類別。
@@ -142,6 +149,8 @@ def main():
             }
             if domain:
                 row["generalDomain"] = domain
+            if category and unit in CLOSED_KEEP_UNITS and (r.get("outNum") == 0 or re.search(r"限本系|不開放外系|限.{0,6}系學生", r.get("avaNote") or "")):
+                row["closedToOthers"] = True
             # 課綱頁要用的：學校大綱系統的編號（打開課綱頁時才去抓大綱）、教室、授課語言、課程標籤
             row["outline"] = {"id": r["jonCouSn"], "tchNo": r["tchNo"]}
             # 開課班級：甲乙班、依學院指定的國文外文、開給某一系的全人課（TODO C7）

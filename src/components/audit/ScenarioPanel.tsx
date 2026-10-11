@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { WhatIfResult } from "@/lib/types";
+import { WhatIfSections } from "../chat/shared";
 import { CitationToggle } from "../sources/CitationToggle";
 import { Spinner } from "@/components/shell/Spinner";
 
@@ -47,11 +48,11 @@ const GROUPS: Group[] = [
   },
   {
     title: "加修另一套規定",
-    hint: "三件事的規定完全不同，系統不會拿其中一種代替另一種。",
+    hint: "三件事的規定完全不同，系統不會拿其中一種代替另一種。依學校的雙主修、輔系、學程辦法計算。",
     items: [
-      { label: "輔系", ask: "申請財金系輔系", ready: "needs", note: "只修另一系的指定科目，不另發學位。" },
-      { label: "雙主修", ask: "申請財金系雙主修", ready: "needs", note: "兩系的畢業條件都要滿足，兩張學位。" },
-      { label: "學分學程", ask: "加修資訊安全學程", ready: "needs", note: "跨系的課程模組，另發學程證明。" },
+      { label: "雙主修", ask: "如果我雙主修心理系會怎樣？", ready: "ready", note: "要修完另一系全部專業必修（至少 40 學分），兩張學位。有收錄科目表的系會算出還差哪些課、每學期要修多少；沒收錄的講學校規定與缺哪份資料。" },
+      { label: "輔系", ask: "如果我修心理系輔系會怎樣？", ready: "ready", note: "至少修另一系 20 學分的專業必修，不另發學位。算法同雙主修。" },
+      { label: "學分學程", ask: "如果我修雲端學程會怎樣？", ready: "ready", note: "跨系的課程模組，另發學程證明；可事先申請，也可修完後申請認定。有收錄修習要點的學程會算出還差哪些課。" },
     ],
   },
   {
@@ -399,7 +400,7 @@ function ResultView({ r, fallbackHolds }: { r: WhatIfResult; fallbackHolds: numb
   return (
     <div className={`entry-body ${tone}`}>
       <div className="entry-h">{r.headline}</div>
-      <p className="entry-p">{r.detail}</p>
+      {r.sections?.length ? <WhatIfSections sections={r.sections} /> : <p className="entry-p">{r.detail}</p>}
 
       {r.conflict ? (
         <div className="entry-conflict">
@@ -412,7 +413,15 @@ function ResultView({ r, fallbackHolds }: { r: WhatIfResult; fallbackHolds: numb
       {r.alternatives.length > 0 ? (
         <div className="entry-sub">
           <span className="lb">替代路徑</span>
-          {r.alternatives.join("　／　")}
+          {r.alternatives.length === 1 ? (
+            r.alternatives[0]
+          ) : (
+            <ul className="wi-sec-list">
+              {r.alternatives.map((a) => (
+                <li key={a}>{a}</li>
+              ))}
+            </ul>
+          )}
         </div>
       ) : null}
 

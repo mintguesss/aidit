@@ -1,6 +1,7 @@
 import type { AuditResult, Citation, CourseRecord, ExtraGoal, Student } from "@/lib/types";
 import { resolveDept, type Dept } from "@/lib/offerings/depts";
 import { findExtraPack, type ExtraPack } from "@/lib/rules/extra-packs";
+import { programDocTitle } from "@/lib/rules/program-regs";
 
 /**
  * 額外修業目標（輔系／雙主修／學分學程／轉系）的現況整理。
@@ -206,7 +207,7 @@ function matchesAny(pack: ExtraPack, c: CourseRecord): boolean {
 /** 課名比對：大小寫、全半形、空白、「-英」「-網」尾碼都不算差別；「普通心理學(一)」算「普通心理學」 */
 const normName = (s: string) =>
   s.normalize("NFKC").toLowerCase().replace(/\s/g, "").replace(/-(英|網)+$/g, "");
-function nameMatches(names: string[], courseName: string): boolean {
+export function nameMatches(names: string[], courseName: string): boolean {
   const n = normName(courseName);
   return names.some((x) => {
     const want = normName(x);
@@ -285,7 +286,7 @@ export function auditExtra(
       ...(r.minCourses !== undefined ? { courses: count, missingCourses: Math.max(0, r.minCourses - count) } : {}),
       citation: {
         docId: r.citation.docId,
-        docTitle: pack.document.title,
+        docTitle: programDocTitle(pack.school ?? "demo", r.citation.docId) ?? pack.document.title,
         locator: r.citation.locator,
         quote: r.citation.quote,
         publishedAt: pack.document.publishedAt,
@@ -336,7 +337,8 @@ export function auditExtra(
     overlapPolicy: pack.overlapPolicy,
     overlapCitation: {
       docId: pack.overlapCitation.docId,
-      docTitle: pack.document.title,
+      // 重複採計的規定常引學校辦法（雙主修辦法第五條），不是這份科目表
+      docTitle: programDocTitle(pack.school ?? "demo", pack.overlapCitation.docId) ?? pack.document.title,
       locator: pack.overlapCitation.locator,
       quote: pack.overlapCitation.quote,
       publishedAt: pack.document.publishedAt,

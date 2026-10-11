@@ -70,6 +70,12 @@ export const UNDERSTANDING_CASES: UnderstandingCase[] = [
   { id: "combo-2", said: "我禮拜三有實習，另外想多一堂資料分析的課", has: ["空出星期三", "資料"], lacks: ["空出星期一"] },
   { id: "combo-3", said: "課集中一點，但不要早上的課", has: ["集中", "不排早上"] },
 
+  // ---- 要看得到課表才答得對的（指代、課表上的課）
+  { id: "ctx-that-ge", said: "那堂法律與生活換掉", lacks: ["期望 6 堂"], has: ["排除 法律與生活"] },
+  { id: "ctx-move", said: "人生哲學可以換到別天嗎", lacks: ["排除 人生哲學", "空出星期"] },
+  { id: "ctx-fri-course", said: "星期五那堂可以拿掉嗎", lacks: ["空出星期一", "空出星期二"] },
+  { id: "ctx-ai-then-days", before: ["幫我加一堂跟AI有關的課"], said: "那堂AI的最好排在禮拜四", has: ["ai", "排在星期四"], lacks: ["空出星期"], newFeature: true },
+
   // ---- 重設、回復
   { id: "reset", before: ["星期五想放假"], said: "全部重來", lacks: ["空出星期五"] },
 

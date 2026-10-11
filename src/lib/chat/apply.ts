@@ -545,7 +545,13 @@ export function applyParams(
   // 「想修一堂 AI 相關的課」（TODO G2）：主題轉成符合的課號，排課時至少排一門。
   // 主題也要原句有：模型隨手填的不算
   const topic = params.addTopic?.trim();
-  if (topic && (!raw || raw.toLowerCase().includes(topic.toLowerCase()))) {
+  // 「那堂AI的最好排在禮拜四」：已經在課表上的主題課改天數，不是再加一門
+  const sameTopic = current.wantTopic && raw.toLowerCase().includes(current.wantTopic.label.toLowerCase());
+  const preferDays = [...new Set(cues.prefer.filter((d) => !cues.block.includes(d)))].sort((a, b) => a - b);
+  if (sameTopic && preferDays.length > 0 && (!topic || topic.toLowerCase() === current.wantTopic!.label.toLowerCase())) {
+    requested = true;
+    next.wantTopic = { ...current.wantTopic!, days: preferDays };
+  } else if (topic && (!raw || raw.toLowerCase().includes(topic.toLowerCase()))) {
     const codes = topicCodes(offerings, topic);
     if (codes.length === 0) unresolved.push(`${topic} 相關的課`);
     else {
@@ -676,6 +682,10 @@ export function describeDelta(
 
   for (const code of after.pinCourses.filter((c) => !before.pinCourses.includes(c))) {
     out.push(`保留 ${nameOf(code)}`);
+  }
+  if (after.wantTopic && after.wantTopic.label === before.wantTopic?.label && (after.wantTopic.days ?? []).join() !== (before.wantTopic.days ?? []).join()) {
+    const d = after.wantTopic.days ?? [];
+    out.push(d.length > 0 ? `「${after.wantTopic.label}」相關的課排在星期${d.map((x) => "一二三四五六日"[x - 1]).join("、")}` : `「${after.wantTopic.label}」相關的課不限星期`);
   }
   if (after.wantTopic && after.wantTopic.label !== before.wantTopic?.label) {
     const on = after.wantTopic.days?.length ? `，排在星期${after.wantTopic.days.map((d) => "一二三四五六日"[d - 1]).join("、")}` : "";

@@ -63,7 +63,7 @@ export function ChatPanel({
    * 當「多一堂／少一堂」的基準，並在條件平手時優先保留這些課。
    * 後端沒有 session，不送的話它只能用條件重算，而那不一定是使用者眼前的這一份。
    */
-  shownCourses?: string[];
+  shownCourses?: ShownCourse[];
   /** 在彈出視窗裡看某一版的課表（調整課表用） */
   onOpenPlan?: (p: PlanUpdate, label: string) => void;
 }) {
@@ -76,7 +76,7 @@ export function ChatPanel({
   const consRef = useRef<ConstraintSet | undefined>(constraints);
   /** 現在畫面上是哪一輪的課表（null＝還沒調整過的那一份） */
   const [current, setCurrent] = useState<number | null>(null);
-  const shownRef = useRef<string[] | undefined>(shownCourses);
+  const shownRef = useRef<ShownCourse[] | undefined>(shownCourses);
 
   useEffect(() => {
     consRef.current = constraints;
@@ -94,7 +94,7 @@ export function ChatPanel({
     const at = turns.find((t) => t.id === turnId);
     if (!at?.plan) return;
     consRef.current = at.plan.constraints;
-    shownRef.current = at.plan.plans[0]?.courses.map((c) => c.code);
+    shownRef.current = shownOf(at.plan.plans[0]);
     onPlanUpdate?.(at.plan);
     setCurrent(turnId);
     const n = turns.filter((t) => t.plan && t.id <= turnId).length;
@@ -145,7 +145,9 @@ export function ChatPanel({
           term,
           scope,
           constraints: consRef.current,
-          shown: shownRef.current,
+          shown: shownRef.current?.map((c) => c.code),
+          // 連時段一起送：只送課號的話，後端重建時可能挑到同一門課的另一班，「換班」就比不出來
+          shownSlots: shownRef.current ? Object.fromEntries(shownRef.current.map((c) => [c.code, c.slotText])) : undefined,
           messages: history
             .filter((t) => t.role === "user" || t.reply)
             .map((t) => ({
@@ -168,7 +170,7 @@ export function ChatPanel({
       if (data.plan) {
         consRef.current = data.plan.constraints;
         // 跟著畫面走：無解時 PlanPanel 會清空課表，基準也就是「沒有課表」
-        shownRef.current = data.plan.plans[0]?.courses.map((c) => c.code);
+        shownRef.current = shownOf(data.plan.plans[0]);
         onPlanUpdate?.(data.plan);
         setCurrent(pending.id);
       }
@@ -325,4 +327,11 @@ function now(): string {
   const d = new Date();
   const p = (n: number) => String(n).padStart(2, "0");
   return `${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
+/** 畫面上的一門課：課號＋時段（同一門課有好幾班，時段才分得出是哪一班） */
+export type ShownCourse = { code: string; slotText: string };
+
+export function shownOf(plan: { courses: { code: string; slotText: string }[] } | undefined): ShownCourse[] | undefined {
+  return plan?.courses.map((c) => ({ code: c.code, slotText: c.slotText }));
 }

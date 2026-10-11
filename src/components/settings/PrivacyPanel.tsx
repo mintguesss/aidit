@@ -39,6 +39,9 @@ export function PrivacyPanel({
   const [source, setSource] = useState<"server" | "local">("local");
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // hooks 一定要在下面的 early return 之前：放在後面的話，資料載入前後呼叫的 hook 數量不同，React 會直接崩潰
+  const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
 
   const reload = () => {
     void fetchPreferences(fixture, term, defaults).then((s) => {
@@ -55,8 +58,6 @@ export function PrivacyPanel({
   const hasOptional =
     Boolean(o.careerDirection) || o.interestAreas.length > 0 || o.avoidCourseTypes.length > 0;
 
-  const router = useRouter();
-  const [refreshing, startRefresh] = useTransition();
   const run = (
     scope: "optional" | "preferences" | "all",
     ok: string,

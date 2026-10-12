@@ -35,7 +35,7 @@ export function FixtureSwitch({ current }: { current: FixtureId }) {
       >
         {/* 所有案例都列出，分成真實資料與合成的評測案例兩組 */}
         {GROUPS.map((g) => {
-          const list = FIXTURES.filter((f) => ((f.record.student.school ?? "demo") === "demo") === g.synthetic);
+          const list = FIXTURES.filter((f) => !f.evalOnly && ((f.record.student.school ?? "demo") === "demo") === g.synthetic);
           return list.length > 0 ? (
             <optgroup key={g.label} label={g.label}>
               {list.map((f) => (

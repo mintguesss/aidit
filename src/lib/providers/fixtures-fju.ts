@@ -100,6 +100,86 @@ const COURSES: CourseRecord[] = [
   c("37868", "智慧製造執行系統-網", 3, 114, 2, "elective", { offeringDept: "TG" }),
 ];
 
+/**
+ * 第二位：同系同屆的另一位同學（2026-10-12 取得，經本人同意），只用在基準 C 評測（evalOnly，不出現在網站的示範學生選單）。
+ * 一樣只取課名、學分、修課學期、選別；課號與開課單位用 scripts/fju-sis-lookup.py 查，
+ * 兩門抵免的通識（大一入學前修的線上課）查詢系統當學期沒有，課號與領域取自 111-2 的開課紀錄（PT 人文藝術、NT 自然科技）。
+ * 成績單把兩門外系課標「必」（織品服飾商品消費學、物聯網概論與應用）—— 那是在開課系的選別，對資管學生是外系選修，照第一位的寫法記成 elective。
+ * 每學期學分加總與成績單相同（111-1 含抵免 22、17、24、28、18、16、10、10，累計 145）。
+ */
+function waived(code: string, name: string, credits: number, year: number, term: Term, opt: Opt): CourseRecord {
+  return { ...c(code, name, credits, year, term, "general", opt), status: "waived" };
+}
+
+const COURSES_B: CourseRecord[] = [
+  // 111 學年（大一）
+  waived("22472", "歷史與傳說-網", 2, 111, 1, { generalDomain: "人文與藝術", offeringDept: "PT" }),
+  waived("34389", "智慧物聯網概論-網", 2, 111, 1, { generalDomain: "自然與科技", offeringDept: "NT" }),
+  c("00001", "國文", 2, 111, 1, "required", { yearLong: true, offeringDept: "CT" }),
+  c("00001", "國文", 2, 111, 2, "required", { yearLong: true, offeringDept: "CT" }),
+  c("00155", "大學入門", 2, 111, 1, "required", { offeringDept: "IT" }),
+  c("00764", "外國語文(中級英文)", 2, 111, 1, "required", { yearLong: true, offeringDept: "FT" }),
+  c("00764", "外國語文(中級英文)", 2, 111, 2, "required", { yearLong: true, offeringDept: "FT" }),
+  c("02390", "微積分", 3, 111, 1, "required", { yearLong: true, offeringDept: "IM", offeringCollege: "MGT" }),
+  c("02390", "微積分", 3, 111, 2, "required", { yearLong: true, offeringDept: "IM", offeringCollege: "MGT" }),
+  c("02412", "會計學", 3, 111, 1, "required", { yearLong: true, offeringDept: "IM", offeringCollege: "MGT" }),
+  c("02412", "會計學", 3, 111, 2, "required", { yearLong: true, offeringDept: "IM", offeringCollege: "MGT" }),
+  c("05201", "企業管理概論", 3, 111, 1, "required", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("21020", "全民國防教育軍事訓練", 0, 111, 1, "required", { yearLong: true, offeringDept: "YT" }),
+  c("21020", "全民國防教育軍事訓練", 0, 111, 2, "required", { yearLong: true, offeringDept: "YT" }),
+  c("24495", "程式設計概論", 3, 111, 1, "required", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("14761", "進階程式設計", 3, 111, 2, "required", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("24496", "web前端設計", 2, 111, 2, "required", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("00009", "體育", 0, 111, 1, "required", { offeringDept: "AT" }),
+  c("00009", "體育", 0, 111, 2, "required", { offeringDept: "AT" }),
+  c("01483", "行銷管理", 2, 111, 2, "elective", { offeringDept: "IM", offeringCollege: "MGT" }),
+  // 112 學年（大二）
+  c("00592", "領導心靈與技巧", 2, 112, 1, "general", { generalDomain: "社會科學", offeringDept: "ST" }),
+  c("11681", "人與環境", 2, 112, 2, "general", { generalDomain: "自然與科技", offeringDept: "NT" }),
+  c("32601", "外國語文(中級文創產業英文)-網", 2, 112, 1, "required", { offeringDept: "FT" }),
+  c("00901", "外國語文(中級生活美語)", 2, 112, 2, "required", { offeringDept: "FT" }),
+  c("02222", "統計學", 3, 112, 1, "required", { yearLong: true, offeringDept: "IM", offeringCollege: "MGT" }),
+  c("02222", "統計學", 3, 112, 2, "required", { yearLong: true, offeringDept: "IM", offeringCollege: "MGT" }),
+  c("02457", "經濟學", 3, 112, 1, "required", { yearLong: true, offeringDept: "IM", offeringCollege: "MGT" }),
+  c("02457", "經濟學", 3, 112, 2, "required", { yearLong: true, offeringDept: "IM", offeringCollege: "MGT" }),
+  c("02490", "資料庫管理", 3, 112, 1, "required", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("16258", "WEB程式設計", 3, 112, 1, "required", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("30499", "創新與設計思考", 2, 112, 1, "required", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("01584", "系統分析與設計", 3, 112, 2, "required", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("02492", "資料結構", 3, 112, 2, "required", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("10681", "資料通訊與網路", 3, 112, 2, "required", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("06468", "保齡球", 0, 112, 1, "required", { offeringDept: "AT" }),
+  c("06468", "保齡球", 0, 112, 2, "required", { offeringDept: "AT" }),
+  c("10608", "商業自動化", 3, 112, 1, "elective", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("19322", "雲端應用平台概論", 3, 112, 1, "elective", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("09514", "電子商務", 3, 112, 2, "elective", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("13027", "機器學習", 3, 112, 2, "elective", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("19411", "雲端應用程式設計", 3, 112, 2, "elective", { offeringDept: "IM", offeringCollege: "MGT" }),
+  // 113 學年（大三）
+  c("24688", "日本社會與文化-網", 2, 113, 1, "general", { generalDomain: "社會科學", offeringDept: "ST" }),
+  c("00007", "人生哲學", 2, 113, 1, "required", { yearLong: true, offeringDept: "LT" }),
+  c("00007", "人生哲學", 2, 113, 2, "required", { yearLong: true, offeringDept: "LT" }),
+  c("01558", "作業系統", 3, 113, 1, "required", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("04317", "資訊系統專題(一)", 3, 113, 1, "required", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("02631", "管理資訊系統", 3, 113, 2, "required", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("04038", "資訊系統專題(二)", 3, 113, 2, "required", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("18763", "織品服飾商品消費學", 2, 113, 1, "elective", { offeringDept: "48" }),
+  c("08787", "服飾商店管理", 2, 113, 2, "elective", { offeringDept: "48" }),
+  c("01370", "生產與作業管理-英", 3, 113, 1, "elective", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("34084", "進階Web程式設計", 3, 113, 1, "elective", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("24498", "巨量資料概論", 3, 113, 2, "elective", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("37079", "大語言模型-英", 3, 113, 2, "elective", { offeringDept: "IM", offeringCollege: "MGT" }),
+  // 114 學年（大四）
+  c("17992", "室內設計與家具欣賞", 2, 114, 1, "general", { generalDomain: "人文與藝術", offeringDept: "PT" }),
+  c("08824", "專業倫理-企業倫理", 2, 114, 2, "required", { offeringDept: "ET" }),
+  c("10211", "網路行銷-英", 3, 114, 1, "elective", { offeringDept: "IM", offeringCollege: "MGT" }),
+  c("16688", "英文閱讀(二):新聞英文閱讀-英-網", 2, 114, 1, "elective", { offeringDept: "K80" }),
+  c("33034", "物聯網概論與應用", 3, 114, 1, "elective", { offeringDept: "K28" }),
+  c("15725", "營養與美容", 2, 114, 2, "elective", { offeringDept: "86" }),
+  c("37171", "生成式AI的人文導論-網", 3, 114, 2, "elective", { offeringDept: "TG" }),
+  c("37868", "智慧製造執行系統-網", 3, 114, 2, "elective", { offeringDept: "TG" }),
+];
+
 const STUDENT: Student = {
   id: "S-FJU-IM111-A",
   school: "fju",
@@ -145,7 +225,9 @@ function fjuRecord(student: Student, courses: CourseRecord[]): StudentRecord {
 }
 
 /** 修到某一學期為止（含）。學期以 學年*10+學期 比較 */
-const upTo = (year: number, term: 1 | 2) => COURSES.filter((x) => x.year * 10 + (x.term === "summer" ? 3 : x.term) <= year * 10 + term);
+const upToIn = (list: CourseRecord[], year: number, term: 1 | 2) =>
+  list.filter((x) => x.year * 10 + (x.term === "summer" ? 3 : x.term) <= year * 10 + term);
+const upTo = (year: number, term: 1 | 2) => upToIn(COURSES, year, term);
 
 export const FJU_FIXTURES = [
   {
@@ -183,4 +265,22 @@ export const FJU_FIXTURES = [
     term: "111-1",
     record: fjuRecord({ ...STUDENT, id: "S-FJU-IM111-F", className: "資管一（日間部）" }, upTo(111, 1)),
   },
+  // 第二位同學：只給基準 C 用
+  ...([
+    ["fju-im-111-b-year1-fall", "大一上學期結束", 111, 1, "G"],
+    ["fju-im-111-b-year1", "大一結束", 111, 2, "H"],
+    ["fju-im-111-b-year2", "大二結束", 112, 2, "J"],
+    ["fju-im-111-b-year3", "大三結束", 113, 2, "K"],
+    ["fju-im-111-b-full", "四年修完", 114, 2, "L"],
+  ] as const).map(([id, label, year, term, tag]) => ({
+    id,
+    title: `輔大資管 111（第二位）：${label}`,
+    tests: "基準 C 的第二份真實成績單：抵免的通識、外系選修、不同的外語與通識組合",
+    term: `${year}-${term}`,
+    evalOnly: true,
+    record: fjuRecord(
+      { ...STUDENT, id: `S-FJU-IM111-${tag}`, displayName: "示範學生（第二位）", className: "資管（日間部）" },
+      upToIn(COURSES_B, year, term),
+    ),
+  })),
 ];

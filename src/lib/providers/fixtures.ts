@@ -202,6 +202,8 @@ export type Fixture = {
   tests: string;
   /** 這個案例的「目前學期」；沒填用全站預設（114-2）。大二結束的案例是 112-2 */
   term?: string;
+  /** 只給評測用，不出現在網站的示範學生選單 */
+  evalOnly?: boolean;
   record: StudentRecord;
 };
 

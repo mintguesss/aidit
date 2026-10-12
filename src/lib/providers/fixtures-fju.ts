@@ -265,6 +265,20 @@ export const FJU_FIXTURES = [
     term: "111-1",
     record: fjuRecord({ ...STUDENT, id: "S-FJU-IM111-F", className: "資管一（日間部）" }, upTo(111, 1)),
   },
+  // 展示用：同一份真實成績單，**假設** 114-1 另外修了一門永續素養領域的通識（生死學，114-1 真實開課）。
+  // 會碰到全人中心 114-1 選課須知的真實規則缺口（113 學年含以前入學生修永續素養領域的課，採計方式要人工確認），
+  // 讓「待確認」頁在真實規則上有東西可看。那門課是假設的，不是成績單上的
+  {
+    id: "fju-im-111-full-dt" as const,
+    title: "輔大資管 111：四年修完＋假設修了一門永續素養領域的課（展示待確認）",
+    tests: "真實公告造成的待確認：永續素養領域的課要依抵認對照表人工認定",
+    term: "114-2",
+    evalOnly: true,
+    record: fjuRecord({ ...STUDENT, id: "S-FJU-IM111-M", className: "資管四（日間部）" }, [
+      ...COURSES,
+      c("00245", "生死學", 2, 114, 1, "general", { generalDomain: "永續素養", offeringDept: "DT" }),
+    ]),
+  },
   // 第二位同學：只給基準 C 用
   ...([
     ["fju-im-111-b-year1-fall", "大一上學期結束", 111, 1, "G"],

@@ -5,9 +5,13 @@
  * 從 sources.ts 匯入會把規則包載入器整包拖進瀏覽器 bundle。
  */
 
-/** 同一份文件的同一個位置只會有一個錨點 */
+/**
+ * 同一份文件的同一個位置只會有一個錨點。
+ * 文件代號的校名縮寫換成別名：點「依據」時錨點會出現在網址列，錄影會照到（匿名模式只換畫面文字，換不到網址）。
+ * 連結與原文出處頁都由這裡產生錨點，兩邊一致。
+ */
 export function anchorOf(docId: string, locator: string): string {
-  return `c-${docId}-${locator.replace(/[^\w\u4e00-\u9fff]+/g, "-").replace(/^-|-$/g, "")}`;
+  return `c-${docId.replace(/^fju-/, "school-a-")}-${locator.replace(/[^\w\u4e00-\u9fff]+/g, "-").replace(/^-|-$/g, "")}`;
 }
 
 /** 畫面上用的短名，例如「111 學年度資訊管理學系課程規劃表」→「課程規劃表」 */

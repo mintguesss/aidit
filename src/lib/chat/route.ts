@@ -1,6 +1,7 @@
 import type { AuditResult, ExclusionReason, Offering, Plan, SolveResult, StudentRecord } from "@/lib/types";
 import type { RulePack } from "@/lib/rules/schema";
 import { simulate } from "@/lib/whatif/simulate";
+import { earlyGraduationScenario } from "@/lib/whatif/intent";
 import { LlmBudgetExceeded, type LlmBudget } from "@/lib/llm/client";
 import {
   alreadyClarified,
@@ -942,24 +943,10 @@ type ScenarioParams = {
   code: string | null;
 };
 
-/** 「提前一學期／提前一年畢業」要提前幾個學期；沒講幾個就當一個學期 */
-function termsEarlyIn(raw: string): number {
-  const t = raw.replace(/\s/g, "");
-  const n = (c: string) => ({ 一: 1, 兩: 2, 二: 2, 三: 3, 四: 4 } as Record<string, number>)[c] ?? Number(c);
-  const year = /提前([一兩二1-2])(個)?(學)?年/.exec(t);
-  if (year) return n(year[1]!) * 2;
-  const term = /提前([一兩二三四1-4])(個)?學期/.exec(t);
-  return term ? n(term[1]!) : 1;
-}
-
 function toScenario(s: ScenarioParams, raw = "") {
   switch (s.type) {
     case "early-graduation": {
-      // 學期代號只認使用者原句裡講出來的；模型填的不算（它不知道學生哪一年入學，推出來的是猜的）
-      const said = /(\d{3}-[12])/.exec(raw)?.[1];
-      return said
-        ? { type: "early-graduation" as const, targetTerm: said }
-        : { type: "early-graduation" as const, targetTerm: "", termsEarly: termsEarlyIn(raw) };
+      return earlyGraduationScenario(raw);
     }
     case "add-minor":
       return s.dept ? { type: "add-minor" as const, dept: cleanDept(s.dept) } : null;

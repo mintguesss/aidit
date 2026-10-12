@@ -22,6 +22,13 @@ describe("意圖解析", () => {
     if (r.kind === "scenario") expect(r.scenario.type).toBe("early-graduation");
   });
 
+  it("提前畢業沒講學期代號：不填下學期，交給 simulate 照入學年度推（2026-10-12 情境試算頁實測算成下學期畢業）", async () => {
+    const r = await parseIntent("我想提前一學期畢業", ctx, new LlmBudget());
+    expect(r.kind === "scenario" && r.scenario).toEqual({ type: "early-graduation", targetTerm: "", termsEarly: 1 });
+    const y = await parseIntent("我想在 115-1 畢業，提前畢業可以嗎", ctx, new LlmBudget());
+    expect(y.kind === "scenario" && y.scenario).toEqual({ type: "early-graduation", targetTerm: "115-1" });
+  });
+
   it("缺少必要參數時回問一個澄清問題，不猜", async () => {
     const r = await parseIntent("我想申請輔系", ctx, new LlmBudget());
     expect(r.kind).toBe("clarify");

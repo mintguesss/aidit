@@ -78,6 +78,27 @@ export async function parseIntent(
   return toIntentResult(res.data, raw);
 }
 
+/** 「提前一學期／提前一年畢業」要提前幾個學期；沒講幾個就當一個學期 */
+function termsEarlyIn(raw: string): number {
+  const t = raw.replace(/\s/g, "");
+  const n = (c: string) => ({ 一: 1, 兩: 2, 二: 2, 三: 3, 四: 4 } as Record<string, number>)[c] ?? Number(c);
+  const year = /提前([一兩二1-2])(個)?(學)?年/.exec(t);
+  if (year) return n(year[1]!) * 2;
+  const term = /提前([一兩二三四1-4])(個)?學期/.exec(t);
+  return term ? n(term[1]!) : 1;
+}
+
+/**
+ * 提前畢業的目標學期只認使用者原句裡講出來的（「我想在 115-1 畢業」）；
+ * 沒講就照「提前幾個學期」由入學年度往回推（simulate 裡算）。
+ * 模型或替身填的學期不算：它不知道學生哪一年入學，以前直接填「下學期」，
+ * 大二學生問提前一學期畢業就被算成下學期畢業（2026-10-12 情境試算頁實測）。
+ */
+export function earlyGraduationScenario(raw: string): { type: "early-graduation"; targetTerm: string; termsEarly?: number } {
+  const said = /(\d{3}-[12])/.exec(raw)?.[1];
+  return said ? { type: "early-graduation", targetTerm: said } : { type: "early-graduation", targetTerm: "", termsEarly: termsEarlyIn(raw) };
+}
+
 function toIntentResult(d: z.infer<typeof zIntent>, raw: string): IntentResult {
   if (d.kind === "clarify") {
     return { kind: "clarify", question: d.question ?? "請補充更具體的條件，例如目標學期或課號。", raw };
@@ -96,7 +117,7 @@ function toIntentResult(d: z.infer<typeof zIntent>, raw: string): IntentResult {
   const scenario = ((): Scenario | null => {
     switch (s.type) {
       case "early-graduation":
-        return s.targetTerm ? { type: "early-graduation", targetTerm: s.targetTerm } : null;
+        return earlyGraduationScenario(raw);
       case "add-minor":
         return s.dept ? { type: "add-minor", dept: s.dept } : null;
       case "double-major":

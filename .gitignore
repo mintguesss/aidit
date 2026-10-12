@@ -27,3 +27,6 @@ private/
 
 # Office 開檔時產生的暫存鎖定檔
 ~$*
+
+.vercel
+.env*

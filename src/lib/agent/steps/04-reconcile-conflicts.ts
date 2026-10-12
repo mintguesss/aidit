@@ -3,6 +3,7 @@ import type { Step } from "./types";
 import { ruleReconcile, safetyScan, toConflictNotes, toDeptDefinedResolutions, withAnnouncedEffects } from "../tools";
 import { loadCorpus } from "@/lib/rules/loader";
 import { LlmBudgetExceeded } from "@/lib/llm/client";
+import { ToolFailure } from "../trace";
 
 /**
  * 步驟 4：檢索公告並判斷是否適用本學籍（唯一在執行期做規則判斷的 LLM 呼叫）。
@@ -82,12 +83,16 @@ export const reconcileConflictsStep: Step = {
         if (data.resolved) resolved++;
         else held++;
       } catch (err) {
-        if (err instanceof LlmBudgetExceeded) {
+        // trace.tool 會把錯誤包成 ToolFailure：失敗的呼叫要記進 trace（工具成功率才算得對），判斷原因要看包在裡面的錯誤
+        const failure = err instanceof ToolFailure ? err : null;
+        if (failure) calls.push(failure.call);
+        const original = failure ? failure.original : err;
+        if (original instanceof LlmBudgetExceeded) {
           return {
             status: "failed",
-            summary: err.message,
+            summary: original.message,
             toolCalls: calls,
-            control: { type: "abort", reason: err.message },
+            control: { type: "abort", reason: original.message },
           };
         }
         // 解不掉就是解不掉：轉待確認，不重試到看起來像有答案
@@ -96,7 +101,7 @@ export const reconcileConflictsStep: Step = {
           conflict,
           resolved: false,
           appliesToStudent: null,
-          reason: `檢索補充依據時發生錯誤：${String(err instanceof Error ? err.message : err)}`,
+          reason: `檢索補充依據時發生錯誤：${String(original instanceof Error ? original.message : original)}`,
           citation: null,
           mode: "offline",
           costUsd: 0,

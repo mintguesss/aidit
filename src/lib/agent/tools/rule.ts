@@ -211,9 +211,18 @@ function locatorFor(ann: Announcement): string {
 export function toConflictNotes(outcomes: ReconcileOutcome[]): ConflictNote[] {
   const notes: ConflictNote[] = [];
   for (const o of outcomes) {
-    if (!o.resolved) continue;
     const cat = o.conflict.kind === "version-superseded";
     if (!cat) continue;
+    if (!o.resolved) {
+      // 判斷不了（公告沒寫清楚、模型連不上）也要讓學生知道有這則公告，不能默默照舊算
+      const why = o.reason.startsWith("檢索補充依據時發生錯誤") ? "這次沒能完成判斷" : o.reason;
+      notes.push({
+        target: o.conflict.target,
+        text: `公告「${o.conflict.announcement.title}」是否適用你，系統無法確定（${why}）。這裡先依你入學年度的課程規劃表計算，請向系辦確認。`,
+        citations: [],
+      });
+      continue;
+    }
     notes.push({
       target: o.conflict.target,
       text: `已查核公告「${o.conflict.announcement.title}」：${o.reason}${

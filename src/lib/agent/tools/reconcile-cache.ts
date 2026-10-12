@@ -21,7 +21,11 @@ export function reconcileKey(parts: (string | number)[]): string {
 
 const objectOf = (key: string) => `_cache/reconcile/${key}.json`;
 
+/** 評測用：AIDIT_RECONCILE_CACHE=off 時不讀也不寫，每一則都真的問模型，量模型本身的表現（不動到正式快取） */
+const cacheOff = () => process.env.AIDIT_RECONCILE_CACHE === "off";
+
 export async function readReconcileCache(key: string): Promise<CachedReconcile | null> {
+  if (cacheOff()) return null;
   const m = memory.get(key);
   if (m) return m;
   if (!supabaseConfigured()) return null;
@@ -39,6 +43,7 @@ export async function readReconcileCache(key: string): Promise<CachedReconcile |
 }
 
 export async function writeReconcileCache(key: string, v: CachedReconcile): Promise<void> {
+  if (cacheOff()) return;
   memory.set(key, v);
   if (!supabaseConfigured()) return;
   try {

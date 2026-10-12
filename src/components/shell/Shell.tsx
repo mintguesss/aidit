@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { Suspense } from "react";
 import Link from "next/link";
 import { Nav, type NavItem } from "./Nav";
-import { FixtureSwitch } from "./FixtureSwitch";
 import { PrefLifecycle } from "./PrefLifecycle";
 import type { AuditSession } from "@/lib/audit/session";
 import type { FixtureId } from "@/lib/providers/fixtures";
@@ -91,11 +90,6 @@ export function Shell({
         <span className="warn">僅供修業規劃參考，不作為畢業資格證明。</span>
         <Link href={`/about${search}`}>資料來源與免責聲明</Link>
         <Link href={`/privacy${search}`}>資料與隱私</Link>
-      </div>
-      <div className="foot-tools">
-        <Suspense fallback={null}>
-          <FixtureSwitch current={fixture} />
-        </Suspense>
       </div>
 
     </>

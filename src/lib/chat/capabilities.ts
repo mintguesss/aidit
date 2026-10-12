@@ -63,6 +63,23 @@ export function subRuleNamed(audit: AuditResult, name: string) {
   return undefined;
 }
 
+/** 「待確認事項是什麼」：逐項列出，不是只講幾項（2026-10-12 對話測試發現只回整體進度） */
+export function answerHolds(audit: AuditResult): Reply {
+  if (audit.holds.length === 0) {
+    return { kind: "決定", headline: "目前沒有待確認事項。", citations: [] };
+  }
+  const NL = String.fromCharCode(10);
+  return {
+    kind: "決定",
+    headline: `有 ${audit.holds.length} 項待確認：${audit.holds.map((h) => h.title).join("、")}`,
+    detail: audit.holds
+      .map((h, i) => `${i + 1}. ${h.title}：${h.reason ?? h.body}${h.impact ? `（${h.impact}）` : ""}　洽詢：${h.contact}`)
+      .join(NL),
+    citations: audit.holds.flatMap((h) => h.citations).slice(0, 3),
+    uncountedHolds: audit.holds.length,
+  };
+}
+
 export function answerPersonalAudit(audit: AuditResult, category?: string): Reply {
   const holds = audit.holds.length;
 

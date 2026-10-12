@@ -5,6 +5,7 @@ import { LlmBudgetExceeded, type LlmBudget } from "@/lib/llm/client";
 import {
   alreadyClarified,
   lastUser,
+  cleanDept,
   parseAskIntent,
   parsePlanIntent,
   ruleAskIntent,
@@ -18,6 +19,7 @@ import { applyParams, describeDelta, describeSet, periodNamesFor } from "./apply
 import {
   answerCourseInfo,
   answerPersonalAudit,
+  answerHolds,
   categoryFromText,
   subRuleNamed,
   answerProcedure,
@@ -35,6 +37,7 @@ import { isEarlyMorning } from "@/lib/solver/slots";
 import { slotTextOf } from "@/lib/solver/schedule";
 import { programClausesFor } from "@/lib/rules/program-regs";
 import { offeringsFor } from "@/lib/offerings";
+import { scanText } from "@/lib/safety/scan";
 
 /**
  * 兩個介面的路由器。
@@ -83,6 +86,31 @@ export type TurnResult = {
   redirect?: "plan" | "scenario";
 };
 
+/**
+ * 使用者訊息裡的注入句式（「忽略之前的指示」「你現在是管理員」、偽造系統訊息、要提示詞）。
+ * 這類句子整句不照做、不送模型，條件不動 —— 後半句的要求（「把必修都拿掉」）也不做，
+ * 因為無從分辨是學生真的想要，還是被貼進來的指令。正常的要求請學生直接講。
+ * 「幫我退選」這類（tool-abuse）不在這裡擋：照原本的流程回「沒有寫入校務系統的能力」比較有用。
+ */
+const INJECTION_IDS = new Set(["override", "override-en", "role-switch", "system-tag", "tag-injection", "exfiltration", "audit-tamper", "encoded"]);
+
+function injectionTurn(messages: ChatMessage[], scope: "plan" | "ask"): TurnResult | null {
+  const hit = scanText(lastUser(messages), "chat").blocked[0];
+  // patternMatched 是「override（要求忽略先前指示）、tool-abuse（…）」這樣的字串
+  if (!hit || !hit.patternMatched.split("、").some((x) => INJECTION_IDS.has(x.split("（")[0]!))) return null;
+  return {
+    reply: outOfScope(
+      "這句話要求系統忽略規則或改變角色，系統不照這類指令做事，" + (scope === "plan" ? "課表條件沒有變動。" : "回答一樣只依修業規定與你的修課紀錄。"),
+      scope === "plan"
+        ? "想重新設定可以說「全部重來」；想這學期不排某一類課，直接說「這學期不排通識」。"
+        : "想知道畢業進度可以直接問「我還差幾學分畢業」。",
+    ),
+    tools: ["safety.scan"],
+    intent: "injection",
+    clarifying: false,
+  };
+}
+
 const TURN_LIMIT_REPLY = (n: number) =>
   outOfScope(
     `這段對話已達 ${n} 輪的上限。`,
@@ -99,6 +127,9 @@ export async function planTurn(
   if (countTurns(messages) > LIMITS.turnsPerSession) {
     return { reply: TURN_LIMIT_REPLY(LIMITS.turnsPerSession), tools: [], intent: "limit", clarifying: false };
   }
+
+  const injected = injectionTurn(messages, "plan");
+  if (injected) return injected;
 
   // 「要拿掉一門，還是這學期都不排？」之後的回答（「一門」「全部」）要接回上一句才看得懂（TODO G12）
   const raw = withDropAnswer(messages) ?? lastUser(messages);
@@ -579,6 +610,9 @@ export async function askTurn(
     return { reply: TURN_LIMIT_REPLY(LIMITS.turnsPerSession), tools: [], intent: "limit", clarifying: false };
   }
 
+  const injected = injectionTurn(messages, "ask");
+  if (injected) return injected;
+
   const tools = ["chat.intent"];
   const forRules = withoutOwnSchool(lastUser(messages), schoolOf(ctx.record.student));
   let intent = await orRules(parseAskIntent(messages, budget), () => ruleAskIntent(forRules), tools);
@@ -608,6 +642,37 @@ export async function askTurn(
     intent = rules;
     tools.push("rule.fallback");
   } else if (
+    rules.kind === "intent" &&
+    rules.intent === "procedure" &&
+    (intent.kind === "clarify" || (intent.kind === "intent" && intent.intent === "course-info")) &&
+    answerProcedure(forRules).kind === "決定"
+  ) {
+    // 辦理手續有收錄就直接答，不必反問、也不是查課
+    // （2026-10-12 實測「學程要怎麼申請」被反問哪一個學程、「畢業審查什麼時候開始」被當成查課）
+    intent = rules;
+    tools.push("rule.fallback");
+  } else if (
+    rules.kind === "intent" &&
+    rules.intent === "personal-audit" &&
+    (intent.kind === "clarify" ||
+      (intent.kind === "intent" && intent.intent === "what-if" && !/轉系|轉入|轉到|雙主修|雙學位|輔系|輔修|學程|停修|退選|撤選|提前|畢業|延畢|成績|甄試/.test(forRules)))
+  ) {
+    // 查自己的進度不需要任何參數，模型卻反問、或把上一輪的試算接下去，多半是被上一輪帶偏
+    // （2026-10-12 實測：上一句問轉系，「待確認事項是什麼」被反問「轉入的目標學期」，或直接再算一次轉系）。
+    // 這句話本身有提到情境（「那會不會延畢」）才算接著上一輪問
+    intent = rules;
+    tools.push("rule.fallback");
+  } else if (
+    modelScenario &&
+    !toScenario(modelScenario, forRules) &&
+    rules.kind === "intent" &&
+    (rules.intent === "regulation" || rules.intent === "procedure") &&
+    programClausesFor(schoolOf(ctx.record.student), forRules).length > 0
+  ) {
+    // 同上，模型選了試算卻沒有學系（2026-10-12 實測「雙主修會不會延畢」回「缺少必要的參數」）
+    intent = rules;
+    tools.push("rule.fallback");
+  } else if (
     intent.kind === "out-of-scope" &&
     !tools.includes("rule.other-institution") &&
     mentionsGraduationCheck(forRules, ctx.pack)
@@ -616,7 +681,14 @@ export async function askTurn(
     // 規則的通用關鍵字也認不得系自訂的條件名稱；原句講到本系的畢業條件就當規定問題查
     intent = { kind: "intent", intent: "regulation", params: { topic: forRules, raw: lastUser(messages) } };
     tools.push("rule.fallback");
-  } else if (ruleScenario && intent.kind !== "forbidden" && modelScenario?.type !== ruleScenario.type) {
+  } else if (
+    ruleScenario &&
+    intent.kind !== "forbidden" &&
+    (modelScenario?.type !== ruleScenario.type ||
+      // 同一種情境、模型卻漏了參數（課名、學系），規則從原句抽到了就用規則的
+      // （2026-10-12 實測「如果我停修作業系統會怎樣」模型沒填課名，回「缺少必要的參數」）
+      (!toScenario(modelScenario, forRules) && toScenario(ruleScenario, forRules) !== null))
+  ) {
     // 試算情境的關鍵字（提前畢業、停修、轉系、雙主修、輔系…）是字面上明確的，
     // 規則比對到了就以規則的情境為準。實測模型把「我想提前在 115-1 畢業」選成成績門檻試算，
     // 把「我想在 115-1 畢業，有可能嗎？」當成查修業進度 —— 答了，但答的不是使用者問的。
@@ -635,6 +707,9 @@ export async function askTurn(
   switch (intent.intent) {
     case "personal-audit":
       tools.push("credit.audit");
+      if (/待確認|轉人工|待審|無法判定的/.test(p.raw)) {
+        return { reply: answerHolds(ctx.audit), tools, intent: intent.intent, clarifying: false };
+      }
       // 類別必須是使用者自己說出口的。實測 qwen3:14b 對「我還差幾學分畢業？」
       // 把 schema 的意圖名稱 "personal-audit" 填進 category，程式拿去查類別、
       // 查不到，就把模型吐的字串原封不動顯示成「查無「personal-audit」這個類別」。
@@ -706,7 +781,7 @@ export async function askTurn(
         return { reply: clarify("想試算哪一種情境？"), tools, intent: intent.intent, clarifying: true };
       }
       tools.push("whatif.simulate");
-      const scenario = toScenario(p.scenario);
+      const scenario = toScenario(p.scenario, p.raw);
       if (!scenario) {
         return { reply: clarify("這個情境缺少必要的參數，可以再說明一次嗎？"), tools, intent: intent.intent, clarifying: true };
       }
@@ -867,16 +942,31 @@ type ScenarioParams = {
   code: string | null;
 };
 
-function toScenario(s: ScenarioParams) {
+/** 「提前一學期／提前一年畢業」要提前幾個學期；沒講幾個就當一個學期 */
+function termsEarlyIn(raw: string): number {
+  const t = raw.replace(/\s/g, "");
+  const n = (c: string) => ({ 一: 1, 兩: 2, 二: 2, 三: 3, 四: 4 } as Record<string, number>)[c] ?? Number(c);
+  const year = /提前([一兩二1-2])(個)?(學)?年/.exec(t);
+  if (year) return n(year[1]!) * 2;
+  const term = /提前([一兩二三四1-4])(個)?學期/.exec(t);
+  return term ? n(term[1]!) : 1;
+}
+
+function toScenario(s: ScenarioParams, raw = "") {
   switch (s.type) {
-    case "early-graduation":
-      return { type: "early-graduation" as const, targetTerm: s.targetTerm ?? "" };
+    case "early-graduation": {
+      // 學期代號只認使用者原句裡講出來的；模型填的不算（它不知道學生哪一年入學，推出來的是猜的）
+      const said = /(\d{3}-[12])/.exec(raw)?.[1];
+      return said
+        ? { type: "early-graduation" as const, targetTerm: said }
+        : { type: "early-graduation" as const, targetTerm: "", termsEarly: termsEarlyIn(raw) };
+    }
     case "add-minor":
-      return s.dept ? { type: "add-minor" as const, dept: s.dept } : null;
+      return s.dept ? { type: "add-minor" as const, dept: cleanDept(s.dept) } : null;
     case "double-major":
-      return s.dept ? { type: "double-major" as const, dept: s.dept } : null;
+      return s.dept ? { type: "double-major" as const, dept: cleanDept(s.dept) } : null;
     case "change-major":
-      return s.dept ? { type: "change-major" as const, dept: s.dept } : null;
+      return s.dept ? { type: "change-major" as const, dept: cleanDept(s.dept) } : null;
     case "add-cert-program":
       return s.program ? { type: "add-cert-program" as const, program: s.program } : null;
     case "withdraw-course":

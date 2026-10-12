@@ -403,6 +403,12 @@ export function applyParams(
     if (params.avoidMorning || !isMorningBlock(current.avoidPeriods) || allowTurnOff("恢復可排早上的課")) {
       setMorningBlock(next, params.avoidMorning);
     }
+    // 「可以排早上了」也包含早八：只設了不排早八的人這樣說，就是要把早八放回來
+    // （2026-10-12 對話測試：回「條件沒有變動」，不排早八還在）。同一句另外講了早八就照那一句
+    if (params.avoidMorning === false && params.avoidEarly === null && current.avoidEarly && allowTurnOff("接受早八")) {
+      requested = true;
+      next.avoidEarly = false;
+    }
   }
   // 某天的某時段：星期與時段都要在原句裡找得到。
   // 加嚴本來不需要依據，但模型會編時段 —— 實測 qwen3:14b 把「星期二跟星期四都不要排課」

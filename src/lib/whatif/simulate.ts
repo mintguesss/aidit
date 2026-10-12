@@ -45,7 +45,7 @@ export type SimulateInput = {
 export function simulate(input: SimulateInput): WhatIfResult {
   switch (input.scenario.type) {
     case "early-graduation":
-      return earlyGraduation(input, input.scenario.targetTerm);
+      return earlyGraduation(input, input.scenario.targetTerm, input.scenario.termsEarly);
     case "withdraw-course":
       return withdrawCourse(input, input.scenario.code);
     case "take-course":
@@ -68,8 +68,25 @@ const uncounted = (a: AuditResult) => a.holds.length;
 
 // ---------------------------------------------------------- 提前畢業
 
-function earlyGraduation(input: SimulateInput, targetTerm: string): WhatIfResult {
+function earlyGraduation(input: SimulateInput, given: string, termsEarly?: number): WhatIfResult {
   const { audit, record, pack } = input;
+  // 沒講學期代號（「提前一學期畢業」）：照入學年度的大四下往回推；推出來的學期已經過了，就改算最快的下學期
+  let targetTerm = given;
+  let note = "";
+  if (!/^\d+-[12]$/.test(given) && termsEarly) {
+    const last = `${record.student.admissionYear + 3}-2`;
+    const back = (t: string, n: number) => {
+      const [y, s] = t.split("-").map(Number);
+      const k = y! * 2 + (s === 2 ? 1 : 0) - n;
+      return `${Math.floor(k / 2)}-${k % 2 === 1 ? 2 : 1}`;
+    };
+    targetTerm = back(last, termsEarly);
+    note = `照入學年度，你的大四下是 ${last}，提前 ${termsEarly} 個學期是 ${targetTerm}。`;
+    if (termsBetween(audit.nextTerm, targetTerm) === 0) {
+      note += `這個學期已經過了，下面改算最快能畢業的 ${audit.nextTerm}。`;
+      targetTerm = audit.nextTerm;
+    }
+  }
   const parsed = /^(\d+)-([12])$/.exec(targetTerm);
   if (!parsed) {
     return {
@@ -85,6 +102,31 @@ function earlyGraduation(input: SimulateInput, targetTerm: string): WhatIfResult
   const term = Number(parsed[2]) as 1 | 2;
 
   const requirements = requirementsFrom(audit);
+  // 目標學期之前還有好幾個學期：先看學分數排不排得進（每學期上限），不硬塞進同一個學期
+  const terms = termsBetween(audit.nextTerm, targetTerm);
+  if (requirements.length > 0 && terms > 1) {
+    const cap = termLimitsFor(pack, record.student, audit.nextTerm).maxCredits;
+    const per = Math.ceil(audit.unmet / terms);
+    const fits = per <= cap;
+    return {
+      headline: fits
+        ? `${targetTerm} 畢業：學分數排得進，平均每學期約 ${per} 學分`
+        : `${targetTerm} 畢業：平均每學期要 ${per} 學分，超過上限 ${cap}`,
+      level: fits ? "conditional" : "infeasible",
+      detail:
+        note +
+        `從 ${audit.nextTerm} 到 ${targetTerm} 共 ${terms} 個學期，還差 ${audit.unmet} 學分（${requirements.map((r) => r.label).join("、")}），` +
+        `平均每學期約 ${per} 學分，每學期上限 ${cap} 學分。` +
+        (audit.inProgress > 0 ? `前提是本學期修課中的 ${audit.inProgress} 學分成績登錄及格。` : "") +
+        (fits
+          ? "這只算學分數；各類別的課在這幾個學期有沒有開、有沒有先修限制，要一學期一學期排，可以到「選課建議」先排下學期。"
+          : "照每學期上限修也來不及。") +
+        "學校對提前畢業是否另有資格條件（例如成績），系統沒有收錄，請向教務處註冊組確認。",
+      alternatives: fits ? [] : ["利用暑修補學分", `改以 ${audit.nextTerm} 之後較晚的學期為目標`],
+      citations: citationsFor(audit, requirements.map((r) => r.categoryId)),
+      uncountedHolds: uncounted(audit),
+    };
+  }
   if (requirements.length === 0) {
     return {
       headline:
@@ -126,11 +168,26 @@ function earlyGraduation(input: SimulateInput, targetTerm: string): WhatIfResult
   }
 
   const plan = result.plans[0]!;
+  // 排得出課表不等於補得齊：這學期能排的課修完還差學分，就是這學期畢不了業（不能標成「可行」）
+  if (plan.unmetAfter > 0) {
+    return {
+      headline: `${targetTerm} 畢業：這學期排滿 ${plan.totalCredits} 學分，還差 ${plan.unmetAfter} 學分補不齊`,
+      level: "infeasible",
+      detail:
+        note +
+        `於 ${targetTerm} 需補 ${requirements.map((r) => r.label).join("、")}；這學期最多排得進 ` +
+        `${plan.courses.map((c) => `${c.name}（${c.credits} 學分）`).join("、")}，合計 ${plan.totalCredits} 學分，仍差 ${plan.unmetAfter} 學分。`,
+      alternatives: ["利用暑修補學分", "改以較晚的學期為目標（可問「提前一學期畢業」看平均每學期要修多少）"],
+      citations: citationsFor(audit, requirements.map((r) => r.categoryId)),
+      uncountedHolds: uncounted(audit),
+    };
+  }
   const conditional = audit.inProgress > 0 || audit.holds.length > 0 || plan.relaxations.length > 0;
   return {
     headline: conditional ? "可行，但有前提條件" : "目前條件下可行",
     level: conditional ? "conditional" : "feasible",
     detail:
+      note +
       `於 ${targetTerm} 修習 ${plan.courses.map((c) => `${c.name}（${c.code}，${c.credits} 學分）`).join("、")}` +
       `，合計 ${plan.totalCredits} 學分，即可補足 ${requirements.map((r) => r.label).join("、")}。` +
       (audit.inProgress > 0
@@ -150,9 +207,11 @@ function earlyGraduation(input: SimulateInput, targetTerm: string): WhatIfResult
 
 function withdrawCourse(input: SimulateInput, key: string): WhatIfResult {
   const { audit, record, pack } = input;
-  const target = record.courses.find(
-    (c) => c.code === key || c.name === key || c.name.includes(key),
-  );
+  // 課名只講一部分（「專題研究」）而對到好幾門時，優先修課中的那一門：只有修課中的能停修
+  const target =
+    record.courses.find((c) => c.code === key || c.name === key) ??
+    record.courses.find((c) => c.status === "in_progress" && c.name.includes(key)) ??
+    record.courses.find((c) => c.name.includes(key));
   if (!target) {
     // 只有「修課中」的科目可以停修 —— 直接把可停修的清單給出來，比要學生再猜一次有用
     const ongoing = record.courses.filter((c) => c.status === "in_progress");

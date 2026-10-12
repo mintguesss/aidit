@@ -510,7 +510,8 @@ export type BlockedContent = {
 
 export type Scenario =
   /** 畢業時程 */
-  | { type: "early-graduation"; targetTerm: string }
+  /** termsEarly：使用者說「提前 N 學期」而沒講學期代號時，由入學年度往回推（targetTerm 留空） */
+  | { type: "early-graduation"; targetTerm: string; termsEarly?: number }
   | { type: "withdraw-course"; code: string }
   /** 下學期修某一門課：算哪一類、各類未修怎麼變、會不會落到待確認 */
   | { type: "take-course"; course: string }

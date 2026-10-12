@@ -153,6 +153,7 @@ const FORBIDDEN_RULE = [
 
 const PLAN_SYSTEM = [
   "你是選課建議的條件解析元件。使用者會用一句話描述想怎麼調整下學期的課表。",
+  "要寫給使用者看的文字（clarify）一律用台灣繁體中文。",
   "",
   "你唯一的工作是把這句話對應到固定的意圖與參數。",
   "你不知道也不需要知道任何學分數字、課表內容或判定結果 —— 那些由確定性求解器負責。",
@@ -206,10 +207,19 @@ export async function parsePlanIntent(
   return toPlanResult(res.data, lastUser(messages));
 }
 
+/**
+ * 模型寫的反問句會原樣顯示給學生。混進簡體字（2026-10-12 實測「请问你想延几学期毕业」）就換成通用的問法，
+ * 不顯示。只列簡繁寫法不同、而且在反問句裡常見的字。
+ */
+const SIMPLIFIED = /[请这们个说时学选课还没为会对过发经应门间关现实点从让给头买问题么级历设际几毕业]/;
+export function safeQuestion(q: string): string {
+  return SIMPLIFIED.test(q) ? "可以再說得具體一點嗎？例如目標學期、學系或課名。" : q;
+}
+
 function toPlanResult(d: z.infer<typeof zPlanIntent>, raw: string): PlanIntentResult {
   if (d.forbidden) return { kind: "forbidden", topic: d.forbidden };
   if (d.intent === "out-of-scope") return { kind: "out-of-scope" };
-  if (d.clarify) return { kind: "clarify", question: d.clarify };
+  if (d.clarify) return { kind: "clarify", question: safeQuestion(d.clarify) };
   if (d.intent === "explain") {
     if (!d.explainCourse) return { kind: "clarify", question: "想問的是哪一門課？給我課號或完整課名。" };
     return { kind: "explain", course: d.explainCourse };
@@ -283,6 +293,7 @@ export type AskParams = {
 
 const ASK_SYSTEM = [
   "你是修業問答的路由器。收到問題後只做一件事：分類，並抽出參數。",
+  "要寫給使用者看的文字（clarify）一律用台灣繁體中文。",
   "",
   "你不回答問題，也不知道任何學分數字或規定內容 —— 分類完成後由程式呼叫對應的能力去查。",
   "",
@@ -322,7 +333,7 @@ export async function parseAskIntent(
 
 function toAskResult(d: z.infer<typeof zAskIntent>, raw: string): AskIntentResult {
   if (d.forbidden) return { kind: "forbidden", topic: d.forbidden };
-  if (d.clarify) return { kind: "clarify", question: d.clarify };
+  if (d.clarify) return { kind: "clarify", question: safeQuestion(d.clarify) };
   if (d.intent === "out-of-scope") return { kind: "out-of-scope" };
   return {
     kind: "intent",
@@ -759,7 +770,8 @@ function offlineAskIntent(raw: string): z.infer<typeof zAskIntent> {
   // 開課資訊的問句形式最明確（什麼時候開、誰教、有沒有名額），排最前面。
   // 排在「流程」後面的話，「企業流程管理什麼時候開」會因為課名裡有「流程」兩個字
   // 被當成辦理手續，回「系統未收錄這項事務的辦理流程」。
-  if (/什麼時候開|什麼時候上課?|上課時間|幾點上|星期幾上|禮拜幾上|哪天上|誰教|哪個老師開|有沒有名額|還有名額|餘額|幾學分.*課|時段/.test(t)) {
+  // 「什麼時候開始」不算（「畢業審查什麼時候開始」是在問手續，2026-10-12 實測被當成查課）
+  if (/什麼時候開(?!始)|什麼時候開始上|什麼時候上課?|上課時間|幾點上|星期幾上|禮拜幾上|哪天上|誰教|哪個老師開|有沒有名額|還有名額|餘額|幾學分.*課|時段/.test(t)) {
     const code = findCourseCode(raw);
     const name = /([一-龥]{2,12}?)(?:什麼時候|的?上課時間|幾點|星期幾|禮拜幾|哪天|誰教|有沒有|還有|是哪個)/.exec(t)?.[1];
     return { ...base, intent: "course-info", course: code ?? name ?? t };
@@ -768,7 +780,7 @@ function offlineAskIntent(raw: string): z.infer<typeof zAskIntent> {
   // 「怎麼辦」要排在所有 what-if 之前：問的是手續，不是可不可行。
   // 排在後面的話，「怎麼申請輔系？」會先撞上 /輔系/ 那一條，因為句子裡沒有系名
   // 而被反問「想加修哪一個學系的輔系？」—— 使用者問流程，系統卻要他先選系，答非所問。
-  if (/怎麼申請|如何申請|怎麼辦理|如何辦理|要去哪|去哪裡辦|找誰|流程|期限|截止|表單|表格/.test(t)) {
+  if (/怎麼申請|如何申請|怎麼辦理|如何辦理|要去哪|去哪裡辦|找誰|流程|期限|截止|表單|表格|什麼時候(?:開始|申請|辦)|何時(?:開始|申請|辦)/.test(t)) {
     return { ...base, intent: "procedure", procedure: t };
   }
 
@@ -790,7 +802,8 @@ function offlineAskIntent(raw: string): z.infer<typeof zAskIntent> {
     const code = findCourseCode(raw);
     const quoted = /[「『]([^」』]{2,20})[」』]/.exec(raw)?.[1];
     // 「停修資料探勘會怎樣」的課名到語尾詞為止；「停修一門三學分的課」則根本沒有指名課程
-    const tail = /(?:停修|退選|撤選)(?:掉)?([一-龥]{2,20})/.exec(t)?.[1] ?? "";
+    // 課名後面的（二）、(上) 要一起抓：只抓「專題研究」會對到已修過的（一）（2026-10-12 實測）
+    const tail = /(?:停修|退選|撤選)(?:掉)?([一-龥]{2,20}(?:[（(][一二三四五六七八九十上下\dA-Za-z]{1,3}[）)])?)/.exec(t)?.[1] ?? "";
     const name = tail
       .replace(/(的課|會怎樣|會如何|怎麼樣|可以嗎|好不好|嗎|呢).*$/, "")
       .replace(/^(掉)?(一|某|那|這|幾)?[門堂]/, "");
@@ -813,7 +826,7 @@ function offlineAskIntent(raw: string): z.infer<typeof zAskIntent> {
     const m =
       new RegExp(`(?:${kw})(?:到|進|去|成)?\\s*[：:]?\\s*(?:加修|申請|修)?\\s*([一-龥]{2,8}?)學?系`).exec(t) ??
       new RegExp(`([一-龥]{2,8}?)學?系的?(?:${kw})`).exec(t);
-    const dept = (m?.[1] ?? "").replace(/^(?:我想|想|申請|加修|修|要)+/, "");
+    const dept = cleanDept(m?.[1] ?? "");
     // 「雙主修跟輔系差在哪」的「跟輔」不是學系
     return dept.length >= 2 && !/^(?:本|外|他|別|各|該|哪個?|科|同|原|其他)$/.test(dept) && !/[跟和與或的是在嗎]|輔$|轉$/.test(dept) ? dept : null;
   };
@@ -848,7 +861,8 @@ function offlineAskIntent(raw: string): z.infer<typeof zAskIntent> {
       .replace(/^(?:我|想要?|要|能不能|可不可以|可以|一個|這個|那個)+/, "")
       .replace(/(?:學分|微)$/, "");
     const named = program.length >= 2 && !/^(?:什麼|哪個|哪些|這|那|學分|微|跨領域)$/.test(program) && !/[跟和與或的是嗎]/.test(program);
-    if (named && /加修|申請|想修|修得|能不能|可不可以|想讀|會怎樣|如果/.test(t)) {
+    // 「電商學程我還差什麼」也是試算：問的是這個學程自己還差哪些，不是畢業進度（2026-10-12 實測模型答成畢業進度）
+    if (named && /加修|申請|想修|修得|能不能|可不可以|想讀|會怎樣|如果|還差|還缺|差多少|還要修|要修哪些|要修什麼/.test(t)) {
       return { ...base, intent: "what-if", scenario: { type: "add-cert-program", targetTerm: null, dept: null, program, code: null } };
     }
     if (/^我?想(?:要)?(?:加修|修|申請|讀)?(?:學分|微)?學程.?$/.test(t)) return { ...base, clarify: "想加修哪一個學程？" };
@@ -885,6 +899,16 @@ function renderHistory(messages: ChatMessage[]): string {
     .slice(-10)
     .map((m) => `${m.role === "user" ? "學生" : "系統"}：${m.content}`)
     .join("\n");
+}
+
+/**
+ * 學系名稱前面黏著的口語去掉：「如果我修心理」→「心理」、「我想申請財金」→「財金」。
+ * 規則抽的和模型填的都要過（2026-10-12 實測兩邊都抽成「如果我修心理」，心理系輔系就對不到）。
+ * 學系名稱不會含這些字，所以取到最後一個為止。
+ */
+export function cleanDept(raw: string): string {
+  const s = raw.trim().replace(/^.*(?:如果|假如|要是|我想|想要|想|申請|加修|修讀|修|要|讀|念|去|到|進)/, "");
+  return s.length >= 2 ? s : raw.trim();
 }
 
 export function lastUser(messages: ChatMessage[]): string {

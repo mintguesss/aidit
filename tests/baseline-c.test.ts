@@ -34,6 +34,22 @@ describe("基準 C 評分", () => {
     expect(s.errors.join()).toContain("院系必修課程：還差 9，應為 12");
   });
 
+  it("領域名稱多了「通識」兩個字不算錯（2026-10-12 第一次評分把 9 次答對誤判成錯答）", () => {
+    const a = perfect();
+    a.missingGenEdDomains = ["社會科學通識"];
+    expect(scoreRun(a, year2, corpus).outcome).toBe("correct");
+  });
+
+  it("引用成績單：拿給模型的成績單核對，不是去規章裡找", () => {
+    const a = perfect();
+    a.citations = [{ claim: "大學入門已修", docId: "成績單", quote: "00155｜大學入門｜2學分｜必修｜及格" }];
+    const transcript = "111上｜00155｜大學入門｜2學分｜必修｜及格｜開課單位 IT";
+    expect(scoreRun(a, year2, corpus, transcript).citations.failed).toHaveLength(0);
+    // 成績單上沒有的句子照樣抓出來
+    a.citations = [{ claim: "大學入門已修", docId: "成績單", quote: "00155｜大學入門｜3學分" }];
+    expect(scoreRun(a, year2, corpus, transcript).citations.failed).toHaveLength(1);
+  });
+
   it("某類填 null 或標轉人工 → 轉人工，不算錯", () => {
     const a = perfect();
     a.categories[0]!.unmet = null;

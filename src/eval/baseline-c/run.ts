@@ -10,11 +10,13 @@ import { preloadOfferings } from "@/lib/offerings/published";
 import { announcementsFor } from "@/lib/rules/announcements";
 import { fixture } from "@/lib/providers/fixtures";
 import type { AuditResult } from "@/lib/types";
+import { readFileSync } from "node:fs";
 import { REAL_CASES, type GraduationVerdict, type RealCase } from "./cases";
 import {
   BASELINE_SYSTEM,
   buildBaselineUser,
   offlineBaselineAnswer,
+  transcriptText,
   zBaselineAnswer,
   type BaselineAnswer,
   type SourceDoc,
@@ -37,10 +39,16 @@ const arg = (name: string) => {
 };
 const RUNS = Number(arg("--runs") ?? 3);
 const ONLY = arg("--case");
+/** 對照組的成本上限（美元）：累計超過就不再呼叫，剩下的記成「未執行」，不會算成對照組轉人工 */
+const CAP = Number(arg("--cap") ?? 0.2);
 /** 對照組給高一點的推理強度，避免被說是故意壓低它 */
 const EFFORT = "high" as const;
-const MAX_TOKENS = 16_000;
-const TIMEOUT_MS = 180_000;
+/**
+ * 輸出上限要給夠：推理強度 high 時模型會先想很久，16000 在大二之後的案例幾乎都被截斷、整題沒有答案，
+ * 會被算成轉人工（2026-10-12 實測）—— 那是我們的設定害的，不是模型的表現。
+ */
+const MAX_TOKENS = Number(arg("--max-tokens") ?? 64_000);
+const TIMEOUT_MS = 300_000;
 
 type BaselineRun = {
   answer: BaselineAnswer | null;
@@ -126,7 +134,7 @@ async function runBaseline(c: RealCase, corpus: Map<string, string>): Promise<Ba
     );
     return {
       answer: res.data,
-      score: scoreRun(res.data, c, corpus),
+      score: scoreRun(res.data, c, corpus, transcriptText(fixture(c.fixture).record)),
       ms: Date.now() - t0,
       inputTokens: res.inputTokens,
       outputTokens: res.outputTokens,
@@ -150,7 +158,33 @@ async function runOurs(c: RealCase, corpus: Map<string, string>): Promise<CaseRe
   };
 }
 
+/**
+ * --rescore <報告.json>：拿已經存下來的答案重新評分（評分規則修正後用），不呼叫模型。
+ * 報告開頭會註明是重新評分、原本哪一次跑的。
+ */
+async function rescore(file: string) {
+  await preloadPublishedRules();
+  const corpus = loadCorpus();
+  const saved = JSON.parse(readFileSync(file, "utf8")) as { model: string; live: boolean; runs: number; reports: CaseReport[] };
+  for (const r of saved.reports) {
+    const c = REAL_CASES.find((x) => x.fixture === r.fixture);
+    if (!c) throw new Error(`案例 ${r.fixture} 不在 cases.ts`);
+    const transcript = transcriptText(fixture(c.fixture).record);
+    for (const b of r.baseline) if (b.answer) b.score = scoreRun(b.answer, c, corpus, transcript);
+    const answered = r.baseline.flatMap((b) => (b.answer ? [b.answer] : []));
+    const { consistent, distinct } = consistency(answered);
+    r.consistent = consistent && answered.length === r.baseline.length;
+    r.distinct = distinct;
+  }
+  const text = `（${new Date().toISOString().slice(0, 10)} 重新評分：答案沿用 ${file}，沒有再呼叫模型）\n` + render(saved.reports, saved.live, saved.runs, saved.model);
+  writeFileSync(join(".data", "baseline-c-rescored.txt"), text);
+  writeFileSync(join(".data", "baseline-c-rescored.json"), JSON.stringify({ ...saved, rescoredAt: new Date().toISOString() }, null, 2));
+  console.log(text);
+}
+
 async function main() {
+  const rescoreFile = arg("--rescore");
+  if (rescoreFile) return rescore(rescoreFile);
   if (LIVE && !llmAvailable()) throw new Error("加了 --live 但沒有設定模型（.env 的 ANTHROPIC_API_KEY）。");
   await Promise.all([preloadPublishedRules(), preloadOfferings()]);
   const corpus = loadCorpus();
@@ -158,20 +192,34 @@ async function main() {
   if (cases.length === 0) throw new Error(`沒有案例 ${ONLY}`);
 
   const reports: CaseReport[] = [];
+  let spent = 0;
+  let capped = false;
   for (const c of cases) {
+    if (capped) break;
     process.stdout.write(`${c.fixture} `);
     const ours = await runOurs(c, corpus);
     const baseline: BaselineRun[] = [];
     for (let i = 0; i < RUNS; i++) {
-      baseline.push(await runBaseline(c, corpus));
+      if (LIVE && spent >= CAP) {
+        capped = true;
+        break;
+      }
+      const b = await runBaseline(c, corpus);
+      spent += b.costUsd;
+      baseline.push(b);
       process.stdout.write(".");
     }
+    if (baseline.length === 0) break;
     const answered = baseline.flatMap((b) => (b.answer ? [b.answer] : []));
     const { consistent, distinct } = consistency(answered);
     reports.push({ fixture: c.fixture, label: c.label, ours, baseline, consistent: consistent && answered.length === baseline.length, distinct });
     process.stdout.write("\n");
+    // 每做完一題就寫一次：中途停掉（成本、逾時）已經花錢拿到的答案不會不見
+    mkdirSync(".data", { recursive: true });
+    writeFileSync(join(".data", "baseline-c-partial.json"), JSON.stringify({ model: MODEL_LABEL, live: LIVE, runs: RUNS, maxTokens: MAX_TOKENS, reports }, null, 2));
   }
 
+  if (capped) console.log(`\n已達成本上限 US$${CAP}（已花 US$${spent.toFixed(4)}），後面的案例沒有執行`);
   const text = render(reports);
   mkdirSync(".data", { recursive: true });
   writeFileSync(join(".data", "baseline-c-report.txt"), text);
@@ -179,12 +227,12 @@ async function main() {
   console.log("\n" + text);
 }
 
-function render(reports: CaseReport[]): string {
+function render(reports: CaseReport[], live = LIVE, runs = RUNS, model = MODEL_LABEL): string {
   const L: string[] = [];
   L.push(`# 基準 C：本系統 vs. 單次 LLM（${new Date().toISOString().slice(0, 10)}）`);
-  L.push(`模型：${MODEL_LABEL}　模式：${LIVE ? "實際呼叫模型" : "離線替身"}　每題 ${RUNS} 次　對照組推理強度 ${EFFORT}`);
-  if (!LIVE) L.push("**離線替身：對照組的結果是固定的「全部轉人工」，只用來驗證流程，數字不代表模型表現，不得引用。**");
-  L.push("案例：同一份真實成績單（輔大資管 111）截至五個時間點；不是五位獨立的學生。");
+  L.push(`模型：${model}　模式：${live ? "實際呼叫模型" : "離線替身"}　每題 ${runs} 次　對照組推理強度 ${EFFORT}、輸出上限 ${MAX_TOKENS} token`);
+  if (!live) L.push("**離線替身：對照組的結果是固定的「全部轉人工」，只用來驗證流程，數字不代表模型表現，不得引用。**");
+  L.push("案例：兩份真實成績單（輔大資管 111 的兩位同學）各截至五個時間點；是兩位學生、十個時間點，不是十位獨立的學生。");
   L.push("");
 
   const all = reports.flatMap((r) => r.baseline);

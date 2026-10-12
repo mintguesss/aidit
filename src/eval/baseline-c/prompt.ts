@@ -94,6 +94,11 @@ function courseLine(c: CourseRecord): string {
     .join("｜");
 }
 
+/** 給模型看的成績單（每門課一行）。評分時拿它核對模型引用成績單的句子 */
+export function transcriptText(record: StudentRecord): string {
+  return record.courses.map(courseLine).join("\n");
+}
+
 export function buildBaselineUser(
   record: StudentRecord,
   through: string,
@@ -107,7 +112,7 @@ export function buildBaselineUser(
     "",
     "# 成績單",
     "（學年學期｜課號｜課名｜學分｜選別｜狀態｜開課單位｜開課學院｜通識領域｜是否學年課）",
-    ...record.courses.map(courseLine),
+    transcriptText(record),
     "",
     "# 請依下列類別回報（名稱照抄）",
     ...categoryNames.map((n) => `- ${n}`),

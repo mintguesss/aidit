@@ -26,13 +26,18 @@ export type RunScore = {
 };
 
 const key = (s: string) => s.replace(/\s|課程|領域/g, "");
+/** 領域名稱：模型常寫成「社會科學通識」，跟「社會科學」是同一件事，不能因為多兩個字就判錯（2026-10-12 第一次評分就這樣誤判） */
+const domainKey = (s: string) => key(s).replace(/通識/g, "");
+
+/** 模型引用成績單時用的文件代號。成績單是我們給的資料，引它要拿成績單本身核對，不是去規章裡找 */
+export const TRANSCRIPT_DOC = "成績單";
 
 function numberOutcome(expected: number, got: number | null | undefined): Outcome {
   if (got === null || got === undefined) return "abstain";
   return got === expected ? "correct" : "wrong";
 }
 
-export function scoreRun(answer: BaselineAnswer, c: RealCase, corpus: Map<string, string>): RunScore {
+export function scoreRun(answer: BaselineAnswer, c: RealCase, corpus: Map<string, string>, transcript?: string): RunScore {
   const errors: string[] = [];
 
   const categories = c.expect.categories.map((exp): CategoryVerdict => {
@@ -47,8 +52,8 @@ export function scoreRun(answer: BaselineAnswer, c: RealCase, corpus: Map<string
   const totalOutcome = numberOutcome(c.expect.totalUnmet, answer.totalUnmet);
   if (totalOutcome === "wrong") errors.push(`合計還差 ${answer.totalUnmet}，應為 ${c.expect.totalUnmet}`);
 
-  const expDomains = c.expect.missingGenEdDomains.map(key).sort();
-  const gotDomains = answer.missingGenEdDomains?.map(key).sort() ?? null;
+  const expDomains = c.expect.missingGenEdDomains.map(domainKey).sort();
+  const gotDomains = answer.missingGenEdDomains?.map(domainKey).sort() ?? null;
   const domainOutcome: Outcome =
     gotDomains === null ? "abstain" : gotDomains.join("|") === expDomains.join("|") ? "correct" : "wrong";
   if (domainOutcome === "wrong") {
@@ -63,8 +68,9 @@ export function scoreRun(answer: BaselineAnswer, c: RealCase, corpus: Map<string
   if (falseGraduate) errors.push("誤判可畢業：回答 yes，實際上不能確定可以畢業");
   else if (gradOutcome === "wrong") errors.push(`能否畢業：回答 ${gotGrad}，應為 ${expGrad}`);
 
+  const sources = transcript ? new Map([...corpus, [TRANSCRIPT_DOC, transcript]]) : corpus;
   const verdicts = answer.citations.map((x) =>
-    verifyCitation({ docId: x.docId, docTitle: x.docId, locator: "", quote: x.quote }, corpus),
+    verifyCitation({ docId: x.docId, docTitle: x.docId, locator: "", quote: x.quote }, sources),
   );
   const failed = verdicts
     .filter((v) => !v.ok)
@@ -93,7 +99,7 @@ export function consistency(answers: BaselineAnswer[]): { consistent: boolean; d
     JSON.stringify([
       [...a.categories].sort((x, y) => key(x.name).localeCompare(key(y.name))).map((x) => [key(x.name), x.needsReview ? null : x.unmet]),
       a.canGraduate,
-      a.missingGenEdDomains?.map(key).sort() ?? null,
+      a.missingGenEdDomains?.map(domainKey).sort() ?? null,
     ]);
   const distinct = new Set(answers.map(sig)).size;
   return { consistent: distinct <= 1, distinct };

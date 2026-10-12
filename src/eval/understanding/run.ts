@@ -8,7 +8,7 @@ import { preloadPublishedRules, resolveRulePack } from "@/lib/rules/loader";
 import { preloadOfferings } from "@/lib/offerings/published";
 import { fixture } from "@/lib/providers/fixtures";
 import { constraintSetFrom, preferencesOf } from "@/lib/chat/apply";
-import { planTurn, type TurnContext } from "@/lib/chat/route";
+import { askTurn, planTurn, type TurnContext } from "@/lib/chat/route";
 import type { ChatMessage } from "@/lib/chat/types";
 import { UNDERSTANDING_CASES, type UnderstandingCase } from "./cases";
 
@@ -29,7 +29,7 @@ const ONLY = (() => {
   return i >= 0 ? process.argv[i + 1] : undefined;
 })();
 
-type Result = { detail?: string; refused?: string[]; c: UnderstandingCase; ok: boolean; why: string[]; labels: string[]; kind: string; headline: string; ms: number; cost: number };
+type Result = { tools?: string[]; intent?: string; llmCalls?: number; detail?: string; refused?: string[]; c: UnderstandingCase; ok: boolean; why: string[]; labels: string[]; kind: string; headline: string; ms: number; cost: number };
 
 async function main() {
   await Promise.all([preloadPublishedRules(), preloadOfferings()]);
@@ -47,15 +47,20 @@ async function main() {
     let last: Awaited<ReturnType<typeof planTurn>> | undefined;
     let ms = 0;
     let cost = 0;
+    let llmCalls = 0;
+    // 這一輪結束後「生效中的條件」：這輪沒出新課表（反問、拒答），畫面上的條件就是上一輪的
+    let inEffect: string[] = [];
     for (const said of [...(c.before ?? []), c.said]) {
       history.push({ role: "user", content: said });
       const budget = new LlmBudget(2);
       const t0 = Date.now();
-      last = await planTurn([...history], ctx, budget);
+      last = c.scope === "ask" ? await askTurn([...history], ctx, budget) : await planTurn([...history], ctx, budget);
       ms = Date.now() - t0;
       cost += budget.usage.costUsd;
+      llmCalls += budget.usage.calls;
       history.push({ role: "assistant", content: last.reply.headline, meta: { kind: last.reply.kind, clarifying: last.clarifying } });
       if (last.plan) {
+        inEffect = last.plan.constraints;
         const shown = last.plan.solve.ok ? last.plan.solve.plans[0] : undefined;
         ctx = {
           ...ctx,
@@ -65,23 +70,40 @@ async function main() {
         };
       }
     }
-    const labels = last?.plan?.constraints ?? [];
+    const labels = last?.plan?.constraints ?? inEffect;
     const hay = labels.map((l) => l.toLowerCase());
     const why: string[] = [];
     for (const h of c.has ?? []) if (!hay.some((l) => l.includes(h.toLowerCase()))) why.push(`缺「${h}」`);
     for (const h of c.lacks ?? []) if (hay.some((l) => l.includes(h.toLowerCase()))) why.push(`不該有「${h}」`);
+    // 修業問答：看回覆全文（標題、說明、試算的分段與替代路徑）
+    const text = [
+      last?.reply.headline,
+      last?.reply.detail,
+      ...(last?.whatif?.sections ?? []).flatMap((x) => x.lines),
+      ...(last?.whatif?.alternatives ?? []),
+      last?.whatif?.detail,
+    ].filter(Boolean).join(" ").toLowerCase();
+    for (const h of c.replyHas ?? []) if (!text.includes(h.toLowerCase())) why.push(`回覆缺「${h}」`);
+    for (const h of c.replyLacks ?? []) if (text.includes(h.toLowerCase())) why.push(`回覆不該有「${h}」`);
     if (c.kind && last?.reply.kind !== c.kind) why.push(`回覆類型 ${last?.reply.kind}，應為 ${c.kind}`);
-    results.push({ detail: last?.reply.detail, refused: last?.plan?.refusedParams, c, ok: why.length === 0, why, labels, kind: last?.reply.kind ?? "", headline: last?.reply.headline ?? "", ms, cost });
+    results.push({ tools: last?.tools, intent: last?.intent, llmCalls, detail: last?.reply.detail, refused: last?.plan?.refusedParams, c, ok: why.length === 0, why, labels, kind: last?.reply.kind ?? "", headline: last?.reply.headline ?? "", ms, cost });
     process.stdout.write(why.length === 0 ? "." : "x");
   }
 
   const pass = results.filter((r) => r.ok).length;
   const old = results.filter((r) => !r.c.newFeature);
+  const ask = results.filter((r) => r.c.scope === "ask");
+  const plan = results.filter((r) => r.c.scope !== "ask");
   const L = [
-    `# 對話理解跑分（${new Date().toISOString().slice(0, 10)}）`,
+    `# 對話理解跑分（${new Date().toLocaleDateString("sv-SE")}）`,
     `模式：${LIVE ? `模型 ${MODEL_LABEL}` : "只有規則（離線）"}`,
     `全部 ${pass}/${results.length}；不含新功能題 ${old.filter((r) => r.ok).length}/${old.length}`,
+    `課表調整 ${plan.filter((r) => r.ok).length}/${plan.length}；修業問答 ${ask.filter((r) => r.ok).length}/${ask.length}`,
     `平均延遲 ${(results.reduce((a, r) => a + r.ms, 0) / Math.max(1, results.length) / 1000).toFixed(1)} 秒；成本 US$${results.reduce((a, r) => a + r.cost, 0).toFixed(4)}`,
+    // 接模型時，沒叫到模型的題要列出來：可能是規則先接住（正常），也可能是呼叫失敗後降級（要查）
+    ...(LIVE
+      ? [`模型呼叫 ${results.reduce((a, r) => a + (r.llmCalls ?? 0), 0)} 次；沒叫到模型的題：${results.filter((r) => !r.llmCalls).map((r) => r.c.id).join("、") || "無"}`]
+      : []),
     "",
     ...results
       .filter((r) => !r.ok)
@@ -97,6 +119,24 @@ async function main() {
   ];
   mkdirSync(".data", { recursive: true });
   writeFileSync(`.data/understanding-report${LIVE ? "-live" : ""}.txt`, L.join("\n"));
+  // 每一題的完整結果（不只失敗的），供人工逐題查核：說了什麼、走哪個意圖、叫了哪些工具、叫了幾次模型、花多少
+  writeFileSync(
+    `.data/understanding-report${LIVE ? "-live" : ""}.json`,
+    JSON.stringify(
+      {
+        at: new Date().toISOString(),
+        mode: LIVE ? MODEL_LABEL : "rules-only",
+        totalCostUsd: results.reduce((a, r) => a + r.cost, 0),
+        results: results.map((r) => ({
+          id: r.c.id, scope: r.c.scope ?? "plan", said: r.c.said, before: r.c.before, ok: r.ok, why: r.why,
+          intent: r.intent, kind: r.kind, headline: r.headline, detail: r.detail, labels: r.labels,
+          tools: r.tools, llmCalls: r.llmCalls, costUsd: r.cost, ms: r.ms,
+        })),
+      },
+      null,
+      2,
+    ),
+  );
   console.log("\n" + L.join("\n"));
 }
 

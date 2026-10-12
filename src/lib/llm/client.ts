@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod/v4";
+import { appendFileSync } from "node:fs";
 import type { LlmUsage } from "@/lib/types";
 
 /**
@@ -225,10 +226,16 @@ export type StructuredRequest<S extends z.ZodType> = {
   timeoutMs?: number;
 };
 
-type ProviderResult = { output: unknown; inputTokens: number; outputTokens: number };
+/** refusal：模型拒絕回應的類別。拒絕也有計費，所以照樣帶 usage 回去，由外層記帳後再當成失敗 */
+type ProviderResult = { output: unknown; inputTokens: number; outputTokens: number; requestId?: string | null; refusal?: string };
 
 async function callAnthropic<S extends z.ZodType>(req: StructuredRequest<S>): Promise<ProviderResult> {
-  const res = await getClient().messages.parse({
+  // 不用 messages.parse／parseMessage：
+  // 1. 它執行期回的是一般 Promise，拿不到 request-id（型別寫的是 APIPromise，但 .withResponse() 不存在）；
+  // 2. 它在 SDK 裡就用 zod 驗證，不合格直接拋錯 —— 這時回應已經回來、已經計費，外層卻拿不到 usage，
+  //    成本與每輪呼叫上限都少算一次（2026-10-12 評測發現）。
+  // 這裡只把文字解析成 JSON，驗證交給 structured()：先記帳、再驗證，不合格照樣重試。
+  const params = {
     model: MODEL,
     max_tokens: req.maxTokens ?? LLM_MAX_TOKENS,
     system: req.system,
@@ -237,16 +244,25 @@ async function callAnthropic<S extends z.ZodType>(req: StructuredRequest<S>): Pr
       ...(LLM.supportsEffort ? { effort: req.effort ?? "low" } : {}),
       format: zodOutputFormat(req.schema),
     },
-    messages: [{ role: "user", content: req.user }],
-  }, req.timeoutMs ? { timeout: req.timeoutMs } : undefined);
+    messages: [{ role: "user" as const, content: req.user }],
+  };
+  const { data: res, request_id } = await getClient()
+    .messages.create(params, req.timeoutMs ? { timeout: req.timeoutMs } : undefined)
+    .withResponse();
 
-  if (res.stop_reason === "refusal") {
-    throw new Error(`模型拒絕回應：${res.stop_details?.category ?? "unknown"}`);
+  const text = res.content.find((b) => b.type === "text");
+  let output: unknown = null;
+  try {
+    output = text && text.type === "text" ? JSON.parse(text.text) : null;
+  } catch {
+    // 不是合法 JSON：回 null，外層記帳後當成一次失敗
   }
   return {
-    output: res.parsed_output,
+    output,
     inputTokens: res.usage.input_tokens,
     outputTokens: res.usage.output_tokens,
+    requestId: request_id,
+    refusal: res.stop_reason === "refusal" ? (res.stop_details?.category ?? "unknown") : undefined,
   };
 }
 
@@ -309,6 +325,20 @@ function callProvider<S extends z.ZodType>(req: StructuredRequest<S>): Promise<P
 }
 
 /**
+ * 設了 AIDIT_LLM_CALL_LOG（檔案路徑）就把每一次真的打出去的呼叫記一行 JSON：時間、模型、
+ * 供應商的 request-id、token 與成本。評測時用來對帳（可以拿 request-id 去供應商後台查），平常不開。
+ */
+function logCall(r: { requestId?: string | null; inputTokens: number; outputTokens: number; costUsd: number; ms: number; attempt: number; error?: string }): void {
+  const path = process.env.AIDIT_LLM_CALL_LOG;
+  if (!path) return;
+  try {
+    appendFileSync(path, JSON.stringify({ at: new Date().toISOString(), model: MODEL_LABEL, ...r }) + String.fromCharCode(10));
+  } catch {
+    // 記錄失敗不影響呼叫本身
+  }
+}
+
+/**
  * 結構化輸出呼叫。
  *
  * 輸出必須通過 schema 驗證，驗證失敗 → 重試一次 → 仍失敗則由呼叫端降級
@@ -336,8 +366,11 @@ export async function structured<S extends z.ZodType>(
   let lastError: unknown = null;
   for (let attempt = 0; attempt <= 1; attempt++) {
     budget.assertAvailable();
+    const attemptStarted = Date.now();
+    let answered = false;
     try {
       const res = await callProvider(req);
+      answered = true;
 
       const { inputTokens, outputTokens } = res;
       const costUsd = round6(
@@ -345,7 +378,9 @@ export async function structured<S extends z.ZodType>(
           (outputTokens / 1_000_000) * PRICING.outputPerMTok,
       );
       budget.consume({ inputTokens, outputTokens, costUsd });
+      logCall({ requestId: res.requestId, inputTokens, outputTokens, costUsd, ms: Date.now() - attemptStarted, attempt });
 
+      if (res.refusal) throw new Error(`模型拒絕回應：${res.refusal}`);
       if (res.output === null || res.output === undefined) {
         throw new Error("結構化輸出解析失敗");
       }
@@ -364,6 +399,10 @@ export async function structured<S extends z.ZodType>(
     } catch (err) {
       if (err instanceof LlmBudgetExceeded) throw err;
       lastError = err;
+      // 沒拿到回應的那一次（逾時、連不上）也記一筆，重試才數得出來；有回應但內容不合格的已經記過了
+      if (!answered) {
+        logCall({ requestId: null, inputTokens: 0, outputTokens: 0, costUsd: 0, ms: Date.now() - attemptStarted, attempt, error: String(err).slice(0, 200) });
+      }
     }
   }
   throw new Error(`LLM 呼叫兩次皆失敗：${String(lastError)}`);

@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
  * 模型的後援與安全網（route.ts planTurn）。
  *
  * 單元測試一律走離線替身，模型就等於規則，後援那條路徑走不到。
- * 這裡把 parsePlanIntent 換成回傳固定值，值直接取自 qwen3:14b 實測送出的參數，
+ * 這裡把 parsePlanIntent 換成回傳固定值，值直接取自 自架小模型 實測送出的參數，
  * 驗證規則如何補上模型漏掉的條件、擋下模型編出來的條件。
  */
 vi.mock("@/lib/chat/intent", async (orig) => {
@@ -311,7 +311,7 @@ describe("問答：模型的類別被擋下時，改用規則從原句抽到的�
 });
 
 describe("模型呼叫失敗時退回規則，不讓整輪失敗", () => {
-  // 家用主機上別的程式佔用顯卡時，qwen3:14b 連續十個請求都卡滿 30 秒逾時
+  // 家用主機上別的程式佔用顯卡時，自架小模型 連續十個請求都卡滿 30 秒逾時
   const timeout = new Error("LLM 呼叫兩次皆失敗：TimeoutError: The operation was aborted due to timeout");
 
   it("課表微調：模型逾時 → 規則照樣排除「顧客關係管理」", async () => {

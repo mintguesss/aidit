@@ -339,7 +339,7 @@ describe("§1.3 代價只列這一輪換來的變化", () => {
 });
 
 describe("§1.4 不得自動放寬：解除既有偏好要有使用者說出口的依據", () => {
-  // 實測 qwen3:14b 對「空出星期五」送出的就是這組參數：avoidDays 空的，
+  // 實測 自架小模型 對「空出星期五」送出的就是這組參數：avoidDays 空的，
   // 三個布林全被填成 false —— 它把「沒提到」寫成了「關掉」。
   const asModelSent = {
     avoidDays: [] as number[],
@@ -418,7 +418,7 @@ describe("§1.5 數值參數必須是使用者說出口的", () => {
 
   it("原句沒提到堂數或學分時，不得設定上限與堂數", async () => {
     const c = await ctx();
-    // qwen3:14b 對「空出星期五」實際送出的就是這組 0
+    // 自架小模型 對「空出星期五」實際送出的就是這組 0
     const r = applyParams(c.constraints, c.originalConstraints, zeros, "模型自述", "空出星期五");
     expect(r.next.maxCredits).toBe(c.constraints.maxCredits);
     expect(r.next.targetCourseCount).toBe(c.constraints.targetCourseCount);
@@ -454,7 +454,7 @@ describe("§1.5 數值參數必須是使用者說出口的", () => {
 
 describe("§0.1 模型填的類別不得原樣顯示給使用者", () => {
   it("原句沒出現過的類別一律忽略（模型幻覺）", () => {
-    // qwen3:14b 對「我還差幾學分畢業？」把 schema 的意圖名稱填進 category，
+    // 自架小模型 對「我還差幾學分畢業？」把 schema 的意圖名稱填進 category，
     // 結果畫面顯示「查無「personal-audit」這個類別。」
     expect(spokenCategory("personal-audit", "我還差幾學分畢業？")).toBeUndefined();
   });

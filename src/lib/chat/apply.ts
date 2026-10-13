@@ -226,7 +226,7 @@ export type ApplyResult = {
  *
  * §1.4 訂的是「無解時不自動放寬」，但放寬還有另一條路會溜進來：意圖解析把
  * 使用者沒提到的欄位填成 false，而 schema 裡 null 才是「不變」、false 是「關掉」。
- * 實測 qwen3:14b 對「空出星期五」送出 avoidDays=[]、avoidEarly=false、
+ * 實測 自架小模型 對「空出星期五」送出 avoidDays=[]、avoidEarly=false、
  * avoidMorning=false、preferCompactDays=false —— 它自己的 reason 寫著
  * "avoidFriday"，卻一個字都沒填進參數，反而把使用者原本設好的「不排早八」關掉了。
  *
@@ -239,7 +239,7 @@ const RELAX_CUE = /可以|接受|不介意|沒關係|無所謂|都行|開放|取
  * 數值參數必須在原句裡找得到帶單位的數字。
  *
  * 這是把系統提示第 1 條「只輸出使用者明確說出口的參數，不得推測」用程式執行。
- * 實測 qwen3:14b 對「空出星期五」送出 courseCountTarget=0、maxCredits=0，
+ * 實測 自架小模型 對「空出星期五」送出 courseCountTarget=0、maxCredits=0，
  * 把條件設成「期望 0 堂課、學分上限 0」—— 與學則的學期下限直接衝突，必然無解。
  * 它填 0 的意思是「沒提到」，但 schema 裡 null 才是沒提到。
  *
@@ -273,7 +273,7 @@ function numbersNear(raw: string, patterns: RegExp[]): number[] {
 
 /**
  * 堂數的增減要有增減的字，而且方向要一致。
- * 實測 qwen3:14b 對「這學期只想修三門」送出 courseCountDelta=+3，把期望的 2 堂變成 5 堂 ——
+ * 實測 自架小模型 對「這學期只想修三門」送出 courseCountDelta=+3，把期望的 2 堂變成 5 堂 ——
  * 使用者說的是「指定三門」，不是「再加三門」。
  */
 const MORE_CUE = /多|加|增|再/;
@@ -411,7 +411,7 @@ export function applyParams(
     }
   }
   // 某天的某時段：星期與時段都要在原句裡找得到。
-  // 加嚴本來不需要依據，但模型會編時段 —— 實測 qwen3:14b 把「星期二跟星期四都不要排課」
+  // 加嚴本來不需要依據，但模型會編時段 —— 實測 自架小模型 把「星期二跟星期四都不要排課」
   // 填成「星期二早上、星期四早上」，把接在「課盡量集中」後的「下午」填成「星期五下午」，
   // 描述雖然如實，套用的卻不是使用者說的。
   // 平日同一時段整組畫掉（「下午不要有課」）不會提到星期，改要求句子是在畫掉時間，
@@ -486,7 +486,7 @@ export function applyParams(
       refusedParams.push(`堂數${d > 0 ? "增加" : "減少"} ${Math.abs(d)} 堂（原句不是這個意思）`);
     }
   }
-  // 修課目標也要原句有對應的字。實測 qwen3:14b 對「多選一堂課」同時填了 goal=light，
+  // 修課目標也要原句有對應的字。實測 自架小模型 對「多選一堂課」同時填了 goal=light，
   // 回覆變成「已改為這學期修少一點」，跟使用者說的正好相反
   if (params.goal !== null && raw && !GOAL_CUE[params.goal].test(raw)) {
     refusedParams.push(`修課目標改為${{ asap: "最快畢業", balanced: "正常進度", light: "輕量修課" }[params.goal]}（原句沒有提到）`);
@@ -494,7 +494,7 @@ export function applyParams(
     requested = true;
     next.goal = params.goal;
   }
-  // 額外目標同理。實測 qwen3:14b 對「多選一堂課」填了 goals=["minor"]，回「已加入輔系需求」
+  // 額外目標同理。實測 自架小模型 對「多選一堂課」填了 goals=["minor"]，回「已加入輔系需求」
   const goals = raw ? params.goals.filter((g) => GOALS_CUE[g].test(raw)) : params.goals;
   for (const g of params.goals.filter((x) => !goals.includes(x))) {
     refusedParams.push(`${{ "early-graduation": "加入提前畢業目標", minor: "加入輔系需求", "cert-program": "加入學程需求" }[g]}（原句沒有提到）`);
@@ -631,7 +631,7 @@ const GOAL_LABEL = {
  *
  * README §4 的主張是「對話介面的每一個字都不是模型寫的」。先前這一行直接印
  * LLM 的 `reason` 欄位，於是模型可以宣稱一個它其實沒有套用的改動：實測
- * qwen3:14b 對「不要早上的課」寫出「調整時段：避免早上時段的課程」，
+ * 自架小模型 對「不要早上的課」寫出「調整時段：避免早上時段的課程」，
  * 但它唯一能設的參數是只涵蓋第 1 節的 avoidEarly，而且那個值本來就已經是
  * true —— 畫面因此同時出現「已調整時段：避免早上時段的課程」與
  * 「目前條件：不排早八（第 1 節）」兩行互相矛盾的字，且模型那行是錯的。

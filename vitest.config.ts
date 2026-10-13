@@ -27,7 +27,7 @@ export default defineConfig({
       // AIDIT_LLM_* 要整組清掉，不能只清 provider：resolveConfig 會把
       // 沒設 provider 當成 anthropic，再拿殘留的 AIDIT_LLM_MODEL 去比對
       // Anthropic 的型號表，於是家用主機照 docs/SELFHOST.md 設好
-      // qwen3:14b 之後，npm run ci 會在載入模組時就整組拋錯。
+      // 自架小模型 之後，npm run ci 會在載入模組時就整組拋錯。
       AIDIT_LLM_PROVIDER: "",
       AIDIT_LLM_MODEL: "",
       AIDIT_LLM_BASE_URL: "",

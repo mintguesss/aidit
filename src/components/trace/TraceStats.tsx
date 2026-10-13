@@ -17,6 +17,7 @@ export function TraceStats({
   retries,
   llmCalls,
   llmCost,
+  llmNote,
 }: {
   totalMs: number;
   steps: { idx: number; label: string; ms: number; kind: Kind }[];
@@ -24,6 +25,8 @@ export function TraceStats({
   retries: number;
   llmCalls: number;
   llmCost: number;
+  /** 沒呼叫模型時的原因 */
+  llmNote: string;
 }) {
   const fails = calls.filter((c) => c.status === "failed").length;
   const sum = Math.max(1, steps.reduce((a, s) => a + s.ms, 0));
@@ -103,7 +106,7 @@ export function TraceStats({
           <CountUp to={llmCalls} />
           <em>次</em>
         </div>
-        <div className="bt-sub">{llmCalls > 0 ? `成本 US$${llmCost.toFixed(5)}` : "未設定金鑰，用離線替身判定"}</div>
+        <div className="bt-sub">{llmCalls > 0 ? `成本 US$${llmCost.toFixed(5)}` : llmNote}</div>
       </div>
     </div>
   );

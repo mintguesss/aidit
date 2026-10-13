@@ -12,7 +12,7 @@ import { numberValuesOf } from "@/lib/util/text";
  * 校對者從網頁改出來的內容，要過跟上傳草稿一樣的檢查，外加「改了數字，依據的原文裡要有這個數字」。
  */
 
-const DRAFT = "docs/review/fju-im-111.draft.json";
+const DRAFT = "tests/fixtures/rulepacks/fju-im-111.draft.json";
 const draft = JSON.parse(readFileSync(DRAFT, "utf8")) as Record<string, unknown>;
 const corpus = corpusFromFiles(draft);
 

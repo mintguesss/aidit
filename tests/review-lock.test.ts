@@ -19,7 +19,7 @@ let store: typeof import("@/lib/review/store");
 beforeAll(async () => {
   tmp = mkdtempSync(join(tmpdir(), "aidit-review-"));
   mkdirSync(join(tmp, "drafts"), { recursive: true });
-  copyFileSync("docs/review/fju-im-111.draft.json", join(tmp, "drafts", "fju-im-111.json"));
+  copyFileSync("tests/fixtures/rulepacks/fju-im-111.draft.json", join(tmp, "drafts", "fju-im-111.json"));
   // 草稿與校對紀錄的目錄在模組載入時決定，所以先設環境變數再載入
   vi.stubEnv("AIDIT_DATA_DIR", tmp);
   vi.resetModules();

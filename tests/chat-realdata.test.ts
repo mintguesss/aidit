@@ -222,7 +222,7 @@ describe("規定問答：畢業條件用關鍵字比、直接講規定（有模�
   const readPack = async () => {
     const { readFileSync } = await import("node:fs");
     const { zRulePack } = await import("@/lib/rules/schema");
-    return zRulePack.parse({ ...JSON.parse(readFileSync("docs/review/fju-im-111.draft.json", "utf8")), provenance: "approved", approvedBy: "t" });
+    return zRulePack.parse({ ...JSON.parse(readFileSync("tests/fixtures/rulepacks/fju-im-111.draft.json", "utf8")), provenance: "approved", approvedBy: "t" });
   };
   it("「英文畢業門檻是什麼」答英文能力的規定，不是最低畢業學分", async () => {
     const { answerRegulation } = await import("@/lib/chat/capabilities");

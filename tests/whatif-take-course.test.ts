@@ -10,7 +10,7 @@ import { parseIntent } from "@/lib/whatif/intent";
 
 /** 情境試算「如果我修了某門課」：大三結束的輔大學生，下學期 114-1 */
 
-const base = zRulePack.parse({ ...JSON.parse(readFileSync("docs/review/fju-im-111.draft.json", "utf8")), provenance: "approved", approvedBy: "t" });
+const base = zRulePack.parse({ ...JSON.parse(readFileSync("tests/fixtures/rulepacks/fju-im-111.draft.json", "utf8")), provenance: "approved", approvedBy: "t" });
 const rec = fixture("fju-im-111-year3").record;
 
 async function setup() {

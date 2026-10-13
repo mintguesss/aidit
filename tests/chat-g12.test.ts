@@ -26,7 +26,7 @@ import type { Plan } from "@/lib/types";
  * 用輔大大二結束的示範學生排 113-1，對話走離線規則（單元測試不連模型）。
  */
 
-const pack = zRulePack.parse({ ...JSON.parse(readFileSync("docs/review/fju-im-111.draft.json", "utf8")), provenance: "approved", approvedBy: "t" });
+const pack = zRulePack.parse({ ...JSON.parse(readFileSync("tests/fixtures/rulepacks/fju-im-111.draft.json", "utf8")), provenance: "approved", approvedBy: "t" });
 const rec = fixture("fju-im-111-year2").record;
 const audit = auditCredits({ record: rec, pack, traceId: "t", currentTerm: "112-2", nextTerm: "113-1" });
 const original = constraintSetFrom(preferencesOf(rec.preferences));

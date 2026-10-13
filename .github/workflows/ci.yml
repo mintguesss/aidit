@@ -25,7 +25,7 @@ jobs:
 
       # 相依套件稽核（TODO E9）。只看執行期相依、擋「critical」：
       # 目前已知一項 high（Next 內建的 postcss，只在建置時處理我們自己的 CSS），
-      # 要升 Next 16 才修得掉，見 docs/TODO.md E9。升完改成 --audit-level=high
+      # 要升 Next 16 才修得掉。升完改成 --audit-level=high
       - run: npm audit --omit=dev --audit-level=critical
 
       # 部署前最後一道：production build 真的建得起來

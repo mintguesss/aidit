@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src=".github/assets/logo.svg" alt="Aidit" width="96">
+
 # Aidit
 
 **會查證、會說「不知道」的修業規劃 Agent**

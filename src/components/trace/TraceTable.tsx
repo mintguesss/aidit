@@ -43,6 +43,7 @@ export function TraceTable({ trace }: { trace: Trace }) {
         retries={retries}
         llmCalls={trace.llm.calls}
         llmCost={trace.llm.costUsd}
+        llmNote={llmNote(trace)}
       />
 
       <TraceRows rows={rows} />
@@ -87,4 +88,17 @@ export function TraceTable({ trace }: { trace: Trace }) {
       </details>
     </section>
   );
+}
+
+/**
+ * 沒呼叫模型時說明原因。以前一律寫「未設定金鑰」，但正式站有金鑰、只是公告判斷沿用快取，
+ * 也會顯示成離線，看起來像系統沒接模型（2026-10-13 簡報截圖發現）。
+ */
+function llmNote(trace: { steps: { toolCalls: { name: string; output?: unknown }[] }[] }): string {
+  const rec = trace.steps.flatMap((s) => s.toolCalls).filter((c) => c.name === "rule.reconcile");
+  const out = rec.map((c) => (c.output ?? {}) as { cached?: boolean; mode?: string });
+  if (out.some((o) => o.mode === "offline")) return "未設定模型，用離線替身判定";
+  if (out.length > 0 && out.every((o) => o.cached)) return `公告判斷 ${out.length} 則都沿用先前的模型判斷（快取）`;
+  if (rec.length === 0) return "這次審查沒有需要模型判斷的公告";
+  return "沒有呼叫模型";
 }

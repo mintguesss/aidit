@@ -62,7 +62,7 @@ npm run dev          # http://localhost:3000
 |---|---|
 | 網站 | Vercel（Next.js），環境變數照 `.env.example` |
 | 資料庫 | Supabase，依序執行 `supabase/migrations/` |
-| 模型 | 預設 Claude Haiku 5.5；也可指向任何 OpenAI 相容端點（例如校內自架的 Ollama），設 `AIDIT_LLM_PROVIDER`、`AIDIT_LLM_BASE_URL` |
+| 模型 | 預設 Claude Haiku 5.5；也可指向任何 OpenAI 相容端點，設 `AIDIT_LLM_PROVIDER`、`AIDIT_LLM_BASE_URL` |
 | 校對頁密碼 | `npx tsx scripts/set-review-password.ts` |
 
 ## 怎麼保證不亂算

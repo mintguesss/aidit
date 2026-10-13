@@ -173,7 +173,7 @@ export async function planTurn(
   if (rules.kind === "forbidden") {
     // 模型沒擋就補擋；模型也擋了但理由不同，採用規則的理由 ——
     // 理由決定轉介到哪裡：說壓力大睡不著的學生該被指向輔導中心，
-    // 不是被告知「只能存取你本人的修課紀錄」（實測 qwen3:14b 就這樣回過）
+    // 不是被告知「只能存取你本人的修課紀錄」（實測 自架小模型 就這樣回過）
     if (intent.kind !== "forbidden" || intent.topic !== rules.topic) tools.push("rule.forbidden");
     intent = rules;
   } else if (intent.kind === "out-of-scope" && rules.kind === "intent") {
@@ -246,7 +246,7 @@ export async function planTurn(
     return { reply: outOfScope("這不在系統能力範圍內。", "請洽系辦公室。"), tools, intent: "out-of-scope", clarifying: false };
   }
 
-  // 模型留空的欄位，規則從原句抽得到就補上。實測 qwen3:14b 對「不要早上的課」
+  // 模型留空的欄位，規則從原句抽得到就補上。實測 自架小模型 對「不要早上的課」
   // 只填 avoidEarly、avoidMorning 留空 —— 有生效的變更，下面「沒變更才改用規則」接不到，
   // 結果只排掉早八，使用者要的整個早上沒做到。只補留空的，模型填了的不覆蓋；
   // 規則抽到的都是原句字面上的條件，補上不會多做使用者沒說的事
@@ -267,7 +267,7 @@ export async function planTurn(
   if (intent.params.dropCategory) {
     const d = intent.params.dropCategory;
     const t = raw.replace(/\s/g, "");
-    // 數量也要原句有：實測 qwen3:14b 對「通識拿掉」填 count="all"，沒問就整類不排了
+    // 數量也要原句有：實測 自架小模型 對「通識拿掉」填 count="all"，沒問就整類不排了
     const count =
       d.count === "all" ? (DROP_ALL_CUE.test(t) ? "all" : null)
       : d.count !== null && !/[\d一二兩三四五六][堂門個]/.test(t) && !(intent.params.replace && /換成|改成/.test(t)) ? null
@@ -627,7 +627,7 @@ export async function askTurn(
   if (rules.kind === "forbidden") {
     // 模型沒擋就補擋；模型也擋了但理由不同，採用規則的理由 ——
     // 理由決定轉介到哪裡：說壓力大睡不著的學生該被指向輔導中心，
-    // 不是被告知「只能存取你本人的修課紀錄」（實測 qwen3:14b 就這樣回過）
+    // 不是被告知「只能存取你本人的修課紀錄」（實測 自架小模型 就這樣回過）
     if (intent.kind !== "forbidden" || intent.topic !== rules.topic) tools.push("rule.forbidden");
     intent = rules;
   } else if (intent.kind === "out-of-scope" && rules.kind === "intent") {
@@ -678,7 +678,7 @@ export async function askTurn(
     !tools.includes("rule.other-institution") &&
     mentionsGraduationCheck(forRules, ctx.pack)
   ) {
-    // 實測 qwen3:14b 把「英文要考到多少才能畢業」「程式語言機測是什麼」判成超出範圍，
+    // 實測 自架小模型 把「英文要考到多少才能畢業」「程式語言機測是什麼」判成超出範圍，
     // 規則的通用關鍵字也認不得系自訂的條件名稱；原句講到本系的畢業條件就當規定問題查
     intent = { kind: "intent", intent: "regulation", params: { topic: forRules, raw: lastUser(messages) } };
     tools.push("rule.fallback");
@@ -711,13 +711,13 @@ export async function askTurn(
       if (/待確認|轉人工|待審|無法判定的/.test(p.raw)) {
         return { reply: answerHolds(ctx.audit), tools, intent: intent.intent, clarifying: false };
       }
-      // 類別必須是使用者自己說出口的。實測 qwen3:14b 對「我還差幾學分畢業？」
+      // 類別必須是使用者自己說出口的。實測 自架小模型 對「我還差幾學分畢業？」
       // 把 schema 的意圖名稱 "personal-audit" 填進 category，程式拿去查類別、
       // 查不到，就把模型吐的字串原封不動顯示成「查無「personal-audit」這個類別」。
       // 原句裡找不到的類別一律視為模型自己編的，直接忽略，改答整體進度；
       // 使用者真的問了某個不存在的類別（例如「體育學分夠嗎」）仍會走「查無」。
       return {
-        // 模型的類別被擋下時，改用規則從原句抽到的類別。實測 qwen3:14b 對「通識還差多少」
+        // 模型的類別被擋下時，改用規則從原句抽到的類別。實測 自架小模型 對「通識還差多少」
         // 三次都把意圖名稱 "personal-audit" 填進 category —— 擋下是對的，但擋下後
         // 不該退回整體進度，使用者明明說了「通識」。
         reply: answerPersonalAudit(
@@ -1008,7 +1008,7 @@ export function spokenCategory(category: string | null | undefined, raw: string)
  * 模型呼叫失敗時退回規則式解析，而不是整輪回「這次沒能處理你的問題」。
  *
  * llm/client 的 structured() 驗證失敗會重試一次，仍失敗就拋錯，規格寫的是
- * 「由呼叫端降級」。實測家用主機上另一個程式佔用顯卡時，qwen3:14b 連續十個請求
+ * 「由呼叫端降級」。實測家用主機上另一個程式佔用顯卡時，自架小模型 連續十個請求
  * 都卡滿 30 秒逾時 —— 規則明明就在旁邊答得出來，整個對話卻不能用。
  * 呼叫預算用完仍照常往外拋，由 API 回 429：那是這一輪問得太多，不是模型壞了。
  * 退回時在 tools 記一筆 rule.degraded，trace 看得出這一輪沒用到模型。
@@ -1027,7 +1027,7 @@ async function orRules<T>(call: Promise<T>, rules: () => T, tools: string[]): Pr
  * 先用模型抽的關鍵詞查，查不到再用使用者原句查。
  *
  * 模型的關鍵詞是為了涵蓋規則想不到的說法，不該反過來讓查得到的變查不到：
- * 實測 qwen3:14b 對「抵免要怎麼申請？」抽出的關鍵詞查無流程，原句一查就有。
+ * 實測 自架小模型 對「抵免要怎麼申請？」抽出的關鍵詞查無流程，原句一查就有。
  */
 function lookup(keyword: string | undefined, raw: string, answer: (q: string) => Reply): Reply {
   const first = answer(keyword ?? raw);
@@ -1039,7 +1039,7 @@ function lookup(keyword: string | undefined, raw: string, answer: (q: string) =>
 /**
  * 模型判成「他校事務」、但句子裡根本沒有別的學校（TODO G3）。
  *
- * 實測 qwen3:14b 對「今天天氣如何」拒絕時套用「他校事務」的說法，轉介到錯的單位；
+ * 實測 自架小模型 對「今天天氣如何」拒絕時套用「他校事務」的說法，轉介到錯的單位；
  * 模型也不知道學生讀哪一所，輔大學生問「輔大的規定」會被它當成問別校。
  * 「他校」是看得到證據的：句子裡要有別的學校的名字（自己學校的稱呼已換成「本校」）。
  * 規則找不到 —— 規則看得懂這句話就照規則走；看不懂就是一般的超出範圍。

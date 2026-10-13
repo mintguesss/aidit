@@ -85,7 +85,7 @@ describe("模型留空的欄位由規則補上", () => {
     const merged = fillEmpty({ a: true, b: null, c: [] as number[] }, { a: false, b: true, c: [1] });
     expect(merged).toEqual({ a: true, b: true, c: [1] });
   });
-  it("模型填 false 也算留空：qwen3:14b 對「不要早上的課」會填 avoidEarly true、avoidMorning false", () => {
+  it("模型填 false 也算留空：自架小模型 對「不要早上的課」會填 avoidEarly true、avoidMorning false", () => {
     const merged = fillEmpty({ avoidEarly: true, avoidMorning: false }, { avoidEarly: null, avoidMorning: true });
     expect(merged).toEqual({ avoidEarly: true, avoidMorning: true });
   });

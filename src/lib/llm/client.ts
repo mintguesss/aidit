@@ -20,7 +20,7 @@ import type { LlmUsage } from "@/lib/types";
 /**
  * 模型與供應商。
  *
- * 兩條路：Anthropic 官方 API，或任何 OpenAI 相容端點（Ollama、vLLM、Groq、
+ * 兩條路：Anthropic 官方 API，或任何 OpenAI 相容端點（vLLM、Groq、
  * OpenRouter 都是這個形狀）。預設維持 Anthropic，不設任何東西時行為完全不變。
  *
  * 為什麼要能換：離線替身永遠回傳完美形狀，所以它從來沒有測到
@@ -61,7 +61,7 @@ function resolveConfig(): LlmConfig {
       throw new Error("AIDIT_LLM_PROVIDER=openai-compatible 需要同時設定 AIDIT_LLM_BASE_URL。");
     }
     if (!want) {
-      throw new Error("AIDIT_LLM_PROVIDER=openai-compatible 需要同時設定 AIDIT_LLM_MODEL（例如 qwen3:14b）。");
+      throw new Error("AIDIT_LLM_PROVIDER=openai-compatible 需要同時設定 AIDIT_LLM_MODEL（端點上的模型名稱）。");
     }
     return {
       provider,
@@ -86,7 +86,7 @@ function resolveConfig(): LlmConfig {
   }
   // 用 || 而不是 ??：.env 裡留空會得到空字串，而空字串不是 nullish
   // 預設 Sonnet：模型只做意圖解析與公告適用判斷（短輸入、短輸出、照 schema 回答），不需要最強的推理
-  const model = (want || "claude-sonnet-5-5") as keyof typeof ANTHROPIC_MODELS;
+  const model = (want || "claude-haiku-5-5") as keyof typeof ANTHROPIC_MODELS;
   const spec = ANTHROPIC_MODELS[model];
   return {
     provider,
@@ -130,12 +130,12 @@ export const LLM_TIMEOUT_MS = (() => {
 /**
  * openai-compatible 端點的推理強度（reasoning_effort），未設定就不送這個欄位。
  *
- * 為什麼需要：qwen3 這類思考型模型預設會先想一大段再輸出。實測 qwen3:14b 在
+ * 為什麼需要：思考型模型預設會先想一大段再輸出。實測 自架小模型 在
  * 家用主機上一次意圖解析要 14 秒、先想 466 字，常常超過 30 秒逾時；
  * 送 reasoning_effort=none 之後同一題 1.2 秒、思考 0 字，輸出相同。
  * 意圖解析只是分類加抽參數，用不到長鏈推理。
  *
- * 為什麼要設定才送：這是廠商相關的欄位。Ollama 認 none，別的端點可能只認
+ * 為什麼要設定才送：這是廠商相關的欄位。部分端點認 none，別的端點可能只認
  * low/medium/high 或直接拒絕，所以不能預設帶上。
  */
 export const LLM_REASONING_EFFORT = (() => {
@@ -267,7 +267,7 @@ async function callAnthropic<S extends z.ZodType>(req: StructuredRequest<S>): Pr
 }
 
 /**
- * OpenAI 相容端點（Ollama、vLLM、Groq、OpenRouter…）。
+ * OpenAI 相容端點（vLLM、Groq、OpenRouter…）。
  *
  * 用 fetch 而不是裝 openai 套件：這裡只需要 chat/completions 一條路徑，
  * 多一個相依就多一組要跟的版本。
@@ -282,7 +282,7 @@ async function callOpenAiCompatible<S extends z.ZodType>(
     method: "POST",
     headers: {
       "content-type": "application/json",
-      // Ollama 不檢查，但 Groq／OpenRouter 要
+      // 本機端點不檢查，但 Groq／OpenRouter 要
       ...(LLM.apiKey ? { authorization: `Bearer ${LLM.apiKey}` } : {}),
     },
     body: JSON.stringify({

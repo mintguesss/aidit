@@ -53,7 +53,7 @@ export async function GET() {
       // false = 走確定性替身。Vercel 公開 demo 刻意維持 false
       available: llmAvailable(),
       timeoutMs: LLM_TIMEOUT_MS,
-      // 思考型模型（qwen3 等）沒設 none 時一次解析要十幾秒，常逾時
+      // 思考型模型沒設 none 時一次解析要十幾秒，常逾時
       reasoningEffort: LLM_REASONING_EFFORT ?? null,
     },
     traceSecret: traceSecretSet ? "set" : "dev-default（正式部署必須改掉）",

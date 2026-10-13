@@ -11,7 +11,7 @@ import type { CourseRecord, StudentRecord } from "@/lib/types";
  * 以及 A6 的回覆：規劃表畫在系選修框外的兩門課，不算那 10 學分系專選。
  */
 
-const DRAFT = "docs/review/fju-im-111.draft.json";
+const DRAFT = "tests/fixtures/rulepacks/fju-im-111.draft.json";
 const draft = JSON.parse(readFileSync(DRAFT, "utf8")) as Record<string, unknown>;
 
 describe("A6：系選修框外的兩門課", () => {

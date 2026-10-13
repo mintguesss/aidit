@@ -14,7 +14,7 @@ import { loadCorpus } from "@/lib/rules/loader";
  * 113（含）前入學生修永續素養領域的課，採計要看抵認對照表 → 轉待確認。
  */
 
-const pack = zRulePack.parse({ ...JSON.parse(readFileSync("docs/review/fju-im-111.draft.json", "utf8")), provenance: "approved", approvedBy: "t" });
+const pack = zRulePack.parse({ ...JSON.parse(readFileSync("tests/fixtures/rulepacks/fju-im-111.draft.json", "utf8")), provenance: "approved", approvedBy: "t" });
 const rec = fixture("fju-im-111-year3").record;
 
 async function reconciled() {

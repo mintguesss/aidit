@@ -13,7 +13,7 @@ import { offeringsFor } from "@/lib/offerings";
  */
 
 const pack = zRulePack.parse({
-  ...JSON.parse(readFileSync("docs/review/fju-im-111.draft.json", "utf8")),
+  ...JSON.parse(readFileSync("tests/fixtures/rulepacks/fju-im-111.draft.json", "utf8")),
   provenance: "approved",
   approvedBy: "測試",
 });

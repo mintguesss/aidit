@@ -17,8 +17,8 @@ import { classAllows, classProfileOf } from "@/lib/offerings/class-group";
  */
 
 const read = (f: string) => zRulePack.parse({ ...JSON.parse(readFileSync(f, "utf8")), provenance: "approved", approvedBy: "t" });
-const pack = read("docs/review/fju-phoe-112.draft.json");
-const im = read("docs/review/fju-im-111.draft.json");
+const pack = read("tests/fixtures/rulepacks/fju-phoe-112.draft.json");
+const im = read("tests/fixtures/rulepacks/fju-im-111.draft.json");
 const rec = fixture("fju-phoe-112-year3").record;
 const audit = (p = pack) =>
   auditCredits({ record: rec, pack: p, traceId: "t", currentTerm: "114-2", nextTerm: "115-1", activeCourseCodes: activeCourseCodes() });

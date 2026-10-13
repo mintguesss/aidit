@@ -9,7 +9,7 @@ import { categoriesFor, offeringsFor } from "@/lib/offerings";
  * 實際發生過：線上用鎖版的 v0.6，開課資料是照 v0.7 產的，排課說「本系專業選修找不到課」。
  */
 
-const draft = JSON.parse(readFileSync("docs/review/fju-im-111.draft.json", "utf8")) as Record<string, unknown>;
+const draft = JSON.parse(readFileSync("tests/fixtures/rulepacks/fju-im-111.draft.json", "utf8")) as Record<string, unknown>;
 const v07 = zRulePack.parse({ ...draft, provenance: "approved", approvedBy: "測試" });
 
 // v0.6 的結構：本系專業選修 10、其他選修 22 兩個類別

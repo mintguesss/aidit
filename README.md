@@ -6,7 +6,6 @@
 
 畢業審查 · 選課建議 · 情境試算 · 修業問答
 
-[![CI](https://github.com/mintguesss/aidit/actions/workflows/ci.yml/badge.svg)](https://github.com/mintguesss/aidit/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)

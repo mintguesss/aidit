@@ -227,7 +227,7 @@ npx tsx scripts/push-draft.ts ...                                               
 | 校對頁無法登入 | 正式部署要先設密碼：`npx tsx scripts/set-review-password.ts` |
 | `/api/cron/purge` 回 401 | 沒設 `CRON_SECRET`；Vercel 排程要設這個變數才會清除過期資料 |
 | 自架模型常逾時 | 思考型模型設 `AIDIT_LLM_REASONING_EFFORT=none`，或加大 `AIDIT_LLM_TIMEOUT_MS` |
-| 比賽現場網路不穩 | 不設模型金鑰會走確定性替身，審查與排課都能離線展示，但對話只聽得懂直接的說法 |
+| 比賽現場網路不穩 | 不設模型金鑰會走確定性替身，對話只聽得懂直接的說法。真實案例的規則包在資料庫，仍要連得上 Supabase；完全沒網路時只能展示合成案例（`?fixture=demo`） |
 
 ## 已知限制
 

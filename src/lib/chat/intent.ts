@@ -878,7 +878,9 @@ function offlineAskIntent(raw: string): z.infer<typeof zAskIntent> {
 
   if (/幫我排|排課|排下學期|課表怎麼排/.test(t)) return { ...base, intent: "plan" };
 
-  if (/可以流用|能不能流用|規定|學則|規劃表|要修?幾學分|總共.{0,4}幾學分|最低.{0,3}學分|上限|下限|幾學分才能|領域/.test(t)) {
+  // 「我還差幾學分才能畢業」問的是本人進度，不是規定（2026-11-04 模型失敗時實測答成最低畢業學分）
+  const asksOwnGap = /還差|還缺|差多少/.test(t);
+  if (!asksOwnGap && /可以流用|能不能流用|規定|學則|規劃表|要修?幾學分|總共.{0,4}幾學分|最低.{0,3}學分|上限|下限|幾學分才能|領域/.test(t)) {
     return { ...base, intent: "regulation", topic: t };
   }
 

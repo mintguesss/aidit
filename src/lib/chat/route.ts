@@ -1019,8 +1019,32 @@ async function orRules<T>(call: Promise<T>, rules: () => T, tools: string[]): Pr
   } catch (err) {
     if (err instanceof LlmBudgetExceeded) throw err;
     tools.push("rule.degraded");
+    // 對話照常回覆，從外面看不出模型壞了；額度用完時整站都會這樣，部署紀錄要查得到原因。
+    // 只記模型服務的錯誤訊息，不含使用者原文。
+    console.warn(`[chat] 模型呼叫失敗，退回規則：${String(err).slice(0, 200)}`);
     return rules();
   }
+}
+
+/**
+ * 模型失敗、規則也看不懂時，不要說「不在系統能力範圍內」。
+ *
+ * 2026-11-04 額度用完時，正式站把「課可以排緊一點嗎」回成超出範圍：那是系統這次沒看懂，
+ * 不是系統做不到，學生會以為這件事不能問。拒答（forbidden）的 intent 不同，不受影響。
+ */
+export function admitDegraded(turn: TurnResult): TurnResult {
+  if (turn.intent !== "out-of-scope" || !turn.tools.includes("rule.degraded")) return turn;
+  return {
+    ...turn,
+    reply: {
+      kind: "不確定",
+      headline: "這句話我這次沒看懂：語意理解暫時無法使用。",
+      detail: "請換個直接的說法再試一次，例如「不要早八」「星期五不要排課」「我還差幾學分」。",
+      searched: ["規則解析"],
+      contact: "系辦公室",
+      citations: [],
+    },
+  };
 }
 
 /**

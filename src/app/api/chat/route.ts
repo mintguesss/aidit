@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuditSession } from "@/lib/audit/session";
 import { parsePageParams } from "@/lib/ui/params";
 import { resolveRulePack } from "@/lib/rules/loader";
-import { askTurn, planTurn, type TurnContext } from "@/lib/chat/route";
+import { admitDegraded, askTurn, planTurn, type TurnContext } from "@/lib/chat/route";
 import { constraintSetFrom, describeSet, preferencesOf, sanitiseConstraintSet, periodNamesFor } from "@/lib/chat/apply";
 import { render } from "@/lib/chat/compose";
 import { isCourseCode } from "@/lib/courses/code";
@@ -101,7 +101,7 @@ export async function POST(req: Request) {
 
   let turn;
   try {
-    turn = scope === "plan" ? await planTurn(messages, ctx, budget) : await askTurn(messages, ctx, budget);
+    turn = admitDegraded(scope === "plan" ? await planTurn(messages, ctx, budget) : await askTurn(messages, ctx, budget));
   } catch (err) {
     if (err instanceof LlmBudgetExceeded) {
       return NextResponse.json(
@@ -138,12 +138,20 @@ export async function POST(req: Request) {
       `意圖 ${turn.intent}；回答類型「${turn.reply.kind}」；` +
       `呼叫 ${turn.tools.join("、")}` +
       (turn.clarifying ? "；向使用者提問" : "") +
-      `；LLM ${budget.usage.calls} 次` +
+      // 資料庫的 traces 表沒有 token 欄位，查回來時是 0；要能查核就記在摘要裡
+      `；LLM ${budget.usage.calls} 次（輸入 ${budget.usage.inputTokens}／輸出 ${budget.usage.outputTokens} tokens）` +
       // 模型推測、但使用者沒說出口而被擋下的參數。只記參數描述，不含使用者原文
       (turn.plan?.refusedParams?.length ? `；擋下未說出口的參數：${turn.plan.refusedParams.join("、")}` : ""),
     retries: 0,
     ms: Date.now() - started,
-    toolCalls: turn.tools.map((name) => ({ name, input: null, output: null, ms: 0, status: "ok" as const })),
+    // 只記介面、意圖與回答類型，不記使用者原文與回覆內容。各工具的耗時沒有分開量，總耗時看 step.ms
+    toolCalls: turn.tools.map((name) => ({
+      name,
+      input: { scope },
+      output: name === "chat.intent" ? { intent: turn.intent, clarifying: turn.clarifying } : { replyKind: turn.reply.kind },
+      ms: 0,
+      status: "ok" as const,
+    })),
   });
 
   const t = trace.finish({

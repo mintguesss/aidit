@@ -17,7 +17,7 @@ vi.mock("@/lib/chat/intent", async (orig) => {
 });
 
 import { parseAskIntent, parsePlanIntent, type AskIntentResult, type PlanIntentResult, type PlanParams } from "@/lib/chat/intent";
-import { askTurn, planTurn, spokenCategory, type TurnContext } from "@/lib/chat/route";
+import { admitDegraded, askTurn, planTurn, spokenCategory, type TurnContext } from "@/lib/chat/route";
 import { runAudit } from "@/lib/agent/runner";
 import { constraintSetFrom, preferencesOf } from "@/lib/chat/apply";
 import { resolveRulePack } from "@/lib/rules/loader";
@@ -334,6 +334,43 @@ describe("模型呼叫失敗時退回規則，不讓整輪失敗", () => {
     );
     expect(r.reply.headline).toMatch(/還差 \d+ 學分/);
     expect(r.tools).toContain("rule.degraded");
+  });
+
+  it("模型失敗時「我還差幾學分才能畢業」答本人進度，不是規定", async () => {
+    vi.mocked(parseAskIntent).mockRejectedValueOnce(timeout);
+    const r = await askTurn(
+      [{ role: "user", content: "我還差幾學分才能畢業？" }],
+      { ...base, constraints: { ...base.constraints } },
+      new LlmBudget(LIMITS.llmCallsPerTurn),
+    );
+    expect(r.reply.headline).toMatch(/還差 \d+ 學分/);
+  });
+
+  it("模型失敗、規則也看不懂 → 承認這次沒看懂，不說做不到", async () => {
+    vi.mocked(parsePlanIntent).mockRejectedValueOnce(timeout);
+    const r = admitDegraded(await planTurn(
+      [{ role: "user", content: "課可以排緊一點嗎" }],
+      { ...base, constraints: { ...base.constraints } },
+      new LlmBudget(LIMITS.llmCallsPerTurn),
+    ));
+    expect(r.reply.kind).toBe("不確定");
+    expect(r.reply.headline).toContain("沒看懂");
+  });
+
+  it("模型正常時的超出範圍不受影響", () => {
+    const turn = {
+      reply: { kind: "超出範圍", headline: "這不在系統能力範圍內。", contact: "系辦", citations: [] },
+      tools: ["chat.intent"], intent: "out-of-scope", clarifying: false,
+    } as Parameters<typeof admitDegraded>[0];
+    expect(admitDegraded(turn)).toBe(turn);
+  });
+
+  it("模型失敗時的拒答不受影響", () => {
+    const turn = {
+      reply: { kind: "超出範圍", headline: "不預測成績。", contact: "系辦", citations: [] },
+      tools: ["chat.intent", "rule.degraded"], intent: "forbidden:grade-prediction", clarifying: false,
+    } as Parameters<typeof admitDegraded>[0];
+    expect(admitDegraded(turn)).toBe(turn);
   });
 
   it("呼叫預算用完不是模型壞了，照常往外拋", async () => {

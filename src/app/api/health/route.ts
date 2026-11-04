@@ -50,8 +50,9 @@ export async function GET() {
     llm: {
       provider: LLM.provider,
       model: MODEL_LABEL,
-      // false = 走確定性替身。Vercel 公開 demo 刻意維持 false
-      available: llmAvailable(),
+      // false = 走確定性替身。true 只代表有設定，不代表金鑰有效或額度夠：
+      // 這條路徑是公開的，不在這裡花錢呼叫模型。實際通不通用 `npm run smoke`
+      configured: llmAvailable(),
       timeoutMs: LLM_TIMEOUT_MS,
       // 思考型模型沒設 none 時一次解析要十幾秒，常逾時
       reasoningEffort: LLM_REASONING_EFFORT ?? null,

@@ -10,8 +10,6 @@ import { fixture, type FixtureId } from "@/lib/providers/fixtures";
  */
 
 export const MANUAL_LIMIT_MS = 15 * 60_000;
-/** 網路與自動交卷的時間差，不算超時 */
-const OVERTIME_GRACE_MS = 10_000;
 
 export type TaskId = "t1" | "t2" | "t3";
 export const TASK_IDS: TaskId[] = ["t1", "t2", "t3"];
@@ -220,7 +218,8 @@ export function applyAction(s: TrialSession, a: TrialAction, now: number): { ok:
       s.manual.endedAt = now;
       s.manual.answer = a.answer;
       s.manual.gaveUp = a.gaveUp;
-      s.manual.timedOut = now - s.manual.startedAt > MANUAL_LIMIT_MS - OVERTIME_GRACE_MS;
+      // 自動交卷用伺服器時間倒數，送達時一定已滿 15 分鐘，不需要容許值
+      s.manual.timedOut = now - s.manual.startedAt >= MANUAL_LIMIT_MS;
       return { ok: true };
     case "task.start": {
       if (s.tasks[a.task].startedAt) return { ok: true };

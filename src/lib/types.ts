@@ -250,6 +250,8 @@ export type GraduationCheck = {
   declarable?: boolean;
   /** 目前的「通過」來自學生自行勾選，系統未查核 */
   selfDeclared?: boolean;
+  /** 規則包記載的承辦單位 */
+  contact?: string;
 };
 
 /** 學生對畢業條件的自行勾選。只用在學校資料看不出來的條件上 */

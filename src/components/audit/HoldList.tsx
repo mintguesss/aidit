@@ -29,11 +29,14 @@ export function HoldList({
   holds,
   contactSubject,
   scope = "",
+  school,
 }: {
   holds: HoldItem[];
   contactSubject: string;
   /** 進度存放的區隔（案例代號），不同案例的同一則不會互相覆蓋 */
   scope?: string;
+  /** 學校代號：決定用哪一份通訊錄，真實案例不會拿到合成的聯絡方式 */
+  school?: string;
 }) {
   const [steps, setSteps] = useState<Record<string, Step>>({});
   const [open, setOpen] = useState<string | null>(null);
@@ -97,6 +100,7 @@ export function HoldList({
           <HoldCard
             key={h.id}
             h={h}
+            school={school}
             n={i + 1}
             step={steps[h.id] ?? "todo"}
             open={open === h.id}
@@ -109,6 +113,7 @@ export function HoldList({
 
       <LetterModal
         h={letterOf}
+        school={school}
         subject={contactSubject}
         onClose={() => setLetterOf(null)}
         onSent={() => {
@@ -121,6 +126,7 @@ export function HoldList({
 
 function HoldCard({
   h,
+  school,
   n,
   step,
   open,
@@ -129,6 +135,7 @@ function HoldCard({
   onLetter,
 }: {
   h: HoldItem;
+  school?: string;
   n: number;
   step: Step;
   open: boolean;
@@ -136,7 +143,7 @@ function HoldCard({
   onStep: (s: Step) => void;
   onLetter: () => void;
 }) {
-  const c = contactOf(h.contact);
+  const c = contactOf(h.contact, school);
   const bodyId = `hold-bd-${h.id}`;
 
   return (
@@ -196,9 +203,10 @@ function HoldCard({
 
           {c ? (
             <div className="hcard-sec hcard-contact">
-              <a href={`mailto:${c.email}`}>{c.email}</a>
+              {c.email ? <a href={`mailto:${c.email}`}>{c.email}</a> : null}
               {c.phone ? <span>{c.phone}</span> : null}
               {c.hours ? <span>{c.hours}</span> : null}
+              {c.note ? <span>{c.note}</span> : null}
             </div>
           ) : null}
         </div>
@@ -234,18 +242,20 @@ function HoldCard({
 /** 詢問信：預先寫好，可以改了再寄；按寄出會順手把進度標成「已寄信」 */
 function LetterModal({
   h,
+  school,
   subject,
   onClose,
   onSent,
 }: {
   h: HoldItem | null;
+  school?: string;
   subject: string;
   onClose: () => void;
   onSent: () => void;
 }) {
   const [text, setText] = useState("");
   const [copied, setCopied] = useState(false);
-  const c = h ? contactOf(h.contact) : null;
+  const c = h ? contactOf(h.contact, school) : null;
 
   useEffect(() => {
     if (!h) return;
@@ -282,7 +292,7 @@ function LetterModal({
         <div className="letter">
           <div className="letter-row">
             <span className="letter-k">收件</span>
-            <span>{c ? c.email : "通訊錄查無此窗口的信箱，請以系上公告為準"}</span>
+            <span>{c?.email ?? (c?.note ? `${c.note}，此處只提供信件範本` : "通訊錄查無此窗口的信箱，請以系上公告為準")}</span>
           </div>
           <div className="letter-row">
             <span className="letter-k">主旨</span>
@@ -293,7 +303,7 @@ function LetterModal({
             <button type="button" className="btn" onClick={copy}>
               {copied ? "已複製" : "複製全文"}
             </button>
-            {c ? (
+            {c?.email ? (
               <a
                 className="btn btn-primary"
                 href={`mailto:${c.email}?subject=${encodeURIComponent(h.title)}&body=${encodeURIComponent(text)}`}

@@ -76,7 +76,7 @@ export function answerHolds(audit: AuditResult): Reply {
   const NL = String.fromCharCode(10);
   const lines = [
     ...audit.holds.map((h) => `${h.title}：${h.reason ?? h.body}${h.impact ? `（${h.impact}）` : ""}　洽詢：${h.contact}`),
-    ...checks.map((g) => `${g.name}：${g.detail}　修課紀錄看不出是否通過，請自行確認或洽承辦單位。`),
+    ...checks.map((g) => `${g.name}：${g.detail}　洽詢：${g.contact ?? "承辦單位"}`),
   ];
   return {
     kind: "決定",

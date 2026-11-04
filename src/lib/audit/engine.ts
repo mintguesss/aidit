@@ -705,7 +705,7 @@ function withDeclaration(c: GraduationCheck, declarations: Declarations | undefi
 
 function officialChecks(input: AuditInput, pack: RulePack, holds: HoldItem[]): GraduationCheck[] {
   const evidence = input.record.graduationEvidence ?? {};
-  return pack.graduationChecks.map((g) => {
+  const checkOf = (g: RulePack["graduationChecks"][number]): GraduationCheck => {
     const citations = [toCitation(g.citation, pack)];
     if (g.rule === "deptDefined") {
       const r = input.deptDefinedResolutions?.[g.id];
@@ -724,7 +724,8 @@ function officialChecks(input: AuditInput, pack: RulePack, holds: HoldItem[]): G
     }
     if (g.rule === "passedCourse") return toCourseCheck(g, input.record.courses, citations);
     return toEvidenceCheck(g.id, g.name, evidence[g.id], undefined, citations);
-  });
+  };
+  return pack.graduationChecks.map((g) => ({ ...checkOf(g), contact: g.contact }));
 }
 
 /**

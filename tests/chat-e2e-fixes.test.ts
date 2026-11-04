@@ -19,6 +19,8 @@ vi.mock("@/lib/chat/intent", async (orig) => {
 import { cleanDept, parseAskIntent, parsePlanIntent, ruleAskIntent, safeQuestion, type AskIntentResult } from "@/lib/chat/intent";
 import { askTurn, planTurn, type TurnContext } from "@/lib/chat/route";
 import { answerHolds } from "@/lib/chat/capabilities";
+import { pendingChecksAsHolds } from "@/lib/audit/pending";
+import { contactOf } from "@/lib/rules/contacts";
 import { runAudit } from "@/lib/agent/runner";
 import { constraintSetFrom, preferencesOf } from "@/lib/chat/apply";
 import { resolveRulePack } from "@/lib/rules/loader";
@@ -162,7 +164,7 @@ describe("被上一輪帶偏：這句話沒提到情境就照這句話答", () =
     const check = { id: "g1", name: "英文能力", status: "hold" as const, label: "待確認", detail: "成績單沒有紀錄。", citations: [] };
     const r = answerHolds({ ...base.audit, holds: [], graduationChecks: [check] });
     expect(r.headline).toBe("有 1 項待確認：英文能力");
-    expect(r.detail).toContain("洽承辦單位");
+    expect(r.detail).toContain("洽詢：承辦單位");
     expect(r.uncountedHolds).toBeUndefined();
     expect(answerHolds({ ...base.audit, holds: [], graduationChecks: [] }).headline).toBe("目前沒有待確認事項。");
   });
@@ -175,6 +177,29 @@ describe("被上一輪帶偏：這句話沒提到情境就照這句話答", () =
 
   it("提到試算情境的不攔，照原本的判斷", () => {
     expect(ruleIntentName("如果我轉系有哪些待確認")).not.toBe("personal-audit");
+  });
+});
+
+describe("待確認卡片的聯絡方式", () => {
+  it("畢業條件待確認轉成卡片，帶規則包記載的單位", () => {
+    const check = { id: "english", name: "英文能力", status: "hold" as const, label: "待確認", detail: "無佐證。", citations: [], contact: "資訊管理學系辦公室" };
+    const [h] = pendingChecksAsHolds({ ...base.audit, holds: [], graduationChecks: [check] });
+    expect(h).toMatchObject({ id: "check-english", title: "英文能力待確認", contact: "資訊管理學系辦公室", reason: "無佐證。" });
+  });
+
+  it("真實學校不會拿到合成的信箱和電話，也不提供信箱", () => {
+    const real = contactOf("資訊管理學系辦公室", "fju");
+    expect(real?.phone).toBe("(02) 2905-2666");
+    expect(real?.email).toBeUndefined();
+    expect(real?.note).toContain("請勿實際聯絡");
+    expect(JSON.stringify(real)).not.toContain("example.edu.tw");
+    expect(contactOf("註冊組", "fju")).toBeUndefined();
+    expect(contactOf("註冊組", "某校")).toBeUndefined();
+  });
+
+  it("合成案例照舊用合成通訊錄", () => {
+    expect(contactOf("系辦公室")?.email).toContain("example.edu.tw");
+    expect(contactOf("系辦公室", "demo")?.email).toContain("example.edu.tw");
   });
 });
 

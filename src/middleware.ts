@@ -13,9 +13,11 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const WINDOW_MS = 60_000;
 const LIMITS: { prefix: string; max: number }[] = [
-  { prefix: "/api/chat", max: 15 },
-  { prefix: "/api/whatif", max: 15 },
-  { prefix: "/api/plan", max: 30 },
+  // 學生試用時十幾個人共用教室的對外 IP，每分鐘 15 次會互相擋。
+  // 每輪約 US$0.0005，同一 IP 一個執行個體滿載一小時約 US$1.8，仍擋得住失控迴圈
+  { prefix: "/api/chat", max: 60 },
+  { prefix: "/api/whatif", max: 60 },
+  { prefix: "/api/plan", max: 60 },
   { prefix: "/api/review", max: 30 },
   { prefix: "/api/declarations", max: 30 },
   { prefix: "/api/preferences", max: 30 },

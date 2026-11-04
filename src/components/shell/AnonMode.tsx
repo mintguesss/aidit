@@ -34,7 +34,7 @@ export function AnonMode() {
         }
       };
       const fixAttrs = (el: Element) => {
-        if (el instanceof HTMLAnchorElement) {
+        if (el instanceof HTMLAnchorElement && !kept(el)) {
           const href = el.getAttribute("href");
           if (href && anonUrl(href) !== href) el.setAttribute("href", anonUrl(href));
           if (href && ANON_BLOCKED_HREF.test(href)) {

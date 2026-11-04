@@ -20,6 +20,8 @@ const LIMITS: { prefix: string; max: number }[] = [
   { prefix: "/api/declarations", max: 30 },
   { prefix: "/api/preferences", max: 30 },
   { prefix: "/api/rulepack", max: 10 },
+  // 試用多半是同一個教室、同一個對外 IP，要給寬一點
+  { prefix: "/api/trial", max: 120 },
 ];
 
 const hits = new Map<string, number[]>();

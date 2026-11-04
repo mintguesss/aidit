@@ -6,6 +6,7 @@ import { LIMITS, type ConstraintSet, type Reply } from "@/lib/chat/types";
 import { Messenger } from "./Messenger";
 import { Thread } from "./Thread";
 import type { PlanUpdate, Tip, Turn } from "./shared";
+import { announceTrace } from "@/lib/trial/channel";
 
 export type { PlanUpdate } from "./shared";
 
@@ -166,6 +167,7 @@ export function ChatPanel({
         traceId?: string;
         error?: string;
       };
+      announceTrace(data.traceId);
 
       if (data.plan) {
         consRef.current = data.plan.constraints;

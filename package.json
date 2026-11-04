@@ -19,7 +19,8 @@
     "rulepack:validate": "tsx scripts/validate-rulepack.ts",
     "ci": "tsx scripts/ci.ts",
     "smoke": "tsx scripts/smoke-live.ts",
-    "eval:final": "tsx scripts/final-eval.ts"
+    "eval:final": "tsx scripts/final-eval.ts",
+    "trial:purge": "tsx scripts/trial-purge.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.125.0",

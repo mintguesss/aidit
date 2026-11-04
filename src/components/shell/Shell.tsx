@@ -5,6 +5,7 @@ import { Nav, type NavItem } from "./Nav";
 import { PrefLifecycle } from "./PrefLifecycle";
 import type { AuditSession } from "@/lib/audit/session";
 import type { FixtureId } from "@/lib/providers/fixtures";
+import { pendingGraduationChecks } from "@/lib/audit/pending";
 
 /**
  * 全站外殼：頂條（品牌＋導覽＋次要入口）→ 內容 → 頁尾。
@@ -43,7 +44,7 @@ export function Shell({
   const items: NavItem[] = [
     { href: "/", label: "首頁" },
     { href: "/audit", label: "修業明細" },
-    { href: "/holds", label: "待確認", count: audit?.holds.length ?? 0, tone: "hold" },
+    { href: "/holds", label: "待確認", count: audit ? audit.holds.length + pendingGraduationChecks(audit).length : 0, tone: "hold" },
     { href: "/plan", label: "選課建議" },
     { href: "/assistant", label: "修業問答" },
   ];

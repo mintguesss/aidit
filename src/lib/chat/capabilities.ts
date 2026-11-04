@@ -11,6 +11,7 @@ import { programClausesFor } from "@/lib/rules/program-regs";
 import { findProgramUnit } from "@/lib/rules/program-units";
 import { programUnitLine } from "@/lib/whatif/simulate";
 import { findExtraPack, type ExtraPack } from "@/lib/rules/extra-packs";
+import { pendingGraduationChecks } from "@/lib/audit/pending";
 
 /**
  * B 介面的能力層（docs/CONVERSATION.md §2.2）。
@@ -65,18 +66,24 @@ export function subRuleNamed(audit: AuditResult, name: string) {
 
 /** 「待確認事項是什麼」：逐項列出，不是只講幾項（2026-10-12 對話測試發現只回整體進度） */
 export function answerHolds(audit: AuditResult): Reply {
-  if (audit.holds.length === 0) {
+  // 畢業條件待確認不在 holds 裡。只看 holds 會和首頁矛盾：
+  // 首頁列 4 項畢業條件待確認，這裡卻回「目前沒有」（2026-11-05 實測）
+  const checks = pendingGraduationChecks(audit);
+  const total = audit.holds.length + checks.length;
+  if (total === 0) {
     return { kind: "決定", headline: "目前沒有待確認事項。", citations: [] };
   }
   const NL = String.fromCharCode(10);
+  const lines = [
+    ...audit.holds.map((h) => `${h.title}：${h.reason ?? h.body}${h.impact ? `（${h.impact}）` : ""}　洽詢：${h.contact}`),
+    ...checks.map((g) => `${g.name}：${g.detail}　修課紀錄看不出是否通過，請自行確認或洽承辦單位。`),
+  ];
   return {
     kind: "決定",
-    headline: `有 ${audit.holds.length} 項待確認：${audit.holds.map((h) => h.title).join("、")}`,
-    detail: audit.holds
-      .map((h, i) => `${i + 1}. ${h.title}：${h.reason ?? h.body}${h.impact ? `（${h.impact}）` : ""}　洽詢：${h.contact}`)
-      .join(NL),
-    citations: audit.holds.flatMap((h) => h.citations).slice(0, 3),
-    uncountedHolds: audit.holds.length,
+    headline: `有 ${total} 項待確認：${[...audit.holds.map((h) => h.title), ...checks.map((g) => g.name)].join("、")}`,
+    detail: lines.map((l, i) => `${i + 1}. ${l}`).join(NL),
+    citations: [...audit.holds.flatMap((h) => h.citations), ...checks.flatMap((g) => g.citations)].slice(0, 3),
+    ...(audit.holds.length > 0 ? { uncountedHolds: audit.holds.length } : {}),
   };
 }
 

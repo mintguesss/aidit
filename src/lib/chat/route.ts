@@ -15,6 +15,7 @@ import {
   type AskIntentResult,
   type PlanIntentResult,
   type PlanParams,
+  ASKS_HOLDS,
 } from "./intent";
 import { applyParams, describeDelta, describeSet, periodNamesFor } from "./apply";
 import {
@@ -656,11 +657,14 @@ export async function askTurn(
     rules.kind === "intent" &&
     rules.intent === "personal-audit" &&
     (intent.kind === "clarify" ||
-      (intent.kind === "intent" && intent.intent === "what-if" && !/轉系|轉入|轉到|雙主修|雙學位|輔系|輔修|學程|停修|退選|撤選|提前|畢業|延畢|成績|甄試/.test(forRules)))
+      (intent.kind === "intent" && intent.intent === "what-if" && !/轉系|轉入|轉到|雙主修|雙學位|輔系|輔修|學程|停修|退選|撤選|提前|畢業|延畢|成績|甄試/.test(forRules)) ||
+      (intent.kind !== "forbidden" && ASKS_HOLDS.test(forRules)))
   ) {
     // 查自己的進度不需要任何參數，模型卻反問、或把上一輪的試算接下去，多半是被上一輪帶偏
     // （2026-10-12 實測：上一句問轉系，「待確認事項是什麼」被反問「轉入的目標學期」，或直接再算一次轉系）。
-    // 這句話本身有提到情境（「那會不會延畢」）才算接著上一輪問
+    // 這句話本身有提到情境（「那會不會延畢」）才算接著上一輪問。
+    // 字面問待確認事項的，不管模型判成什麼都照這句話答
+    // （2026-11-05 實測：同一句被判成辦理手續，回「系統未收錄這項事務的辦理流程」）
     intent = rules;
     tools.push("rule.fallback");
   } else if (
@@ -708,7 +712,7 @@ export async function askTurn(
   switch (intent.intent) {
     case "personal-audit":
       tools.push("credit.audit");
-      if (/待確認|轉人工|待審|無法判定的/.test(p.raw)) {
+      if (ASKS_HOLDS.test(p.raw) || ASKS_HOLDS.test(forRules)) {
         return { reply: answerHolds(ctx.audit), tools, intent: intent.intent, clarifying: false };
       }
       // 類別必須是使用者自己說出口的。實測 自架小模型 對「我還差幾學分畢業？」

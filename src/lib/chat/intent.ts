@@ -366,6 +366,9 @@ export function rulePlanIntent(raw: string): PlanIntentResult {
   return toPlanResult(offlinePlanIntent(raw), raw);
 }
 
+/** 問自己有哪些待確認事項，包含「有什麼不確定的」「要找承辦單位確認什麼」這類說法 */
+export const ASKS_HOLDS = /待確認|待審|轉人工|無法判定的|(?:有|哪些|什麼).{0,6}不確定|不確定的(?:事|地方|項目)|(?:承辦單位|系辦).{0,4}確認/;
+
 export function ruleAskIntent(raw: string): AskIntentResult {
   return toAskResult(offlineAskIntent(raw), raw);
 }
@@ -775,6 +778,13 @@ function offlineAskIntent(raw: string): z.infer<typeof zAskIntent> {
     const code = findCourseCode(raw);
     const name = /([一-龥]{2,12}?)(?:什麼時候|的?上課時間|幾點|星期幾|禮拜幾|哪天|誰教|有沒有|還有|是哪個)/.exec(t)?.[1];
     return { ...base, intent: "course-info", course: code ?? name ?? t };
+  }
+
+  // 問自己的待確認事項：原因和該找誰都列在裡面，不是另一項辦理手續。
+  // 「待確認要找誰」若碰到下面的「找誰」，會回「系統未收錄這項事務的辦理流程」。
+  // 句子提到試算情境的不算，那是在問試算的結果
+  if (ASKS_HOLDS.test(t) && !/如果|要是|假如|轉系|轉入|雙主修|雙學位|輔系|輔修|學程|停修|退選|提前|延畢/.test(t)) {
+    return { ...base, intent: "personal-audit" };
   }
 
   // 「怎麼辦」要排在所有 what-if 之前：問的是手續，不是可不可行。

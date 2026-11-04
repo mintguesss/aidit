@@ -16,8 +16,9 @@ vi.mock("@/lib/chat/intent", async (orig) => {
   };
 });
 
-import { cleanDept, parseAskIntent, parsePlanIntent, safeQuestion, type AskIntentResult } from "@/lib/chat/intent";
+import { cleanDept, parseAskIntent, parsePlanIntent, ruleAskIntent, safeQuestion, type AskIntentResult } from "@/lib/chat/intent";
 import { askTurn, planTurn, type TurnContext } from "@/lib/chat/route";
+import { answerHolds } from "@/lib/chat/capabilities";
 import { runAudit } from "@/lib/agent/runner";
 import { constraintSetFrom, preferencesOf } from "@/lib/chat/apply";
 import { resolveRulePack } from "@/lib/rules/loader";
@@ -38,6 +39,10 @@ beforeAll(async () => {
 });
 
 const budget = () => new LlmBudget(LIMITS.llmCallsPerTurn);
+const ruleIntentName = (said: string) => {
+  const r = ruleAskIntent(said);
+  return r.kind === "intent" ? r.intent : r.kind;
+};
 const scenario = (s: Partial<NonNullable<NonNullable<Extract<AskIntentResult, { kind: "intent" }>["params"]["scenario"]>>>) => ({
   type: "early-graduation" as const, targetTerm: null, dept: null, program: null, code: null, ...s,
 });
@@ -120,6 +125,56 @@ describe("被上一輪帶偏：這句話沒提到情境就照這句話答", () =
       params: { scenario: scenario({ type: "change-major", dept: "財金" }), raw: "待確認事項是什麼" },
     });
     expect(r.reply.headline).toMatch(/^有 \d+ 項待確認/);
+  });
+
+  it("模型判成辦理手續（2026-11-05 實測回「未收錄」）→ 一樣改列待確認事項", async () => {
+    const r = await ask(history, {
+      kind: "intent", intent: "procedure",
+      params: { procedure: "待確認事項", raw: "待確認事項是什麼" },
+    });
+    expect(r.reply.headline).toMatch(/^有 \d+ 項待確認/);
+    expect(r.reply.detail).toContain("洽詢");
+  });
+
+  it("模型判成規定或超出範圍也一樣", async () => {
+    for (const intent of [
+      { kind: "intent", intent: "regulation", params: { topic: "待確認", raw: "待確認事項是什麼" } },
+      { kind: "out-of-scope" },
+    ] as AskIntentResult[]) {
+      const r = await ask(history, intent);
+      expect(r.reply.headline).toMatch(/^有 \d+ 項待確認/);
+    }
+  });
+
+  it("問法不同，規則也認得是待確認事項，不當成辦理手續", () => {
+    for (const said of ["待確認事項是什麼", "有哪些待確認的", "這些待確認要找誰", "待確認的事情要問誰", "為什麼有待確認事項"]) {
+      expect(ruleIntentName(said)).toBe("personal-audit");
+    }
+  });
+
+  it("「有什麼不確定的」和「要找承辦單位確認什麼」也算", () => {
+    for (const said of ["有什麼不確定的事嗎", "系統有不確定的地方嗎", "有哪些事情要找承辦單位確認"]) {
+      expect(ruleIntentName(said)).toBe("personal-audit");
+    }
+  });
+
+  it("畢業條件待確認也要列出來，不能回「目前沒有」（和首頁矛盾）", () => {
+    const check = { id: "g1", name: "英文能力", status: "hold" as const, label: "待確認", detail: "成績單沒有紀錄。", citations: [] };
+    const r = answerHolds({ ...base.audit, holds: [], graduationChecks: [check] });
+    expect(r.headline).toBe("有 1 項待確認：英文能力");
+    expect(r.detail).toContain("洽承辦單位");
+    expect(r.uncountedHolds).toBeUndefined();
+    expect(answerHolds({ ...base.audit, holds: [], graduationChecks: [] }).headline).toBe("目前沒有待確認事項。");
+  });
+
+  it("已經開成待確認卡片的畢業條件不重複算", () => {
+    const check = { id: "g1", name: "英文能力", status: "hold" as const, label: "待確認", detail: "", citations: [] };
+    const hold = { ...base.audit.holds[0]!, id: "hold-check-g1", title: "英文能力" };
+    expect(answerHolds({ ...base.audit, holds: [hold], graduationChecks: [check] }).headline).toBe("有 1 項待確認：英文能力");
+  });
+
+  it("提到試算情境的不攔，照原本的判斷", () => {
+    expect(ruleIntentName("如果我轉系有哪些待確認")).not.toBe("personal-audit");
   });
 });
 

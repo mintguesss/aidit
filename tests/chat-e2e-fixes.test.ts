@@ -173,6 +173,26 @@ describe("被上一輪帶偏：這句話沒提到情境就照這句話答", () =
     expect(answerHolds({ ...base.audit, holds: [hold], graduationChecks: [check] }).headline).toBe("有 1 項待確認：英文能力");
   });
 
+  it("T2 的問法仍算待確認事項", () => {
+    for (const said of ["系統有不確定的事項嗎", "有什麼不確定的", "我還有不確定的事項嗎", "要找承辦單位確認什麼"]) {
+      expect(ruleIntentName(said)).toBe("personal-audit");
+    }
+  });
+
+  it("只是句子裡有「不確定」「系辦確認」的不算，模型判對的不能被蓋掉（2026-11-05 檢查發現）", async () => {
+    const cases: [string, AskIntentResult][] = [
+      ["抵免要去系辦確認嗎", { kind: "intent", intent: "procedure", params: { procedure: "抵免", raw: "抵免要去系辦確認嗎" } }],
+      ["我有點不確定微積分要不要重修", { kind: "intent", intent: "course-info", params: { course: "微積分", raw: "我有點不確定微積分要不要重修" } }],
+      ["我有點不確定明天天氣", { kind: "out-of-scope" }],
+      ["有些課我不確定算哪一類", { kind: "intent", intent: "regulation", params: { topic: "課程類別", raw: "有些課我不確定算哪一類" } }],
+    ] as [string, AskIntentResult][];
+    for (const [said, model] of cases) {
+      vi.mocked(parseAskIntent).mockResolvedValueOnce(model);
+      const r = await askTurn([{ role: "user", content: said }], { ...base }, budget());
+      expect(r.reply.headline).not.toMatch(/項待確認/);
+    }
+  });
+
   it("提到試算情境的不攔，照原本的判斷", () => {
     expect(ruleIntentName("如果我轉系有哪些待確認")).not.toBe("personal-audit");
   });

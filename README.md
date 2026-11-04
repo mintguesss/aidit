@@ -45,7 +45,9 @@ npm run dev          # http://localhost:3000
 ```
 
 **不需要任何金鑰。** 沒有設定模型與資料庫時，意圖解析與公告判斷改用確定性替身（trace 標示 `mode=offline`），
-展示、評測與 CI 都能完整執行。要接真實服務時複製 `.env.example` 為 `.env`。
+合成案例的展示、`npm run ci`、`npm run eval`、`npm run eval:injection` 都能完整執行。
+真實規則包與開課資料放在資料庫，所以 `eval:understanding`、`eval:baseline-c` 要設 `SUPABASE_*`；
+加 `-- --live` 才會接模型。要接真實服務時複製 `.env.example` 為 `.env`。
 
 | 指令 | 用途 |
 |---|---|
@@ -55,6 +57,8 @@ npm run dev          # http://localhost:3000
 | `npm run eval:injection` | 提示注入攔截率／誤攔率 |
 | `npm run eval:understanding` | 對話理解跑分（加 `-- --live` 接模型） |
 | `npm run eval:baseline-c` | 本系統 vs. 單次 LLM（加 `-- --live` 接模型） |
+| `npm run smoke` | 部署後實測：對話真的有用到模型嗎（約 US$0.002） |
+| `npm run eval:final` | 交件用：線上延遲與成本、紅隊題、全部評測、匯出 trace，產生附件二摘要（會花錢，模型不通就停） |
 
 ### 部署
 
@@ -155,11 +159,83 @@ npx tsx scripts/push-draft.ts ...                                               
 - 修課紀錄只在單次請求中處理；trace 只存去識別內容（學號經 HMAC），保留 90 天
 - 畢業資格一律標示為參考，非證明
 
+## 模型與版本
+
+- 預設 `claude-haiku-5-5`，由 `AIDIT_LLM_MODEL` 切換；可用型號與單價在 [src/lib/llm/client.ts](src/lib/llm/client.ts)。實際使用的模型看 `/api/health`，評測報告也會印在標頭
+- 也可接任何 OpenAI 相容端點（`AIDIT_LLM_PROVIDER=openai-compatible`、`AIDIT_LLM_BASE_URL`）
+- **Prompt 版本管理**：所有 Prompt 都寫在程式碼裡（對話在 [src/lib/chat/intent.ts](src/lib/chat/intent.ts)、基準在 `src/eval/baseline-c/prompt.ts`），以 git commit 為版本，不另設版本號；改 Prompt 要重跑評測，`eval:final` 的摘要會記下 commit
+- 規則包有自己的版本與校對紀錄，每筆 trace 都記下用的是哪一版
+- 換模型要重跑整份評測，不同模型的數字不放在同一張表
+
+## API
+
+都在 `src/app/api/`，回傳 JSON。展示版沒有學生登入，`fixture` 參數指定示範學生。
+
+| 端點 | 用途 | 需要登入 |
+|---|---|---|
+| `POST /api/audit` | 執行審查，回傳結果、課表與 trace | 否 |
+| `POST /api/plan` | 依條件重新排課 | 否 |
+| `POST /api/chat` | 對話（`scope`：`plan` 課表微調、`ask` 修業問答） | 否 |
+| `POST /api/whatif` | 情境試算 | 否 |
+| `POST /api/declarations`、`/api/extra-goals` | 畢業條件自行勾選、額外修業目標 | 否 |
+| `POST／DELETE /api/preferences` | 儲存或刪除偏好 | 否 |
+| `POST /api/rulepack` | 上傳規劃表，只收件，不會生效 | 否 |
+| `POST /api/review` | 校對寫入與鎖版 | **要**（`/api/review/login`） |
+| `GET /api/cron/purge` | 清除過期資料 | **要**（`CRON_SECRET`） |
+| `GET /api/trace/:id` | 取回去識別的執行紀錄 | 否 |
+| `GET /api/corpus/:docId`、`/api/offering/:code` | 規章原文、開課資料 | 否 |
+| `GET /api/health` | 設定狀態（`configured` 不代表金鑰有效，要實測用 `npm run smoke`） | 否 |
+
+寫入類端點有速率限制（`src/middleware.ts`），對話與試算每分鐘 15 次。
+
+## 環境變數
+
+完整說明與各部署要填哪些，見 [.env.example](.env.example)。
+
+| 變數 | 用途 |
+|---|---|
+| `ANTHROPIC_API_KEY` | 模型金鑰；沒設就走確定性替身 |
+| `AIDIT_LLM_PROVIDER`、`AIDIT_LLM_MODEL`、`AIDIT_LLM_BASE_URL`、`AIDIT_LLM_API_KEY` | 切換模型或供應商 |
+| `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY` | 資料庫；沒設就存本地檔案，也讀不到真實規則包 |
+| `AIDIT_TRACE_SECRET` | 學號雜湊用的密鑰 |
+| `AIDIT_REVIEW_PASSWORD` | 校對密碼；通常改用 `scripts/set-review-password.ts` |
+| `CRON_SECRET` | 每日清除排程的驗證（Vercel） |
+
+金鑰不進 repo，CI 第 6 項會掃描原始碼。
+
+## 資料流程與權限
+
+```
+修課紀錄 ─> 審查引擎（無模型）─> 結果＋引用回查 ─> 畫面
+使用者的一句話 ─> 注入檢查 ─> 模型只解析意圖與參數 ─> 程式檢查參數是否真的說出口 ─> 引擎重算 ─> 模板組成回覆
+                                   └─ 模型失敗：改用規則解析，trace 記 chat.intent 失敗、rule.degraded
+```
+
+- **送給模型的**：使用者的對話內容、公告文字（先過注入檢查）。學分判定不經過模型
+- **存下來的**：trace（學號 HMAC，保留 90 天）、偏好（保留 12 個月）、校對紀錄、上傳的規劃表；修課紀錄本身不存
+- **模型能做的**：只能回傳意圖與參數，沒有任何可以寫入資料的工具，也沒有回答欄位
+- **權限**：校對與鎖版要登入，資料清除要密鑰。展示版只有示範學生、沒有學生登入，所以偏好與自行勾選任何訪客都能改，也能刪除示範學生的偏好與 trace；接真實學生前必須先做身分驗證
+
+## 故障排除
+
+| 現象 | 原因與處理 |
+|---|---|
+| 對話都標 `rule.degraded`，`npm run smoke` 失敗，網站看起來正常 | 模型呼叫失敗。先查額度與部署的 `ANTHROPIC_API_KEY`，部署紀錄搜尋 `[chat]` 看原因；改好後重新部署 |
+| 「尚未支援此系所／學年度」 | 真實規則包在資料庫，沒設 `SUPABASE_*` 讀不到；合成案例用 `?fixture=demo` |
+| `eval:understanding`、`eval:baseline-c` 報找不到規則包 | 同上，要設 `SUPABASE_*` |
+| 對話回 429 | 速率限制，照 `Retry-After` 等；自架時另有全體上限 |
+| 校對頁無法登入 | 正式部署要先設密碼：`npx tsx scripts/set-review-password.ts` |
+| `/api/cron/purge` 回 401 | 沒設 `CRON_SECRET`；Vercel 排程要設這個變數才會清除過期資料 |
+| 自架模型常逾時 | 思考型模型設 `AIDIT_LLM_REASONING_EFFORT=none`，或加大 `AIDIT_LLM_TIMEOUT_MS` |
+| 比賽現場網路不穩 | 不設模型金鑰會走確定性替身，審查與排課都能離線展示，但對話只聽得懂直接的說法 |
+
 ## 已知限制
 
 - 真實規則目前以一個學系、一個入學年度為主；雙主修、輔系、學程只收錄部分，沒收錄的會明講，不推算
 - 提前畢業在目標學期前還有多個學期時，只估算學分數是否排得進，不逐學期排課
 - 開課資料只有學校公開介面提供的欄位
+- 對話 trace 只有整輪耗時，沒有分開量各工具；查回來的 token 數為 0，實際數字記在步驟摘要裡
+- 展示版沒有學生登入（見「資料流程與權限」）
 
 ## 授權
 

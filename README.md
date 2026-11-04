@@ -182,11 +182,13 @@ npx tsx scripts/push-draft.ts ...                                               
 | `POST /api/rulepack` | 上傳規劃表，只收件，不會生效 | 否 |
 | `POST /api/review` | 校對寫入與鎖版 | **要**（`/api/review/login`） |
 | `GET /api/cron/purge` | 清除過期資料 | **要**（`CRON_SECRET`） |
+| `GET／POST /api/trial`、`GET /api/trial/export`、`POST /api/trial/:id/mod` | 學生試用的主持人後台：受試者列表與新增、匯出 CSV、人工判定 | **要**（同校對登入） |
+| `GET／PATCH /api/trial/:id` | 受試者作答流程；回應不含標準答案與批改結果 | 否，憑連結裡的隨機 id |
 | `GET /api/trace/:id` | 取回去識別的執行紀錄 | 否 |
 | `GET /api/corpus/:docId`、`/api/offering/:code` | 規章原文、開課資料 | 否 |
 | `GET /api/health` | 設定狀態（`configured` 不代表金鑰有效，要實測用 `npm run smoke`） | 否 |
 
-寫入類端點有速率限制（`src/middleware.ts`），對話與試算每分鐘 15 次。
+寫入類端點有速率限制（`src/middleware.ts`）：對話、試算、排課同一 IP 每分鐘 60 次，試用 120 次。
 
 ## 環境變數
 
@@ -200,6 +202,7 @@ npx tsx scripts/push-draft.ts ...                                               
 | `AIDIT_TRACE_SECRET` | 學號雜湊用的密鑰 |
 | `AIDIT_REVIEW_PASSWORD` | 校對密碼；通常改用 `scripts/set-review-password.ts` |
 | `CRON_SECRET` | 每日清除排程的驗證（Vercel） |
+| `AIDIT_TRIAL_LOCAL` | 設 `1` 時試用紀錄存本機，開發測試才不會寫進正式資料 |
 
 金鑰不進 repo，CI 第 6 項會掃描原始碼。
 
@@ -213,8 +216,9 @@ npx tsx scripts/push-draft.ts ...                                               
 
 - **送給模型的**：使用者的對話內容、公告文字（先過注入檢查）。學分判定不經過模型
 - **存下來的**：trace（學號 HMAC，保留 90 天）、偏好（保留 12 個月）、校對紀錄、上傳的規劃表；修課紀錄本身不存
+- **學生試用（`/trial`）**：主持人登入後台產生受試者連結，受試者依序同意、手算、用系統、填問卷。時間由伺服器記，答案由伺服器批改。紀錄以代號呈現，不記姓名與學號，存在非公開儲存區；同意書承諾決賽結束後刪除原始紀錄，先匯出 CSV 再跑 `npm run trial:purge -- --yes`
 - **模型能做的**：只能回傳意圖與參數，沒有任何可以寫入資料的工具，也沒有回答欄位
-- **權限**：校對與鎖版要登入，資料清除要密鑰。展示版只有示範學生、沒有學生登入，所以偏好與自行勾選任何訪客都能改，也能刪除示範學生的偏好與 trace；接真實學生前必須先做身分驗證
+- **權限**：校對、鎖版與試用後台要登入，資料清除要密鑰。展示版只有示範學生、沒有學生登入，所以偏好與自行勾選任何訪客都能改，也能刪除示範學生的偏好與 trace；接真實學生前必須先做身分驗證
 
 ## 故障排除
 

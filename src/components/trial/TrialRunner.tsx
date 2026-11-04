@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { TRIAL_CHANNEL } from "@/lib/trial/channel";
-import type { ManualAnswer, TaskId, TrialAction, TrialPublicView } from "@/lib/trial/session";
+import type { ManualAnswer, Step, TaskId, TrialAction, TrialPublicView } from "@/lib/trial/session";
 
 const IDENTITIES = ["大一", "大二", "大三", "大四", "碩士班", "其他"];
 const LAST_CHECK = ["沒確認過", "10 分鐘內", "10–30 分鐘", "30–60 分鐘", "超過 1 小時"];
@@ -12,6 +12,14 @@ const SURVEY = [
   "系統附上依據，讓我更相信結果",
   "系統說「不確定、請問承辦單位」時，我可以接受",
   "如果學校提供，我下學期選課前會使用",
+];
+const SYSTEM_WINDOW = "aidit-trial-system";
+const STAGES: { label: string; steps: Step[] }[] = [
+  { label: "同意", steps: ["consent", "declined"] },
+  { label: "手算", steps: ["manual-intro", "manual"] },
+  { label: "看看系統", steps: ["orientation"] },
+  { label: "系統任務", steps: ["system"] },
+  { label: "回饋", steps: ["survey"] },
 ];
 
 /** 受試者的流程。每一步的狀態都在伺服器，重新整理或斷線後會回到同一步、時間照算 */
@@ -58,7 +66,7 @@ export function TrialRunner({ id }: { id: string }) {
     [id],
   );
 
-  // 系統分頁的對話一回來，就記下 traceId
+  // 系統分頁的對話一回來，就記下 traceId。熟悉系統時的對話不記，那不是任務
   const step = view?.step;
   useEffect(() => {
     if (step !== "system" || typeof BroadcastChannel === "undefined") return;
@@ -75,13 +83,13 @@ export function TrialRunner({ id }: { id: string }) {
     return () => ch.close();
   }, [step, id]);
 
-  if (!view) return <div className="panel panel-bd">{error ?? "載入中…"}</div>;
+  if (!view) return <div className="tr-card tr-pad">{error ?? "載入中…"}</div>;
 
   return (
     <>
-      <p className="trial-meta">代號 {view.code}</p>
+      <Stepper step={view.step} code={view.code} />
       {error ? (
-        <p className="rv-err trial-error" role="alert">
+        <p className="tr-alert" role="alert">
           {error}
         </p>
       ) : null}
@@ -89,6 +97,7 @@ export function TrialRunner({ id }: { id: string }) {
       {view.step === "declined" ? <Message title="謝謝你" text="你選擇不參與，紀錄到此結束。" /> : null}
       {view.step === "manual-intro" ? <ManualIntro busy={busy} send={send} /> : null}
       {view.step === "manual" ? <Manual id={id} view={view} busy={busy} send={send} /> : null}
+      {view.step === "orientation" ? <Orientation view={view} busy={busy} send={send} /> : null}
       {view.step === "system" ? <SystemTasks view={view} busy={busy} send={send} /> : null}
       {view.step === "survey" ? <Survey busy={busy} send={send} /> : null}
       {view.step === "done" ? <Message title="試用完成，謝謝你" text="紀錄已送出，可以把裝置交回給主持人。" /> : null}
@@ -98,14 +107,76 @@ export function TrialRunner({ id }: { id: string }) {
 
 type Send = (a: TrialAction) => Promise<boolean>;
 
+function Stepper({ step, code }: { step: Step; code: string }) {
+  const finished = step === "done";
+  const current = STAGES.findIndex((s) => s.steps.includes(step));
+  return (
+    <div className="tr-stepper">
+      <ol>
+        {STAGES.map((s, i) => {
+          const state = finished || i < current ? "done" : i === current ? "now" : "next";
+          return (
+            <li key={s.label} className={state} aria-current={state === "now" ? "step" : undefined}>
+              <span className="tr-dot">{state === "done" ? "✓" : i + 1}</span>
+              <span>{s.label}</span>
+            </li>
+          );
+        })}
+      </ol>
+      <span className="tr-code">{code}</span>
+    </div>
+  );
+}
+
+function Card({ title, aside, children, keep }: { title: string; aside?: ReactNode; children: ReactNode; keep?: boolean }) {
+  return (
+    <section className="tr-card" {...(keep ? { "data-anon-keep": true } : {})}>
+      <header className="tr-card-hd">
+        <h1>{title}</h1>
+        {aside}
+      </header>
+      <div className="tr-pad tr-stack">{children}</div>
+    </section>
+  );
+}
+
 function Message({ title, text }: { title: string; text: string }) {
   return (
-    <div className="panel">
-      <div className="panel-hd">
-        <h2>{title}</h2>
-      </div>
-      <div className="panel-bd">{text}</div>
-    </div>
+    <Card title={title}>
+      <p>{text}</p>
+    </Card>
+  );
+}
+
+/** 單選、複選都長成同一種按鈕，整塊可以點，手機也好按 */
+function Choice({
+  type = "radio",
+  name,
+  checked,
+  onChange,
+  children,
+}: {
+  type?: "radio" | "checkbox";
+  name?: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  children: ReactNode;
+}) {
+  return (
+    <label className={checked ? "tr-choice on" : "tr-choice"}>
+      <input type={type} name={name} checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      {children}
+    </label>
+  );
+}
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <fieldset className="tr-field">
+      <legend>{label}</legend>
+      {hint ? <p className="tr-hint">{hint}</p> : null}
+      <div className="tr-choices">{children}</div>
+    </fieldset>
   );
 }
 
@@ -115,85 +186,69 @@ function Consent({ busy, send }: { busy: boolean; send: Send }) {
   const [lastCheck, setLastCheck] = useState("");
   const ready = identity && minor !== null && lastCheck;
   return (
-    <div className="panel">
-      <div className="panel-hd">
-        <h2>參與同意與基本資料</h2>
-      </div>
-      <div className="panel-bd trial-form">
+    <Card title="參與同意與基本資料">
+      <div className="tr-note">
         <p>
           這是學生競賽作品的試用，約 25 分鐘。我們會記錄你的作答與操作時間，只用於競賽文件，以代號呈現，不記姓名與學號，也不會用到你自己的成績。
-          你可以隨時退出；決賽結束後，原始紀錄會刪除，只保留去識別的統計。系統結果僅供參考，不是學校的正式審查。
         </p>
-        <fieldset>
-          <legend>身分</legend>
-          <div className="trial-opts">
-            {IDENTITIES.map((v) => (
-              <label key={v}>
-                <input type="radio" name="identity" checked={identity === v} onChange={() => setIdentity(v)} /> {v}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-        <fieldset>
-          <legend>是否正在修或打算修學程、輔系、雙主修</legend>
-          <div className="trial-opts">
-            <label>
-              <input type="radio" name="minor" checked={minor === true} onChange={() => setMinor(true)} /> 是
-            </label>
-            <label>
-              <input type="radio" name="minor" checked={minor === false} onChange={() => setMinor(false)} /> 否
-            </label>
-          </div>
-        </fieldset>
-        <fieldset>
-          <legend>上次確認自己的畢業進度，大約花多久</legend>
-          <div className="trial-opts">
-            {LAST_CHECK.map((v) => (
-              <label key={v}>
-                <input type="radio" name="lastCheck" checked={lastCheck === v} onChange={() => setLastCheck(v)} /> {v}
-              </label>
-            ))}
-          </div>
-        </fieldset>
-        <div className="trial-actions">
-          <button
-            className="btn btn-primary"
-            disabled={busy || !ready}
-            onClick={() =>
-              void send({ type: "consent", agreed: true, profile: { identity, minorProgram: minor === true, lastCheck } })
-            }
-          >
-            我同意參與
-          </button>
-          <button className="btn" disabled={busy} onClick={() => void send({ type: "consent", agreed: false })}>
-            我不同意
-          </button>
-        </div>
+        <p>你可以隨時退出；決賽結束後，原始紀錄會刪除，只保留去識別的統計。系統結果僅供參考，不是學校的正式審查。</p>
       </div>
-    </div>
+      <Field label="身分">
+        {IDENTITIES.map((v) => (
+          <Choice key={v} name="identity" checked={identity === v} onChange={() => setIdentity(v)}>
+            {v}
+          </Choice>
+        ))}
+      </Field>
+      <Field label="是否正在修或打算修學程、輔系、雙主修">
+        <Choice name="minor" checked={minor === true} onChange={() => setMinor(true)}>
+          是
+        </Choice>
+        <Choice name="minor" checked={minor === false} onChange={() => setMinor(false)}>
+          否
+        </Choice>
+      </Field>
+      <Field label="上次確認自己的畢業進度，大約花多久">
+        {LAST_CHECK.map((v) => (
+          <Choice key={v} name="lastCheck" checked={lastCheck === v} onChange={() => setLastCheck(v)}>
+            {v}
+          </Choice>
+        ))}
+      </Field>
+      <div className="tr-actions">
+        <button
+          className="tr-btn primary"
+          disabled={busy || !ready}
+          onClick={() => void send({ type: "consent", agreed: true, profile: { identity, minorProgram: minor === true, lastCheck } })}
+        >
+          我同意參與
+        </button>
+        <button className="tr-btn" disabled={busy} onClick={() => void send({ type: "consent", agreed: false })}>
+          我不同意
+        </button>
+        {!ready ? <span className="tr-hint">填完上面三題才能按同意</span> : null}
+      </div>
+    </Card>
   );
 }
 
 function ManualIntro({ busy, send }: { busy: boolean; send: Send }) {
   return (
-    <div className="panel" data-anon-keep>
-      <div className="panel-hd">
-        <h2>第一部分：手算</h2>
-      </div>
-      <div className="panel-bd trial-form">
-        <ul>
-          <li>下一頁是一位 111 學年度入學、資訊管理學系學生的修課紀錄（皆已及格）。</li>
-          <li>請只用主持人提供的課程規劃表與修業規則計算，不要使用本系統或任何 AI。</li>
-          <li>寫出各類別還差幾學分、合計、通識還缺哪些領域，以及是否已符合畢業學分。</li>
-          <li>超過應修學分的部分不能補到其他類別（請依修業規則判斷）。</li>
-          <li>資料不足無法判斷的地方，請寫在備註，不要硬猜。</li>
-          <li>上限 15 分鐘，時間到會自動交卷。算不完或想放棄都沒關係，這也是有用的資料。</li>
-        </ul>
-        <button className="btn btn-primary" disabled={busy} onClick={() => void send({ type: "manual.start" })}>
+    <Card title="第一部分：手算" keep>
+      <ul className="tr-list">
+        <li>下一頁是一位 111 學年度入學、資訊管理學系學生的修課紀錄（皆已及格）。</li>
+        <li>請只用主持人提供的課程規劃表與修業規則計算，不要使用本系統或任何 AI。</li>
+        <li>寫出各類別還差幾學分、合計、通識還缺哪些領域，以及是否已符合畢業學分。</li>
+        <li>超過應修學分的部分不能補到其他類別（請依修業規則判斷）。</li>
+        <li>資料不足無法判斷的地方，請寫在備註，不要硬猜。</li>
+        <li>上限 15 分鐘，時間到會自動交卷。算不完或想放棄都沒關係，這也是有用的資料。</li>
+      </ul>
+      <div className="tr-actions">
+        <button className="tr-btn primary" disabled={busy} onClick={() => void send({ type: "manual.start" })}>
           開始手算並計時
         </button>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -239,7 +294,8 @@ function Manual({ id, view, busy, send }: { id: string; view: TrialPublicView; b
 
   // 用伺服器時間倒數，受試者裝置的時鐘不準也不影響
   const offset = useRef(view.now - Date.now());
-  const deadline = (view.manual.startedAt ?? view.now) + view.manual.limitMs;
+  const limit = view.manual.limitMs;
+  const deadline = (view.manual.startedAt ?? view.now) + limit;
   const [left, setLeft] = useState(deadline - view.now);
 
   const answer = (): ManualAnswer => ({
@@ -269,21 +325,29 @@ function Manual({ id, view, busy, send }: { id: string; view: TrialPublicView; b
     return () => clearInterval(t);
   }, [deadline]);
 
+  const giveUp = () => {
+    if (window.confirm("確定要放棄手算嗎？已填的內容會一起送出。")) void submit(true);
+  };
+
   return (
-    // 手算對照的是紙本規劃表，畫面用字要和紙本相同，不做匿名替換
-    <div className="panel" data-anon-keep>
-      <div className="panel-hd trial-timer-hd">
-        <h2>手算題目</h2>
-        <span className={left < 60_000 ? "trial-timer urgent" : "trial-timer"} role="timer">
-          剩 {formatClock(left)}
+    <section className="tr-manual" data-anon-keep>
+      <div className={left < 60_000 ? "tr-timer urgent" : "tr-timer"} role="timer">
+        <div>
+          <b>手算題目</b>
+          <span className="tr-hint">只用規劃表和修業規則，不要用系統或 AI</span>
+        </div>
+        <span className="tr-clock">剩 {formatClock(left)}</span>
+        <span className="tr-timebar" aria-hidden>
+          <i style={{ width: `${Math.max(0, Math.min(100, (left / limit) * 100))}%` }} />
         </span>
       </div>
-      <div className="panel-bd trial-form">
-        <div className="trial-sheet">
+
+      <div className="tr-manual-grid">
+        <div className="tr-card tr-sheet">
           <table>
             <thead>
               <tr>
-                <th>學年-學期</th>
+                <th>學期</th>
                 <th>課名</th>
                 <th>學分</th>
                 <th>選別</th>
@@ -295,9 +359,9 @@ function Manual({ id, view, busy, send }: { id: string; view: TrialPublicView; b
             <tbody>
               {view.rows?.map((r, i) => (
                 <tr key={i}>
-                  <td>{r.term}</td>
+                  <td className="mono">{r.term}</td>
                   <td>{r.name}</td>
-                  <td>{r.credits}</td>
+                  <td className="mono">{r.credits}</td>
                   <td>{r.type}</td>
                   <td>{r.domain}</td>
                   <td>{r.dept}</td>
@@ -306,76 +370,116 @@ function Manual({ id, view, busy, send }: { id: string; view: TrialPublicView; b
               ))}
             </tbody>
           </table>
-        </div>
-        <p className="rv-hint">選別：必＝必修、選＝選修、通＝通識。開課單位「外系」表示非本系開設。</p>
-
-        <h3>各類別還差幾學分</h3>
-        <div className="trial-grid">
-          {view.categories.map((c) => (
-            <label key={c.name}>
-              {c.name}（應修 {c.required}）
-              <input
-                inputMode="numeric"
-                value={draft.categories[c.name] ?? ""}
-                onChange={(e) => update({ categories: { ...draft.categories, [c.name]: e.target.value } })}
-              />
-            </label>
-          ))}
-          <label>
-            合計還差
-            <input inputMode="numeric" value={draft.total} onChange={(e) => update({ total: e.target.value })} />
-          </label>
+          <p className="tr-hint tr-sheet-note">選別：必＝必修、選＝選修、通＝通識。開課單位「外系」表示非本系開設。</p>
         </div>
 
-        <fieldset>
-          <legend>通識還缺的領域（各至少 4 學分）</legend>
-          <div className="trial-opts">
-            {view.domains.map((d) => (
-              <label key={d}>
-                <input
-                  type="checkbox"
-                  checked={draft.missingDomains.includes(d)}
-                  onChange={(e) =>
-                    update({
-                      missingDomains: e.target.checked
-                        ? [...draft.missingDomains, d]
-                        : draft.missingDomains.filter((x) => x !== d),
-                    })
-                  }
-                />{" "}
-                {d}
+        <div className="tr-card tr-pad tr-stack tr-answer">
+          <div className="tr-field">
+            <h2>各類別還差幾學分</h2>
+            <div className="tr-credits">
+              {view.categories.map((c) => (
+                <label key={c.name}>
+                  <span>
+                    {c.name}
+                    <small>應修 {c.required}</small>
+                  </span>
+                  <input
+                    inputMode="numeric"
+                    value={draft.categories[c.name] ?? ""}
+                    onChange={(e) => update({ categories: { ...draft.categories, [c.name]: e.target.value } })}
+                  />
+                </label>
+              ))}
+              <label className="total">
+                <span>合計還差</span>
+                <input inputMode="numeric" value={draft.total} onChange={(e) => update({ total: e.target.value })} />
               </label>
+            </div>
+          </div>
+
+          <Field label="通識還缺的領域" hint="三大領域各至少 4 學分">
+            {view.domains.map((d) => (
+              <Choice
+                key={d}
+                type="checkbox"
+                checked={draft.missingDomains.includes(d)}
+                onChange={(on) =>
+                  update({ missingDomains: on ? [...draft.missingDomains, d] : draft.missingDomains.filter((x) => x !== d) })
+                }
+              >
+                {d}
+              </Choice>
             ))}
+          </Field>
+          <Field label="已符合畢業學分？">
+            <Choice name="grad" checked={draft.canGraduate === true} onChange={() => update({ canGraduate: true })}>
+              是
+            </Choice>
+            <Choice name="grad" checked={draft.canGraduate === false} onChange={() => update({ canGraduate: false })}>
+              否
+            </Choice>
+          </Field>
+          <label className="tr-text">
+            備註（無法判斷的地方）
+            <textarea rows={3} maxLength={2000} value={draft.note} onChange={(e) => update({ note: e.target.value })} />
+          </label>
+          <Choice type="checkbox" checked={draft.uncertain} onChange={(on) => update({ uncertain: on })}>
+            有部分我無法判斷
+          </Choice>
+          <div className="tr-actions">
+            <button className="tr-btn primary" disabled={busy} onClick={() => void submit(false)}>
+              交卷
+            </button>
+            <button className="tr-btn" disabled={busy} onClick={giveUp}>
+              放棄
+            </button>
           </div>
-        </fieldset>
-        <fieldset>
-          <legend>已符合畢業學分？</legend>
-          <div className="trial-opts">
-            <label>
-              <input type="radio" name="grad" checked={draft.canGraduate === true} onChange={() => update({ canGraduate: true })} /> 是
-            </label>
-            <label>
-              <input type="radio" name="grad" checked={draft.canGraduate === false} onChange={() => update({ canGraduate: false })} /> 否
-            </label>
-          </div>
-        </fieldset>
-        <label className="trial-block">
-          備註（無法判斷的地方）
-          <textarea rows={3} maxLength={2000} value={draft.note} onChange={(e) => update({ note: e.target.value })} />
-        </label>
-        <label>
-          <input type="checkbox" checked={draft.uncertain} onChange={(e) => update({ uncertain: e.target.checked })} /> 有部分我無法判斷
-        </label>
-        <div className="trial-actions">
-          <button className="btn btn-primary" disabled={busy} onClick={() => void submit(false)}>
-            交卷
-          </button>
-          <button className="btn" disabled={busy} onClick={() => void submit(true)}>
-            放棄
-          </button>
         </div>
       </div>
-    </div>
+    </section>
+  );
+}
+
+function Orientation({ view, busy, send }: { view: TrialPublicView; busy: boolean; send: Send }) {
+  const started = Boolean(view.orientation.startedAt);
+  const open = () => {
+    // 要在點擊當下開分頁才不會被瀏覽器擋；之後的任務沿用同一個分頁
+    if (view.demoUrl) window.open(view.demoUrl, SYSTEM_WINDOW);
+    void send({ type: "orientation.start" });
+  };
+  return (
+    <Card title="先看看系統（約 1 分鐘）">
+      <p>
+        手算結束了。接下來的任務要用系統操作，先花 1 分鐘隨意點點看。這裡看到的是另一位示範學生，<b>不是任務的案例</b>，不算進任務時間。
+      </p>
+      {!started ? (
+        <div className="tr-actions">
+          <button className="tr-btn primary" disabled={busy} onClick={open}>
+            開啟系統
+          </button>
+        </div>
+      ) : (
+        <>
+          <p className="tr-hint">
+            系統開在另一個分頁。看完回到這裡。
+            {view.demoUrl ? (
+              <>
+                {" "}
+                分頁不見了？
+                <a href={view.demoUrl} target={SYSTEM_WINDOW}>
+                  重新開啟
+                </a>
+              </>
+            ) : null}
+          </p>
+          <div className="tr-actions">
+            <button className="tr-btn primary" disabled={busy} onClick={() => void send({ type: "orientation.end" })}>
+              看完了，開始任務
+            </button>
+          </div>
+        </>
+      )}
+    </Card>
   );
 }
 
@@ -384,18 +488,19 @@ const TASK_TEXT: Record<TaskId, string> = {
   t2: "系統有不確定的事項嗎？原因是什麼、該問誰？",
   t3: "用對話把課表改成「星期五不要排課」，並說出改了什麼。",
 };
+const TASKS: TaskId[] = ["t1", "t2", "t3"];
 
 function SystemTasks({ view, busy, send }: { view: TrialPublicView; busy: boolean; send: Send }) {
   const [total, setTotal] = useState("");
   const [cats, setCats] = useState<string[]>([]);
   const [text, setText] = useState("");
-  const current = (["t1", "t2", "t3"] as TaskId[]).find((t) => !view.tasks[t].endedAt) ?? "t3";
+  const current = TASKS.find((t) => !view.tasks[t].endedAt) ?? "t3";
   const started = Boolean(view.tasks[current].startedAt);
-  const index = ["t1", "t2", "t3"].indexOf(current) + 1;
+  const index = TASKS.indexOf(current) + 1;
 
   const start = () => {
-    // 要在點擊當下開分頁才不會被瀏覽器擋；之後的任務沿用同一個分頁
-    if (current === "t1" && view.systemUrl) window.open(view.systemUrl, "aidit-trial-system");
+    // 任務 1 把系統分頁換成任務的案例，案例和剛才看的不一樣
+    if (current === "t1" && view.systemUrl) window.open(view.systemUrl, SYSTEM_WINDOW);
     void send({ type: "task.start", task: current });
   };
   const finish = async (gaveUp: boolean) => {
@@ -408,77 +513,77 @@ function SystemTasks({ view, busy, send }: { view: TrialPublicView; busy: boolea
   };
 
   return (
-    <div className="panel">
-      <div className="panel-hd">
-        <h2>
-          第二部分：用系統（任務 {index}／3）
-        </h2>
-      </div>
-      <div className="panel-bd trial-form">
-        <p className="trial-task">{TASK_TEXT[current]}</p>
-        {!started ? (
-          <>
-            <p className="rv-hint">
-              {current === "t1"
-                ? "按下開始後會開啟系統分頁並計時。在系統裡找到答案，再回到這一頁填寫。"
-                : "按下開始後計時，到系統分頁操作，完成後回到這一頁。"}
-            </p>
-            <button className="btn btn-primary" disabled={busy} onClick={start}>
+    <Card
+      title={`第二部分：用系統`}
+      aside={
+        <span className="tr-tasks" aria-label={`任務 ${index}／3`}>
+          {TASKS.map((t, i) => (
+            <i key={t} className={i + 1 < index ? "done" : i + 1 === index ? "now" : undefined} />
+          ))}
+          任務 {index}／3
+        </span>
+      }
+    >
+      <p className="tr-task">{TASK_TEXT[current]}</p>
+      {!started ? (
+        <>
+          <p className="tr-hint">
+            {current === "t1"
+              ? "按下開始後，系統分頁會換成這次任務的學生，並開始計時。找到答案再回來填。"
+              : "按下開始後計時，到系統分頁操作，完成後回到這一頁。"}
+          </p>
+          <div className="tr-actions">
+            <button className="tr-btn primary" disabled={busy} onClick={start}>
               開始任務 {index}
             </button>
-          </>
-        ) : (
-          <>
-            {current === "t1" ? (
-              <>
-                <label className="trial-block">
-                  合計還差幾學分
-                  <input inputMode="numeric" value={total} onChange={(e) => setTotal(e.target.value)} />
-                </label>
-                <fieldset>
-                  <legend>缺哪幾類</legend>
-                  <div className="trial-opts">
-                    {view.categories.map((c) => (
-                      <label key={c.name}>
-                        <input
-                          type="checkbox"
-                          checked={cats.includes(c.name)}
-                          onChange={(e) =>
-                            setCats(e.target.checked ? [...cats, c.name] : cats.filter((x) => x !== c.name))
-                          }
-                        />{" "}
-                        {c.name}
-                      </label>
-                    ))}
-                  </div>
-                </fieldset>
-              </>
-            ) : (
-              <label className="trial-block">
-                {current === "t2" ? "原因與該問誰" : "改了什麼"}
-                <textarea rows={4} maxLength={2000} value={text} onChange={(e) => setText(e.target.value)} />
+          </div>
+        </>
+      ) : (
+        <>
+          {current === "t1" ? (
+            <>
+              <label className="tr-text narrow">
+                合計還差幾學分
+                <input inputMode="numeric" value={total} onChange={(e) => setTotal(e.target.value)} />
               </label>
-            )}
-            <div className="trial-actions">
-              <button className="btn btn-primary" disabled={busy} onClick={() => void finish(false)}>
-                完成，下一步
-              </button>
-              <button className="btn" disabled={busy} onClick={() => void finish(true)}>
-                做不出來，跳過
-              </button>
-            </div>
+              <Field label="缺哪幾類">
+                {view.categories.map((c) => (
+                  <Choice
+                    key={c.name}
+                    type="checkbox"
+                    checked={cats.includes(c.name)}
+                    onChange={(on) => setCats(on ? [...cats, c.name] : cats.filter((x) => x !== c.name))}
+                  >
+                    {c.name}
+                  </Choice>
+                ))}
+              </Field>
+            </>
+          ) : (
+            <label className="tr-text">
+              {current === "t2" ? "原因與該問誰" : "改了什麼"}
+              <textarea rows={4} maxLength={2000} value={text} onChange={(e) => setText(e.target.value)} />
+            </label>
+          )}
+          <div className="tr-actions">
+            <button className="tr-btn primary" disabled={busy} onClick={() => void finish(false)}>
+              完成，下一步
+            </button>
+            <button className="tr-btn" disabled={busy} onClick={() => void finish(true)}>
+              做不出來，跳過
+            </button>
             {view.systemUrl ? (
-              <p className="rv-hint">
+              <span className="tr-hint">
                 系統分頁不見了？
-                <a href={view.systemUrl} target="aidit-trial-system">
+                <a href={view.systemUrl} target={SYSTEM_WINDOW}>
                   重新開啟
                 </a>
-              </p>
+              </span>
             ) : null}
-          </>
-        )}
-      </div>
-    </div>
+          </div>
+        </>
+      )}
+    </Card>
   );
 }
 
@@ -487,44 +592,37 @@ function Survey({ busy, send }: { busy: boolean; send: Send }) {
   const [open, setOpen] = useState("");
   const ready = scores.every((s) => s !== null);
   return (
-    <div className="panel">
-      <div className="panel-hd">
-        <h2>回饋</h2>
-        <span className="hint">1＝非常不同意，5＝非常同意</span>
-      </div>
-      <div className="panel-bd trial-form">
-        {SURVEY.map((q, i) => (
-          <fieldset key={q}>
-            <legend>{q}</legend>
-            <div className="trial-opts">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <label key={n}>
-                  <input
-                    type="radio"
-                    name={`q${i}`}
-                    checked={scores[i] === n}
-                    onChange={() => setScores(scores.map((s, j) => (j === i ? n : s)))}
-                  />{" "}
-                  {n}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-        ))}
-        <label className="trial-block">
-          哪裡讓你最困惑，或最希望它多做什麼？
-          <textarea rows={4} maxLength={4000} value={open} onChange={(e) => setOpen(e.target.value)} />
-        </label>
+    <Card title="回饋">
+      {SURVEY.map((q, i) => (
+        <fieldset className="tr-field" key={q}>
+          <legend>
+            {i + 1}. {q}
+          </legend>
+          <div className="tr-likert">
+            <span>非常不同意</span>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <Choice key={n} name={`q${i}`} checked={scores[i] === n} onChange={() => setScores(scores.map((s, j) => (j === i ? n : s)))}>
+                {n}
+              </Choice>
+            ))}
+            <span>非常同意</span>
+          </div>
+        </fieldset>
+      ))}
+      <label className="tr-text">
+        哪裡讓你最困惑，或最希望它多做什麼？
+        <textarea rows={4} maxLength={4000} value={open} onChange={(e) => setOpen(e.target.value)} />
+      </label>
+      <div className="tr-actions">
         <button
-          className="btn btn-primary"
+          className="tr-btn primary"
           disabled={busy || !ready}
-          onClick={() =>
-            void send({ type: "survey", scores: scores as [number, number, number, number, number], open })
-          }
+          onClick={() => void send({ type: "survey", scores: scores as [number, number, number, number, number], open })}
         >
           送出
         </button>
+        {!ready ? <span className="tr-hint">五題都選完才能送出</span> : null}
       </div>
-    </div>
+    </Card>
   );
 }

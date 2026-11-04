@@ -14,8 +14,8 @@ export default async function TrialPage() {
   if (!who) redirect("/review/login?next=/trial");
   return (
     <>
-      <ReviewTopbar reviewer={who} />
-      <div className="abort trial-wide" data-anon-keep>
+      <ReviewTopbar reviewer={who} current="trial" />
+      <div className="trial-wide" data-anon-keep>
         <TrialDashboard />
       </div>
     </>

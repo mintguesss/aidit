@@ -17,7 +17,7 @@ export default async function TrialSessionPage({ params }: { params: Promise<{ i
           <span className="brand-mark">Aidit 學生試用</span>
         </div>
       </header>
-      <div className="abort trial-wide">
+      <div className="trial-wide">
         <TrialRunner id={id} />
       </div>
     </>

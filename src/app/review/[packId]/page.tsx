@@ -35,7 +35,7 @@ export default async function ReviewPack({ params }: { params: Promise<{ packId:
 
   return (
     <>
-      <ReviewTopbar reviewer={reviewer} packId={packId} />
+      <ReviewTopbar reviewer={reviewer} packId={packId} current="review" />
       <ReviewBoard view={view} reviewer={reviewer} />
     </>
   );

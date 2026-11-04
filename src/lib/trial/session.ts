@@ -29,6 +29,8 @@ const SHEET_FIXTURE: Record<SheetNo, { fixture: FixtureId; publicId: string }> =
 export const manualSheetOf = (g: Group): SheetNo => (g === "A" ? 2 : 1);
 export const systemSheetOf = (g: Group): SheetNo => (g === "A" ? 1 : 2);
 export const systemUrlOf = (g: Group) => `/?fixture=${SHEET_FIXTURE[systemSheetOf(g)].publicId}`;
+/** 熟悉系統用合成案例，不是任務那位學生，先看過也不會知道答案 */
+export const DEMO_URL = "/?fixture=demo";
 
 function keyOf(sheet: SheetNo) {
   const c = REAL_CASES.find((x) => x.fixture === SHEET_FIXTURE[sheet].fixture);
@@ -105,6 +107,8 @@ export type TrialSession = {
     timedOut?: boolean;
     answer?: ManualAnswer;
   };
+  /** 手算後、任務前自由看一下系統，不算進任務時間 */
+  orientation?: { startedAt?: number; endedAt?: number };
   tasks: Record<TaskId, TaskRecord>;
   traceIds: string[];
   survey?: { scores: [number, number, number, number, number]; open: string; at: number };
@@ -145,13 +149,14 @@ export function newSession(args: { id: string; number: number; practice: boolean
   };
 }
 
-export type Step = "consent" | "declined" | "manual-intro" | "manual" | "system" | "survey" | "done";
+export type Step = "consent" | "declined" | "manual-intro" | "manual" | "orientation" | "system" | "survey" | "done";
 
 export function stepOf(s: TrialSession): Step {
   if (!s.consent) return "consent";
   if (!s.consent.agreed) return "declined";
   if (!s.manual.startedAt) return "manual-intro";
   if (!s.manual.endedAt) return "manual";
+  if (!s.orientation?.endedAt) return "orientation";
   if (TASK_IDS.some((t) => !s.tasks[t].endedAt)) return "system";
   return s.survey ? "done" : "survey";
 }
@@ -178,6 +183,8 @@ export const actionSchema = z.discriminatedUnion("type", [
   }),
   z.object({ type: z.literal("manual.start") }),
   z.object({ type: z.literal("manual.submit"), answer: manualAnswer, gaveUp: z.boolean() }),
+  z.object({ type: z.literal("orientation.start") }),
+  z.object({ type: z.literal("orientation.end") }),
   z.object({ type: z.literal("task.start"), task: z.enum(["t1", "t2", "t3"]) }),
   z.object({
     type: z.literal("task.submit"),
@@ -221,6 +228,16 @@ export function applyAction(s: TrialSession, a: TrialAction, now: number): { ok:
       s.manual.answer = a.answer;
       s.manual.gaveUp = a.gaveUp;
       s.manual.timedOut = now - s.manual.startedAt > MANUAL_LIMIT_MS - OVERTIME_GRACE_MS;
+      return { ok: true };
+    case "orientation.start":
+      if (s.orientation?.startedAt) return { ok: true };
+      if (step !== "orientation") return { ok: false, error: "還不能開始。" };
+      s.orientation = { startedAt: now };
+      return { ok: true };
+    case "orientation.end":
+      if (s.orientation?.endedAt) return { ok: true };
+      if (!s.orientation?.startedAt) return { ok: false, error: "還沒開始。" };
+      s.orientation.endedAt = now;
       return { ok: true };
     case "task.start": {
       if (s.tasks[a.task].startedAt) return { ok: true };
@@ -277,6 +294,7 @@ export const expectedTotal = (sheet: SheetNo) => keyOf(sheet).totalUnmet;
 
 const secs = (t: TaskRecord) => (t.startedAt && t.endedAt ? Math.round((t.endedAt - t.startedAt) / 1000) : null);
 export const taskSeconds = secs;
+const orientationSeconds = (s: TrialSession) => secs(s.orientation ?? {});
 export const manualMinutes = (s: TrialSession) =>
   s.manual.startedAt && s.manual.endedAt ? Math.round((s.manual.endedAt - s.manual.startedAt) / 6000) / 10 : null;
 
@@ -291,6 +309,8 @@ export function publicView(s: TrialSession, now: number) {
     manual: { startedAt: s.manual.startedAt ?? null, limitMs: MANUAL_LIMIT_MS },
     sheetNo: manualSheetOf(s.group),
     rows: step === "manual" ? sheetRows(manualSheetOf(s.group)) : null,
+    demoUrl: step === "orientation" ? DEMO_URL : null,
+    orientation: { startedAt: s.orientation?.startedAt ?? null },
     categories: SHEET_CATEGORIES,
     domains: GEN_ED_DOMAINS,
     systemUrl: step === "system" ? systemUrlOf(s.group) : null,
@@ -309,7 +329,7 @@ export const CSV_HEADER = [
   "手算題目", "手算開始", "手算結束", "手算耗時分", "手算合計作答", "手算各類別全對", "手算放棄", "手算標註不確定", "手算超時",
   "系統題目", "T1完成", "T1秒", "T1協助", "T1答案全對", "T2完成", "T2秒", "T2協助", "T3完成", "T3秒", "T3協助",
   "Q1比手算快", "Q2看得懂", "Q3更相信", "Q4接受不確定", "Q5會使用", "開放題", "對話traceId", "主持人備註", "是否排除", "排除理由",
-  "同意", "手算通識領域全對", "手算是否符合畢業全對", "手算各類別作答", "手算通識缺領域", "手算備註", "T1合計作答", "T1缺類別作答", "T2作答", "T3作答",
+  "同意", "手算通識領域全對", "手算是否符合畢業全對", "手算各類別作答", "手算通識缺領域", "手算備註", "T1合計作答", "T1缺類別作答", "T2作答", "T3作答", "熟悉系統秒",
 ];
 
 const yn = (b: boolean | null | undefined) => (b === null || b === undefined ? "" : b ? "是" : "否");
@@ -341,6 +361,7 @@ export function csvRow(s: TrialSession, mod: TrialMod): string[] {
     a ? SHEET_CATEGORIES.map((c) => `${c.name}=${a.categories[c.name] ?? ""}`).join("；") : "",
     a?.missingDomains.join("、") ?? "", a?.note ?? "",
     String(s.tasks.t1.total ?? ""), s.tasks.t1.categories?.join("、") ?? "", s.tasks.t2.text ?? "", s.tasks.t3.text ?? "",
+    String(orientationSeconds(s) ?? ""),
   ];
 }
 
@@ -370,7 +391,7 @@ export function moderatorView(s: TrialSession, mod: TrialMod) {
     manualGrade: s.manual.endedAt ? gradeManual(mSheet, s.manual.answer) : null,
     t1Grade: s.tasks.t1.endedAt ? gradeT1(sysSheet, s.tasks.t1) : null,
     expectedTotal: expectedTotal(sysSheet),
-    seconds: { t1: secs(s.tasks.t1), t2: secs(s.tasks.t2), t3: secs(s.tasks.t3) },
+    seconds: { t1: secs(s.tasks.t1), t2: secs(s.tasks.t2), t3: secs(s.tasks.t3), orientation: orientationSeconds(s) },
   };
 }
 export type TrialModeratorView = ReturnType<typeof moderatorView>;

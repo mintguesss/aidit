@@ -16,7 +16,7 @@ export default async function ReviewIndex() {
 
   return (
     <>
-      <ReviewTopbar reviewer={reviewer} />
+      <ReviewTopbar reviewer={reviewer} current="review" />
 
       <div className="abort">
         <div className="box" style={{ borderLeftColor: "var(--ink-3)" }}>

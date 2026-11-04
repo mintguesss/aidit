@@ -5,6 +5,7 @@ import { Spinner } from "@/components/shell/Spinner";
 
 /** 校對登入表單：姓名＋校對密碼。姓名會記在每一筆校對紀錄上 */
 export function ReviewLogin({ next }: { next: string }) {
+  const forTrial = next === "/trial";
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +37,7 @@ export function ReviewLogin({ next }: { next: string }) {
   return (
     <form className="panel" onSubmit={(e) => void submit(e)}>
       <div className="panel-hd">
-        <h2>規則校對登入</h2>
+        <h2>{forTrial ? "學生試用後台登入" : "規則校對登入"}</h2>
       </div>
       <div className="panel-bd rv-login">
         <label>
@@ -44,7 +45,7 @@ export function ReviewLogin({ next }: { next: string }) {
           <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="username" required maxLength={40} />
         </label>
         <label>
-          校對密碼
+          {forTrial ? "密碼（與規則校對相同）" : "校對密碼"}
           <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
         </label>
         {error ? (
@@ -55,7 +56,9 @@ export function ReviewLogin({ next }: { next: string }) {
         <button className="btn btn-primary" type="submit" disabled={busy}>
           {busy ? <Spinner label="登入中…" /> : "登入"}
         </button>
-        <p className="rv-hint">校對是內部作業：只有拿到校對密碼的人能校對、鎖版。登入 12 小時有效。</p>
+        <p className="rv-hint">
+          {forTrial ? "後台有批改結果，不要讓受試者看到。" : "校對是內部作業：只有拿到校對密碼的人能校對、鎖版。"}登入 12 小時有效，可以在上方切換規則校對與學生試用。
+        </p>
       </div>
     </form>
   );

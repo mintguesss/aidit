@@ -36,6 +36,8 @@ function runAll(s: TrialSession) {
   applyAction(s, { type: "consent", agreed: true, profile }, T0);
   applyAction(s, { type: "manual.start" }, T0 + 1000);
   applyAction(s, { type: "manual.submit", answer: answerFor40, gaveUp: false }, T0 + 601_000);
+  applyAction(s, { type: "orientation.start" }, T0 + 610_000);
+  applyAction(s, { type: "orientation.end" }, T0 + 670_000);
   for (const [i, task] of (["t1", "t2", "t3"] as const).entries()) {
     applyAction(s, { type: "task.start", task }, T0 + 700_000 + i * 100_000);
     applyAction(
@@ -116,6 +118,9 @@ describe("流程", () => {
     applyAction(s, { type: "consent", agreed: true, profile }, T0);
     applyAction(s, { type: "manual.start" }, T0);
     applyAction(s, { type: "manual.submit", answer: answerFor40, gaveUp: false }, T0);
+    expect(applyAction(s, { type: "task.start", task: "t1" }, T0).ok).toBe(false);
+    applyAction(s, { type: "orientation.start" }, T0);
+    applyAction(s, { type: "orientation.end" }, T0);
     expect(applyAction(s, { type: "task.start", task: "t2" }, T0).ok).toBe(false);
     expect(applyAction(s, { type: "task.start", task: "t1" }, T0).ok).toBe(true);
   });
@@ -143,6 +148,41 @@ describe("流程", () => {
     const u = structuredClone(s);
     u.survey = undefined;
     expect(applyAction(u, { type: "survey", scores: [6, 5, 5, 5, 5], open: "" }, T0).ok).toBe(false);
+  });
+});
+
+describe("熟悉系統", () => {
+  const atOrientation = () => {
+    const s = make();
+    applyAction(s, { type: "consent", agreed: true, profile }, T0);
+    applyAction(s, { type: "manual.start" }, T0);
+    applyAction(s, { type: "manual.submit", answer: answerFor40, gaveUp: false }, T0 + 1000);
+    return s;
+  };
+
+  it("手算之後才看系統，手算前不給連結", () => {
+    const before = make();
+    applyAction(before, { type: "consent", agreed: true, profile }, T0);
+    expect(publicView(before, T0).demoUrl).toBeNull();
+    expect(applyAction(before, { type: "orientation.start" }, T0).ok).toBe(false);
+    const s = atOrientation();
+    expect(stepOf(s)).toBe("orientation");
+    expect(publicView(s, T0).demoUrl).toBe("/?fixture=demo");
+    expect(publicView(s, T0).systemUrl).toBeNull();
+  });
+
+  it("用的是合成案例，不是任務那兩位學生", () => {
+    const url = publicView(atOrientation(), T0).demoUrl!;
+    expect(url).not.toBe(systemUrlOf("A"));
+    expect(url).not.toBe(systemUrlOf("B"));
+  });
+
+  it("時間單獨記，不算進任務", () => {
+    const s = make();
+    runAll(s);
+    const row = csvRow(s, emptyMod());
+    expect(row[CSV_HEADER.indexOf("熟悉系統秒")]).toBe("60");
+    expect(row[CSV_HEADER.indexOf("T1秒")]).toBe("30");
   });
 });
 

@@ -1,5 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { transformJSONSchema } from "@anthropic-ai/sdk/lib/transform-json-schema";
 import { z } from "zod/v4";
 import { appendFileSync } from "node:fs";
 import type { LlmUsage } from "@/lib/types";
@@ -229,6 +229,28 @@ export type StructuredRequest<S extends z.ZodType> = {
 /** refusal：模型拒絕回應的類別。拒絕也有計費，所以照樣帶 usage 回去，由外層記帳後再當成失敗 */
 type ProviderResult = { output: unknown; inputTokens: number; outputTokens: number; requestId?: string | null; refusal?: string };
 
+/**
+ * 送給模型的 JSON Schema。zod 4.6 把可為 null 的欄位寫成 type: ["boolean", "null"]，
+ * 但 SDK 的 transformJSONSchema 只認字串型別，["object", "null"] 不會補 additionalProperties，
+ * 嚴格模式可能被模型服務以 400 退回，對話就整站退回規則。一律轉回 anyOf，
+ * 兩個供應商都吃這個寫法，也與升級 zod 前實際送出的內容相同。
+ */
+export function modelSchema(schema: z.ZodType): Record<string, unknown> {
+  const walk = (node: unknown): unknown => {
+    if (Array.isArray(node)) return node.map(walk);
+    if (!node || typeof node !== "object") return node;
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(node)) out[k] = walk(v);
+    if (Array.isArray(out.type) && out.type.includes("null")) {
+      const { type, description, ...rest } = out as { type: string[]; description?: unknown };
+      const variants = type.filter((t) => t !== "null").map((t) => ({ type: t, ...rest }));
+      return { ...(description === undefined ? {} : { description }), anyOf: [...variants, { type: "null" }] };
+    }
+    return out;
+  };
+  return walk(z.toJSONSchema(schema)) as Record<string, unknown>;
+}
+
 async function callAnthropic<S extends z.ZodType>(req: StructuredRequest<S>): Promise<ProviderResult> {
   // 不用 messages.parse／parseMessage：
   // 1. 它執行期回的是一般 Promise，拿不到 request-id（型別寫的是 APIPromise，但 .withResponse() 不存在）；
@@ -242,7 +264,7 @@ async function callAnthropic<S extends z.ZodType>(req: StructuredRequest<S>): Pr
     output_config: {
       // Haiku 4.5 不支援 effort，送出會 400，所以依模型決定要不要帶
       ...(LLM.supportsEffort ? { effort: req.effort ?? "low" } : {}),
-      format: zodOutputFormat(req.schema),
+      format: { type: "json_schema" as const, schema: transformJSONSchema(modelSchema(req.schema)) },
     },
     messages: [{ role: "user" as const, content: req.user }],
   };
@@ -276,7 +298,7 @@ async function callOpenAiCompatible<S extends z.ZodType>(
   req: StructuredRequest<S>,
 ): Promise<ProviderResult> {
   // 部分伺服器會拒絕帶 $schema 的 payload
-  const { $schema: _drop, ...schema } = z.toJSONSchema(req.schema) as Record<string, unknown>;
+  const { $schema: _drop, ...schema } = modelSchema(req.schema);
 
   const res = await fetch(`${LLM.baseUrl}/chat/completions`, {
     method: "POST",

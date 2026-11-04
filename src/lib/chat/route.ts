@@ -1,4 +1,4 @@
-import type { AuditResult, ExclusionReason, Offering, Plan, SolveResult, StudentRecord } from "@/lib/types";
+import type { AuditResult, ExclusionReason, Offering, Plan, SolveResult, StudentRecord, ToolCall } from "@/lib/types";
 import type { RulePack } from "@/lib/rules/schema";
 import { simulate } from "@/lib/whatif/simulate";
 import { earlyGraduationScenario } from "@/lib/whatif/intent";
@@ -1024,6 +1024,35 @@ async function orRules<T>(call: Promise<T>, rules: () => T, tools: string[]): Pr
     console.warn(`[chat] 模型呼叫失敗，退回規則：${String(err).slice(0, 200)}`);
     return rules();
   }
+}
+
+/**
+ * 一輪對話寫進 trace 的工具紀錄。只記介面、意圖與結果摘要，不記使用者原文與回覆內容。
+ * 各工具的耗時沒有分開量，總耗時看 step.ms。
+ *
+ * 模型失敗時 chat.intent 要記成 failed：對話靠規則照常回覆，全記 ok 的話工具成功率會虛高，
+ * 查核 trace 也看不出這一輪沒用到模型。
+ */
+export function turnToolCalls(turn: TurnResult, scope: "plan" | "ask"): ToolCall[] {
+  const degraded = turn.tools.includes("rule.degraded");
+  return turn.tools.map((name) => {
+    const base = { name, input: { scope }, ms: 0 };
+    if (name === "chat.intent") {
+      return degraded
+        ? { ...base, output: null, status: "failed" as const, error: "模型呼叫失敗，改用規則解析；原因見部署紀錄" }
+        : { ...base, output: { intent: turn.intent, clarifying: turn.clarifying }, status: "ok" as const };
+    }
+    if (name === "schedule.solve" && turn.plan) {
+      const s = turn.plan.solve;
+      const top = s.ok ? s.plans[0] : undefined;
+      return {
+        ...base,
+        output: { ok: s.ok, plans: s.ok ? s.plans.length : 0, courses: top?.courses.length, credits: top?.totalCredits, unmetAfter: top?.unmetAfter },
+        status: "ok" as const,
+      };
+    }
+    return { ...base, output: { replyKind: turn.reply.kind }, status: "ok" as const };
+  });
 }
 
 /**

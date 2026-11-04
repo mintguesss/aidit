@@ -17,7 +17,7 @@ vi.mock("@/lib/chat/intent", async (orig) => {
 });
 
 import { parseAskIntent, parsePlanIntent, type AskIntentResult, type PlanIntentResult, type PlanParams } from "@/lib/chat/intent";
-import { admitDegraded, askTurn, planTurn, spokenCategory, type TurnContext } from "@/lib/chat/route";
+import { admitDegraded, askTurn, planTurn, spokenCategory, turnToolCalls, type TurnContext } from "@/lib/chat/route";
 import { runAudit } from "@/lib/agent/runner";
 import { constraintSetFrom, preferencesOf } from "@/lib/chat/apply";
 import { resolveRulePack } from "@/lib/rules/loader";
@@ -371,6 +371,34 @@ describe("模型呼叫失敗時退回規則，不讓整輪失敗", () => {
       tools: ["chat.intent", "rule.degraded"], intent: "forbidden:grade-prediction", clarifying: false,
     } as Parameters<typeof admitDegraded>[0];
     expect(admitDegraded(turn)).toBe(turn);
+  });
+
+  it("trace：模型失敗時 chat.intent 記成 failed，不算工具成功", async () => {
+    vi.mocked(parsePlanIntent).mockRejectedValueOnce(timeout);
+    const r = await planTurn(
+      [{ role: "user", content: "不要早上的課" }],
+      { ...base, constraints: { ...base.constraints } },
+      new LlmBudget(LIMITS.llmCallsPerTurn),
+    );
+    const calls = turnToolCalls(r, "plan");
+    const intent = calls.find((c) => c.name === "chat.intent")!;
+    expect(intent.status).toBe("failed");
+    expect(intent.error).toContain("模型呼叫失敗");
+    expect(calls.find((c) => c.name === "rule.degraded")!.status).toBe("ok");
+    expect(calls.find((c) => c.name === "schedule.solve")!.output).toMatchObject({ ok: true });
+  });
+
+  it("trace：模型正常時 chat.intent 是 ok，記意圖；紀錄不含使用者原文", async () => {
+    const said = "我不想上顧客關係管理";
+    vi.mocked(parsePlanIntent).mockResolvedValueOnce({ kind: "intent", intent: "adjust-time", reason: "", params: { ...empty(), avoidDays: [5] } });
+    const r = await planTurn(
+      [{ role: "user", content: said }],
+      { ...base, constraints: { ...base.constraints } },
+      new LlmBudget(LIMITS.llmCallsPerTurn),
+    );
+    const calls = turnToolCalls(r, "plan");
+    expect(calls[0]).toMatchObject({ name: "chat.intent", status: "ok" });
+    expect(JSON.stringify(calls)).not.toContain(said);
   });
 
   it("呼叫預算用完不是模型壞了，照常往外拋", async () => {

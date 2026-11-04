@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getAuditSession } from "@/lib/audit/session";
 import { parsePageParams } from "@/lib/ui/params";
 import { resolveRulePack } from "@/lib/rules/loader";
-import { admitDegraded, askTurn, planTurn, type TurnContext } from "@/lib/chat/route";
+import { admitDegraded, askTurn, planTurn, turnToolCalls, type TurnContext } from "@/lib/chat/route";
 import { constraintSetFrom, describeSet, preferencesOf, sanitiseConstraintSet, periodNamesFor } from "@/lib/chat/apply";
 import { render } from "@/lib/chat/compose";
 import { isCourseCode } from "@/lib/courses/code";
@@ -133,7 +133,14 @@ export async function POST(req: Request) {
   trace.pushStep({
     name: scope === "plan" ? "planTurn" : "askTurn",
     label: scope === "plan" ? "課表微調對話" : "修業問答對話",
-    status: turn.reply.kind === "決定" ? "ok" : turn.reply.kind === "不確定" ? "held" : "skipped",
+    // 模型失敗、靠規則答的一輪不算完全成功，查核時才分得出來
+    status: turn.tools.includes("rule.degraded")
+      ? "partial"
+      : turn.reply.kind === "決定"
+        ? "ok"
+        : turn.reply.kind === "不確定"
+          ? "held"
+          : "skipped",
     summary:
       `意圖 ${turn.intent}；回答類型「${turn.reply.kind}」；` +
       `呼叫 ${turn.tools.join("、")}` +
@@ -144,14 +151,7 @@ export async function POST(req: Request) {
       (turn.plan?.refusedParams?.length ? `；擋下未說出口的參數：${turn.plan.refusedParams.join("、")}` : ""),
     retries: 0,
     ms: Date.now() - started,
-    // 只記介面、意圖與回答類型，不記使用者原文與回覆內容。各工具的耗時沒有分開量，總耗時看 step.ms
-    toolCalls: turn.tools.map((name) => ({
-      name,
-      input: { scope },
-      output: name === "chat.intent" ? { intent: turn.intent, clarifying: turn.clarifying } : { replyKind: turn.reply.kind },
-      ms: 0,
-      status: "ok" as const,
-    })),
+    toolCalls: turnToolCalls(turn, scope),
   });
 
   const t = trace.finish({

@@ -2363,3 +2363,5 @@ html[data-anon] a[aria-disabled="true"]{color:inherit;text-decoration:none;curso
 .trial-dl dt{color:var(--text-2)}
 .trial-dl dd{margin:0;overflow-wrap:anywhere}
 @media(max-width:700px){.trial-dl{grid-template-columns:1fr;gap:2px}.trial-dl dd{margin-bottom:8px}}
+/* .rv-err 的 flex-basis 是給校對頁橫排用的；直排的表單裡會變成 240px 高的大紅框 */
+.rv-login .rv-err,.trial-form .rv-err{flex:none}

@@ -366,8 +366,13 @@ export function rulePlanIntent(raw: string): PlanIntentResult {
   return toPlanResult(offlinePlanIntent(raw), raw);
 }
 
-/** 問自己有哪些待確認事項，包含「有什麼不確定的」「要找承辦單位確認什麼」這類說法 */
-export const ASKS_HOLDS = /待確認|待審|轉人工|無法判定的|(?:有|哪些|什麼).{0,6}不確定|不確定的(?:事|地方|項目)|(?:承辦單位|系辦).{0,4}確認/;
+/**
+ * 問自己有哪些待確認事項，包含「有什麼不確定的」「要找承辦單位確認什麼」這類說法。
+ * 這條會蓋掉模型的判斷，只收「在問有哪些」的句型：
+ * 「我有點不確定微積分要不要重修」是自己拿不定主意，「抵免要去系辦確認嗎」是問手續，都不算。
+ */
+export const ASKS_HOLDS =
+  /待確認|待審|轉人工|無法判定的|(?:有什麼|有哪些|哪些|什麼)(?:事情?|事項|地方|項目|東西)?(?:是|還)?不確定|有不確定的(?:事情?|事項|地方|項目)?(?:嗎|呢|[？?]|$)|(?:有哪些|哪些|什麼).{0,6}(?:承辦單位|系辦).{0,4}確認|(?:承辦單位|系辦).{0,2}確認(?:什麼|哪些)/;
 
 export function ruleAskIntent(raw: string): AskIntentResult {
   return toAskResult(offlineAskIntent(raw), raw);

@@ -137,6 +137,13 @@ describe("流程", () => {
     applyAction(onTime, { type: "manual.start" }, T0);
     applyAction(onTime, { type: "manual.submit", answer: answerFor40, gaveUp: false }, T0 + 60_000);
     expect(onTime.manual.timedOut).toBe(false);
+
+    // 時間到之前幾秒自己交卷，不算超時
+    const close = make();
+    applyAction(close, { type: "consent", agreed: true, profile }, T0);
+    applyAction(close, { type: "manual.start" }, T0);
+    applyAction(close, { type: "manual.submit", answer: answerFor40, gaveUp: false }, T0 + MANUAL_LIMIT_MS - 8000);
+    expect(close.manual.timedOut).toBe(false);
   });
 
   it("問卷分數超出範圍要擋", () => {

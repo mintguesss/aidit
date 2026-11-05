@@ -2401,8 +2401,11 @@ html[data-anon] a[aria-disabled="true"]{color:inherit;text-decoration:none;curso
 .tr-timebar i{display:block;height:100%;background:var(--ink-3);transition:width 1s linear}
 .tr-timer.urgent .tr-clock{color:var(--unmet)}
 .tr-timer.urgent .tr-timebar i{background:var(--unmet)}
-.tr-manual-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(320px,1fr);gap:14px;align-items:start}
+.tr-manual-grid{display:flex;flex-direction:column;gap:14px}
 .tr-sheet{overflow-x:auto}
+/* 資料很長，在自己的框內捲，對照時不用來回捲過整頁才看得到下面的填空 */
+.tr-materials .tr-sheet,.tr-materials .tr-ref{max-height:58vh;overflow-y:auto}
+.tr-materials .tr-sheet thead th{position:sticky;top:0;z-index:1}
 .tr-sheet table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}
 .tr-sheet th{text-align:left;font-weight:500;color:var(--text-2);background:var(--surface)}
 .tr-sheet th,.tr-sheet td{padding:6px 10px;border-bottom:1px solid var(--line)}
@@ -2423,7 +2426,7 @@ html[data-anon] a[aria-disabled="true"]{color:inherit;text-decoration:none;curso
 .tr-ref th{text-align:left;font-weight:500;color:var(--text-2);background:var(--surface)}
 .tr-ref th,.tr-ref td{padding:5px 10px;border-bottom:1px solid var(--line)}
 .tr-ref th:not(:first-child),.tr-ref td:not(:first-child){width:56px;white-space:nowrap}
-.tr-answer{position:sticky;top:136px;max-height:calc(100vh - 152px);overflow-y:auto}
+.tr-answer-row{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:18px}
 .tr-credits{display:flex;flex-direction:column;border-top:1px solid var(--line)}
 .tr-credits label{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:7px 0;
   font-size:13.5px;border-bottom:1px solid var(--line)}
@@ -2506,9 +2509,16 @@ html[data-anon] a[aria-disabled="true"]{color:inherit;text-decoration:none;curso
 
 @media(max-width:900px){
   .trial-wide{padding:16px 16px 40px}
-  .tr-manual-grid,.ad-grid{grid-template-columns:minmax(0,1fr)}
-  .tr-answer,.ad-list{position:static;max-height:none}
+  .ad-grid{grid-template-columns:minmax(0,1fr)}
+  .tr-answer-row{grid-template-columns:minmax(0,1fr)}
+  .ad-list{position:static;max-height:none}
   .ad-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+/* 寬螢幕：六格學分排成一列 */
+@media(min-width:901px){
+  .tr-credits{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;border-top:0}
+  .tr-credits label{flex-direction:column;align-items:stretch;justify-content:space-between;gap:6px;padding:0;border-bottom:0}
+  .tr-credits input{flex:none;width:100%}
 }
 @media(max-width:600px){
   .tr-stepper li{flex-direction:column;align-items:flex-start;gap:3px;font-size:11.5px}

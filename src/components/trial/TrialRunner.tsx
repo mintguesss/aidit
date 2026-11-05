@@ -381,28 +381,30 @@ function Manual({ id, view, busy, send }: { id: string; view: TrialPublicView; b
             </div>
           </div>
 
-          <Field label="通識還缺的領域" hint="三大領域各至少 4 學分">
-            {view.domains.map((d) => (
-              <Choice
-                key={d}
-                type="checkbox"
-                checked={draft.missingDomains.includes(d)}
-                onChange={(on) =>
-                  update({ missingDomains: on ? [...draft.missingDomains, d] : draft.missingDomains.filter((x) => x !== d) })
-                }
-              >
-                {d}
+          <div className="tr-answer-row">
+            <Field label="通識還缺的領域" hint="三大領域各至少 4 學分">
+              {view.domains.map((d) => (
+                <Choice
+                  key={d}
+                  type="checkbox"
+                  checked={draft.missingDomains.includes(d)}
+                  onChange={(on) =>
+                    update({ missingDomains: on ? [...draft.missingDomains, d] : draft.missingDomains.filter((x) => x !== d) })
+                  }
+                >
+                  {d}
+                </Choice>
+              ))}
+            </Field>
+            <Field label="已符合畢業學分？">
+              <Choice name="grad" checked={draft.canGraduate === true} onChange={() => update({ canGraduate: true })}>
+                是
               </Choice>
-            ))}
-          </Field>
-          <Field label="已符合畢業學分？">
-            <Choice name="grad" checked={draft.canGraduate === true} onChange={() => update({ canGraduate: true })}>
-              是
-            </Choice>
-            <Choice name="grad" checked={draft.canGraduate === false} onChange={() => update({ canGraduate: false })}>
-              否
-            </Choice>
-          </Field>
+              <Choice name="grad" checked={draft.canGraduate === false} onChange={() => update({ canGraduate: false })}>
+                否
+              </Choice>
+            </Field>
+          </div>
           <label className="tr-text">
             備註（無法判斷的地方）
             <textarea rows={3} maxLength={2000} value={draft.note} onChange={(e) => update({ note: e.target.value })} />

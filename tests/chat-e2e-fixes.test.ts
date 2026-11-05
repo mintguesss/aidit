@@ -176,13 +176,14 @@ describe("被上一輪帶偏：這句話沒提到情境就照這句話答", () =
   });
 
   it("T2 的問法仍算待確認事項", () => {
-    for (const said of ["系統有不確定的事項嗎", "有什麼不確定的", "我還有不確定的事項嗎", "要找承辦單位確認什麼"]) {
+    for (const said of ["系統有不確定的事項嗎", "有什麼不確定的", "我還有不確定的事項嗎", "要找承辦單位確認什麼", "不確定的事項有哪些"]) {
       expect(ruleIntentName(said)).toBe("personal-audit");
     }
   });
 
   it("只是句子裡有「不確定」「系辦確認」的不算，模型判對的不能被蓋掉（2026-11-05 檢查發現）", async () => {
     const cases: [string, AskIntentResult][] = [
+      ["什麼時候要跟系辦確認抵免", { kind: "intent", intent: "procedure", params: { procedure: "抵免", raw: "什麼時候要跟系辦確認抵免" } }],
       ["抵免要去系辦確認嗎", { kind: "intent", intent: "procedure", params: { procedure: "抵免", raw: "抵免要去系辦確認嗎" } }],
       ["我有點不確定微積分要不要重修", { kind: "intent", intent: "course-info", params: { course: "微積分", raw: "我有點不確定微積分要不要重修" } }],
       ["我有點不確定明天天氣", { kind: "out-of-scope" }],

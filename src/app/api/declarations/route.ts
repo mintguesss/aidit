@@ -3,6 +3,7 @@ import { getAuditSession, invalidateAuditSession } from "@/lib/audit/session";
 import { parsePageParams } from "@/lib/ui/params";
 import { studentHash } from "@/lib/util/identity";
 import { prefsStore, type StoredServerPrefs } from "@/lib/store/prefs-store";
+import { isSharedCase } from "@/lib/trial/shared-case";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -23,6 +24,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "缺少 checkId 或 passed。" }, { status: 400 });
   }
   const { fixture, term } = parsePageParams({ fixture: body.fixture, term: body.term });
+  if (isSharedCase(fixture)) {
+    return NextResponse.json({ error: "這是多人共用的示範案例，不開放勾選。" }, { status: 403 });
+  }
   const session = await getAuditSession(fixture, term);
   if (!session.outcome.ok) return NextResponse.json({ error: "審查未完成，無法勾選。" }, { status: 409 });
 

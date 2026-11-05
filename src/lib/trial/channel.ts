@@ -4,6 +4,17 @@
  */
 export const TRIAL_CHANNEL = "aidit-trial";
 
+/** 同一台裝置換下一位受試者時，清掉上一位留在瀏覽器的待確認狀態與偏好。試用草稿不動 */
+export function resetSystemState(): void {
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith("aidit:hold:") || key === "aidit.preferences") localStorage.removeItem(key);
+    }
+  } catch {
+    // 瀏覽器擋住儲存時本來也沒有東西留下
+  }
+}
+
 export function announceTrace(traceId: string | undefined): void {
   if (!traceId || typeof BroadcastChannel === "undefined") return;
   try {

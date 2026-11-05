@@ -4,6 +4,7 @@ import { parsePageParams } from "@/lib/ui/params";
 import { studentHash } from "@/lib/util/identity";
 import { prefsStore, PREF_TTL_MONTHS, type StoredServerPrefs } from "@/lib/store/prefs-store";
 import { traceStore } from "@/lib/store";
+import { isSharedCase } from "@/lib/trial/shared-case";
 import type { CoursePreferences } from "@/lib/types";
 import type { OptionalPreferences } from "@/lib/ui/prefs";
 
@@ -40,6 +41,10 @@ async function identify(body: Body | null) {
 
 export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as Body | null;
+  // 多人共用的案例不存伺服器：畫面照常運作，偏好只留在這個瀏覽器
+  if (isSharedCase(parsePageParams({ fixture: body?.fixture }).fixture)) {
+    return NextResponse.json({ ok: true, stored: null, ttlMonths: PREF_TTL_MONTHS });
+  }
   const who = await identify(body);
   if (!who) return NextResponse.json({ error: "無法識別學籍。" }, { status: 422 });
 
@@ -64,6 +69,10 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   const body = (await req.json().catch(() => null)) as Body | null;
+  // 執行紀錄以學生為鍵，在共用案例上刪除會連別人的紀錄一起刪掉
+  if (isSharedCase(parsePageParams({ fixture: body?.fixture }).fixture)) {
+    return NextResponse.json({ ok: true, scope: body?.scope ?? "preferences", traces: 0 });
+  }
   const who = await identify(body);
   if (!who) return NextResponse.json({ error: "無法識別學籍。" }, { status: 422 });
 

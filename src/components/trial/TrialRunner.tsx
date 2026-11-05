@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { TRIAL_CHANNEL } from "@/lib/trial/channel";
-import type { ManualAnswer, Step, TaskId, TrialAction, TrialPublicView } from "@/lib/trial/session";
+import { resetSystemState, TRIAL_CHANNEL } from "@/lib/trial/channel";
+import type { ManualAnswer, SheetRow, Step, TaskId, TrialAction, TrialPublicView } from "@/lib/trial/session";
+import { PlanReference, RulesReference } from "./TrialReference";
 
 const IDENTITIES = ["大一", "大二", "大三", "大四", "碩士班", "其他"];
 const LAST_CHECK = ["沒確認過", "10 分鐘內", "10–30 分鐘", "30–60 分鐘", "超過 1 小時"];
@@ -39,16 +40,30 @@ export function TrialRunner({ id }: { id: string }) {
     void load().catch(() => setError("連不上伺服器，請檢查網路後重新整理。"));
   }, [load]);
 
+  // 伺服器是讀出、修改、寫回，兩個請求重疊時後寫的會蓋掉先寫的（例如交卷和 traceId 同時到）。
+  // 這一頁的寫入一個接一個送
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
+  const patch = useCallback(
+    (action: TrialAction) => {
+      const run = () =>
+        fetch(`/api/trial/${id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(action),
+        });
+      const next = queue.current.then(run, run);
+      queue.current = next.catch(() => undefined);
+      return next;
+    },
+    [id],
+  );
+
   const send = useCallback(
     async (action: TrialAction): Promise<boolean> => {
       setBusy(true);
       setError(null);
       try {
-        const res = await fetch(`/api/trial/${id}`, {
-          method: "PATCH",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(action),
-        });
+        const res = await patch(action);
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           setError(data.error ?? `送出失敗（${res.status}）。`);
@@ -63,7 +78,7 @@ export function TrialRunner({ id }: { id: string }) {
         setBusy(false);
       }
     },
-    [id],
+    [patch],
   );
 
   // 系統分頁的對話一回來，就記下 traceId。熟悉系統時的對話不記，那不是任務
@@ -72,16 +87,10 @@ export function TrialRunner({ id }: { id: string }) {
     if (step !== "system" || typeof BroadcastChannel === "undefined") return;
     const ch = new BroadcastChannel(TRIAL_CHANNEL);
     ch.onmessage = (e: MessageEvent<{ traceId?: string }>) => {
-      if (e.data?.traceId) {
-        void fetch(`/api/trial/${id}`, {
-          method: "PATCH",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ type: "trace", traceId: e.data.traceId }),
-        }).catch(() => undefined);
-      }
+      if (e.data?.traceId) void patch({ type: "trace", traceId: e.data.traceId }).catch(() => undefined);
     };
     return () => ch.close();
-  }, [step, id]);
+  }, [step, patch]);
 
   if (!view) return <div className="tr-card tr-pad">{error ?? "載入中…"}</div>;
 
@@ -219,7 +228,10 @@ function Consent({ busy, send }: { busy: boolean; send: Send }) {
         <button
           className="tr-btn primary"
           disabled={busy || !ready}
-          onClick={() => void send({ type: "consent", agreed: true, profile: { identity, minorProgram: minor === true, lastCheck } })}
+          onClick={() => {
+            resetSystemState();
+            void send({ type: "consent", agreed: true, profile: { identity, minorProgram: minor === true, lastCheck } });
+          }}
         >
           我同意參與
         </button>
@@ -237,7 +249,7 @@ function ManualIntro({ busy, send }: { busy: boolean; send: Send }) {
     <Card title="第一部分：手算" keep>
       <ul className="tr-list">
         <li>下一頁是一位 111 學年度入學、資訊管理學系學生的修課紀錄（皆已及格）。</li>
-        <li>請只用主持人提供的課程規劃表與修業規則計算，不要使用本系統或任何 AI。</li>
+        <li>課程規劃表與修業規則也在下一頁，用上方的分頁切換。請只用這些資料計算，不要使用本系統或任何 AI。</li>
         <li>寫出各類別還差幾學分、合計、通識還缺哪些領域，以及是否已符合畢業學分。</li>
         <li>超過應修學分的部分不能補到其他類別（請依修業規則判斷）。</li>
         <li>資料不足無法判斷的地方，請寫在備註，不要硬猜。</li>
@@ -334,7 +346,7 @@ function Manual({ id, view, busy, send }: { id: string; view: TrialPublicView; b
       <div className={left < 60_000 ? "tr-timer urgent" : "tr-timer"} role="timer">
         <div>
           <b>手算題目</b>
-          <span className="tr-hint">只用規劃表和修業規則，不要用系統或 AI</span>
+          <span className="tr-hint">只用下方的資料，不要用系統或 AI</span>
         </div>
         <span className="tr-clock">剩 {formatClock(left)}</span>
         <span className="tr-timebar" aria-hidden>
@@ -343,35 +355,7 @@ function Manual({ id, view, busy, send }: { id: string; view: TrialPublicView; b
       </div>
 
       <div className="tr-manual-grid">
-        <div className="tr-card tr-sheet">
-          <table>
-            <thead>
-              <tr>
-                <th>學期</th>
-                <th>課名</th>
-                <th>學分</th>
-                <th>選別</th>
-                <th>通識領域</th>
-                <th>開課單位</th>
-                <th>備註</th>
-              </tr>
-            </thead>
-            <tbody>
-              {view.rows?.map((r, i) => (
-                <tr key={i}>
-                  <td className="mono">{r.term}</td>
-                  <td>{r.name}</td>
-                  <td className="mono">{r.credits}</td>
-                  <td>{r.type}</td>
-                  <td>{r.domain}</td>
-                  <td>{r.dept}</td>
-                  <td>{r.note}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="tr-hint tr-sheet-note">選別：必＝必修、選＝選修、通＝通識。開課單位「外系」表示非本系開設。</p>
-        </div>
+        <ManualMaterials rows={view.rows ?? []} />
 
         <div className="tr-card tr-pad tr-stack tr-answer">
           <div className="tr-field">
@@ -437,6 +421,63 @@ function Manual({ id, view, busy, send }: { id: string; view: TrialPublicView; b
         </div>
       </div>
     </section>
+  );
+}
+
+const MATERIALS = [
+  { id: "record", label: "修課紀錄" },
+  { id: "plan", label: "課程規劃表" },
+  { id: "rules", label: "修業規則" },
+] as const;
+
+/** 手算要用的三份資料，用分頁切換，答題欄留在旁邊不動 */
+function ManualMaterials({ rows }: { rows: SheetRow[] }) {
+  const [tab, setTab] = useState<(typeof MATERIALS)[number]["id"]>("record");
+  return (
+    <div className="tr-card tr-materials">
+      <div className="tr-tabs" role="tablist" aria-label="手算資料">
+        {MATERIALS.map((m) => (
+          <button key={m.id} type="button" role="tab" aria-selected={tab === m.id} onClick={() => setTab(m.id)}>
+            {m.label}
+          </button>
+        ))}
+      </div>
+      {tab === "record" ? (
+        <div className="tr-sheet">
+          <table>
+            <thead>
+              <tr>
+                <th>學期</th>
+                <th>課名</th>
+                <th>學分</th>
+                <th>選別</th>
+                <th>通識領域</th>
+                <th>開課單位</th>
+                <th>備註</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i}>
+                  <td className="mono">{r.term}</td>
+                  <td>{r.name}</td>
+                  <td className="mono">{r.credits}</td>
+                  <td>{r.type}</td>
+                  <td>{r.domain}</td>
+                  <td>{r.dept}</td>
+                  <td>{r.note}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="tr-hint tr-sheet-note">
+            選別：必＝必修、選＝選修、通＝通識。開課單位「外系」表示非本系開設。備註「入學前抵免」的課程，學分已認列。
+          </p>
+        </div>
+      ) : null}
+      {tab === "plan" ? <PlanReference /> : null}
+      {tab === "rules" ? <RulesReference /> : null}
+    </div>
   );
 }
 

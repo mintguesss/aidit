@@ -1,3 +1,4 @@
+import { isSharedCase } from "@/lib/trial/shared-case";
 import type { GraduationCheck } from "@/lib/types";
 import { SourceLinks } from "../sources/SourceLinks";
 import { DeclareToggle } from "./DeclareToggle";
@@ -17,13 +18,18 @@ export function GraduationCheckDetails({
   fixture: string;
   term: string;
 }) {
+  const shared = isSharedCase(fixture);
   return (
     <section className="panel">
       <div className="panel-hd">
         <h2>畢業條件</h2>
         <SourceLinks citations={checks.flatMap((g) => g.citations)} label="依據" folded />
         {checks.some((g) => g.status === "hold") ? (
-          <span className="hint gcheck-hint">待確認＝修課紀錄看不出是否通過，通過了可以自己勾</span>
+          <span className="hint gcheck-hint">
+            {shared
+              ? "待確認＝修課紀錄看不出是否通過。這是多人共用的示範案例，不開放勾選"
+              : "待確認＝修課紀錄看不出是否通過，通過了可以自己勾"}
+          </span>
         ) : null}
       </div>
       {/* 四條各佔一整列太浪費 —— 每條實際只有「名稱、狀態、一句說明」 */}
@@ -39,7 +45,7 @@ export function GraduationCheckDetails({
                 待確認的都是同一句「修課紀錄看不出來」，已移到標題列講一次 */}
             {g.detail && g.status === "unmet" ? <span className="d">{g.detail}</span> : null}
             {/* 學校資料看不出來的條件，學生可以自己勾；勾了顯示「自行勾選」，系統不查核 */}
-            {g.declarable ? <DeclareToggle checkId={g.id} checked={Boolean(g.selfDeclared)} fixture={fixture} term={term} /> : null}
+            {g.declarable && !shared ? <DeclareToggle checkId={g.id} checked={Boolean(g.selfDeclared)} fixture={fixture} term={term} /> : null}
           </li>
         ))}
       </ul>

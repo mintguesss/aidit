@@ -1,15 +1,24 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { POST as declare } from "@/app/api/declarations/route";
+import { DELETE as erasePrefs, POST as savePrefs } from "@/app/api/preferences/route";
+import { REAL_CASES } from "@/eval/baseline-c/cases";
+import { PLAN_GROUPS, RULE_ARTICLES } from "@/lib/trial/reference";
+import { isSharedCase } from "@/lib/trial/shared-case";
 import {
   applyAction,
   CSV_HEADER,
   csvRow,
+  DEMO_URL,
   emptyMod,
+  GEN_ED_DOMAINS,
   gradeManual,
   gradeT1,
   manualSheetOf,
   MANUAL_LIMIT_MS,
   newSession,
   publicView,
+  SHEET_CATEGORIES,
   sheetRows,
   stepOf,
   systemSheetOf,
@@ -21,8 +30,95 @@ import {
 import { fixture } from "@/lib/providers/fixtures";
 import { nextParticipantNumber } from "@/lib/trial/session";
 
+describe("多人共用的試用案例", () => {
+  const post = (body: unknown, method = "POST") =>
+    new Request("http://test/api", { method, headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+
+  it("任務案例和導覽學生都算共用案例，其他合成案例不算", () => {
+    for (const g of ["A", "B"] as const) expect(isSharedCase(new URL(systemUrlOf(g), "http://x").searchParams.get("fixture") ?? "")).toBe(true);
+    expect(isSharedCase(new URL(DEMO_URL, "http://x").searchParams.get("fixture") ?? "")).toBe(true);
+    expect(isSharedCase("demo")).toBe(false);
+    expect(isSharedCase(undefined)).toBe(false);
+  });
+
+  it("不能在共用案例上勾選畢業條件", async () => {
+    const res = await declare(post({ fixture: "school-a-im-111-year2", checkId: "x", passed: true }));
+    expect(res.status).toBe(403);
+  });
+
+  it("共用案例的偏好不存伺服器，讀也讀不到別人的", async () => {
+    const write = await (await savePrefs(post({ fixture: "tour", required: {} }))).json();
+    expect(write).toMatchObject({ ok: true, stored: null });
+    const read = await (await savePrefs(post({ fixture: "school-a-im-111-b-year2" }))).json();
+    expect(read.stored).toBeNull();
+  });
+
+  it("在共用案例上刪除不會動到執行紀錄", async () => {
+    const res = await (await erasePrefs(post({ fixture: "school-a-im-111-year2", scope: "all" }, "DELETE"))).json();
+    expect(res).toMatchObject({ ok: true, traces: 0 });
+  });
+});
+
+/** 只靠畫面上的修課紀錄與規劃表分類，模擬學生手算 */
+function computeFromMaterials(sheet: 1 | 2) {
+  const groupOf = (name: string) => {
+    const lower = name.toLowerCase();
+    const base = lower.startsWith("外國語文") ? "外國語文" : lower;
+    return PLAN_GROUPS.find((g) => g.courses.some((c) => c.name.toLowerCase() === base))?.category;
+  };
+  const earned: Record<string, number> = {};
+  const domains: Record<string, number> = {};
+  for (const r of sheetRows(sheet)) {
+    // 體育課的課名是項目（如保齡球），0 學分，看開課單位
+    const category =
+      r.type === "通" ? "通識涵養課程" : r.type === "選" ? "選修課程" : r.dept === "體育" ? "全人教育核心課程" : groupOf(r.name);
+    expect(category, `${r.name} 在規劃表找不到類別`).toBeDefined();
+    earned[category as string] = (earned[category as string] ?? 0) + r.credits;
+    if (r.domain) domains[r.domain] = (domains[r.domain] ?? 0) + r.credits;
+  }
+  return { earned, domains };
+}
+
+describe("手算對照資料", () => {
+  const compact = (s: string) => s.replace(/\s+/g, "");
+  const plan = compact(readFileSync("src/lib/rules/corpus/fju-im-plan-111.txt", "utf8"));
+  const rules = compact(readFileSync("src/lib/rules/corpus/fju-im-rules-111.txt", "utf8"));
+
+  it("課名都在規劃表原文裡", () => {
+    for (const g of PLAN_GROUPS) for (const c of g.courses) expect(plan, c.name).toContain(compact(c.name));
+  });
+
+  it("各類別應修學分和答題欄、課程學分加總一致", () => {
+    for (const c of SHEET_CATEGORIES) {
+      const g = PLAN_GROUPS.find((x) => x.category === c.name);
+      expect(g?.required, c.name).toBe(c.required);
+      if (c.name !== "選修課程") expect(g?.courses.reduce((a, x) => a + x.credits, 0), c.name).toBe(c.required);
+    }
+    expect(SHEET_CATEGORIES.reduce((a, c) => a + c.required, 0)).toBe(128);
+  });
+
+  it("條文的關鍵句都在修業規則原文裡", () => {
+    for (const phrase of ["修滿全人教育核心課程", "至少128學分", "擋修「資訊系統專題一」", "累計通過3題機測題目", "以英語授課的專業課程"]) {
+      expect(rules, phrase).toContain(compact(phrase));
+    }
+    expect(RULE_ARTICLES.flatMap((a) => a.items).map(compact).join("")).toContain("至少128學分");
+  });
+
+  it("只靠畫面上的資料算得出兩份題目的標準答案", () => {
+    for (const sheet of [1, 2] as const) {
+      const fx = sheet === 1 ? "fju-im-111-b-year2" : "fju-im-111-year2";
+      const key = REAL_CASES.find((x) => x.fixture === fx)!.expect;
+      const { earned, domains } = computeFromMaterials(sheet);
+      const unmet = key.categories.map((c) => Math.max(0, c.required - (earned[c.name] ?? 0)));
+      expect(unmet).toEqual(key.categories.map((c) => c.unmet));
+      expect(unmet.reduce((a, b) => a + b, 0)).toBe(key.totalUnmet);
+      expect(GEN_ED_DOMAINS.filter((d) => (domains[d] ?? 0) < 4).sort()).toEqual([...key.missingGenEdDomains].sort());
+    }
+  });
+});
+
 const T0 = 1_000_000;
-const make = (number = 1, practice = false) => newSession({ id: "a".repeat(32), number, practice, createdBy: "主持人", now: T0 });
+const make =(number = 1, practice = false) => newSession({ id: "a".repeat(32), number, practice, createdBy: "主持人", now: T0 });
 const profile = { identity: "大二", minorProgram: false, lastCheck: "10 分鐘內" };
 
 const answerFor40: ManualAnswer = {

@@ -15,6 +15,7 @@ import type { Declarations } from "@/lib/types";
 import { unstable_cache, revalidateTag } from "next/cache";
 import { fetchedAt } from "@/lib/offerings";
 import { schoolOf } from "@/lib/schools";
+import { isSharedCase } from "@/lib/trial/shared-case";
 
 /**
  * 審查結果快取（docs/BACKEND.md §8）。
@@ -137,6 +138,7 @@ export function invalidateAuditSession(fixture: FixtureId): void {
  * 讀不到（沒設定、儲存層掛了）就當沒有勾 —— 不會因此擋住審查
  */
 async function declarationsOf(fixture: FixtureId): Promise<Declarations | undefined> {
+  if (isSharedCase(fixture)) return undefined;
   try {
     const id = fixtureOf(fixture).record.student.id;
     return (await prefsStore().load(studentHash(id)))?.declarations;

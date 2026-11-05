@@ -17,7 +17,7 @@ vi.mock("@/lib/chat/intent", async (orig) => {
 });
 
 import { cleanDept, parseAskIntent, parsePlanIntent, ruleAskIntent, safeQuestion, type AskIntentResult } from "@/lib/chat/intent";
-import { askTurn, planTurn, type TurnContext } from "@/lib/chat/route";
+import { askTurn, planTurn, withReservedNote, type TurnContext } from "@/lib/chat/route";
 import { answerHolds } from "@/lib/chat/capabilities";
 import { pendingChecksAsHolds } from "@/lib/audit/pending";
 import { contactOf } from "@/lib/rules/contacts";
@@ -221,6 +221,21 @@ describe("待確認卡片的聯絡方式", () => {
   it("合成案例照舊用合成通訊錄", () => {
     expect(contactOf("系辦公室")?.email).toContain("example.edu.tw");
     expect(contactOf("系辦公室", "demo")?.email).toContain("example.edu.tw");
+  });
+});
+
+describe("空出的那天有已登記時段", () => {
+  const reply = { kind: "決定" as const, headline: "已空出星期五。", detail: "課表沒有變動。", citations: [] };
+  const intern = [{ label: "校外實習", slotText: "五 2-4" }];
+  it("講清楚那不是課，系統不會動", () => {
+    const r = withReservedNote(reply, ["空出星期五"], intern);
+    expect(r.detail).toContain("校外實習（五 2-4）");
+    expect(r.detail).toContain("不是課程");
+  });
+  it("其他星期、其他條件不多話", () => {
+    expect(withReservedNote(reply, ["空出星期三"], intern).detail).toBe("課表沒有變動。");
+    expect(withReservedNote(reply, ["不排早八"], intern).detail).toBe("課表沒有變動。");
+    expect(withReservedNote(reply, ["空出星期五"], undefined).detail).toBe("課表沒有變動。");
   });
 });
 

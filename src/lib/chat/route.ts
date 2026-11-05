@@ -36,7 +36,7 @@ import type { ChatMessage, ConstraintSet, Reply } from "./types";
 import { LIMITS } from "./types";
 import { schoolOf, withoutOwnSchool } from "@/lib/schools";
 import { isEarlyMorning } from "@/lib/solver/slots";
-import { slotTextOf } from "@/lib/solver/schedule";
+import { reservedFrom, slotTextOf } from "@/lib/solver/schedule";
 import { programClausesFor } from "@/lib/rules/program-regs";
 import { offeringsFor } from "@/lib/offerings";
 import { scanText } from "@/lib/safety/scan";
@@ -404,7 +404,7 @@ export async function planTurn(
   }
 
   return {
-    reply: planReply(outcome, requested, notDone),
+    reply: withReservedNote(planReply(outcome, requested, notDone), outcome.changed, ctx.record.plannedCommitments),
     tools,
     intent: intent.intent,
     clarifying: false,
@@ -503,6 +503,21 @@ function unsupportedAsks(raw: string): string[] {
     out.push("目前只能指定新加的那門課要幾學分，不能指定整份課表每門課的學分，這部分沒有套用。");
   }
   return out;
+}
+
+/**
+ * 空出的那天有已登記的時段（校外實習）：課是移開了，但那項安排不是課，系統不會動它。
+ * 不講的話，學生看到「已空出星期五」，課表上星期五卻還有東西（2026-11-05 試用發現）。
+ */
+export function withReservedNote(reply: Reply, changed: string[], commitments: { label: string; slotText: string }[] | undefined): Reply {
+  const days = changed.flatMap((c) => /^空出星期(.+)$/.exec(c)?.[1]?.split(/[、,]/) ?? []);
+  if (days.length === 0) return reply;
+  const nums = new Set(days.map((d) => "一二三四五六日".indexOf(d) + 1).filter((n) => n > 0));
+  const raw = commitments ?? [];
+  const hit = reservedFrom(raw).flatMap((r, i) => (r.slots.some((s) => nums.has(s.day)) ? [`${r.label}（${raw[i]!.slotText}）`] : []));
+  if (hit.length === 0) return reply;
+  const note = `${hit.join("、")}是你已登記的時段，不是課程，系統不會移動，所以那天仍有這項安排。`;
+  return { ...reply, detail: reply.detail ? `${reply.detail}\n${note}` : note };
 }
 
 /**

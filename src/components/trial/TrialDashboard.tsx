@@ -20,7 +20,7 @@ const needsJudging = (r: TrialModeratorView) =>
 const counted = (r: TrialModeratorView) => !r.session.practice && r.session.consent?.agreed !== false && !r.mod.excluded;
 const linkOf = (id: string) => `${window.location.origin}/trial/s/${id}`;
 
-/** 主持人後台：每 5 秒更新清單。判定按「儲存判定」才寫入，紀錄不能在這裡刪，只能標記排除並寫理由 */
+/** 主持人後台：每 5 秒更新清單。判定按「儲存判定」才寫入；刪除要再確認一次 */
 export function TrialDashboard() {
   const [rows, setRows] = useState<TrialModeratorView[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
@@ -141,7 +141,17 @@ export function TrialDashboard() {
         </section>
 
         {current ? (
-          <Detail key={current.session.id} row={current} onDirty={setDirty} onSaved={() => void load()} />
+          <Detail
+            key={current.session.id}
+            row={current}
+            onDirty={setDirty}
+            onSaved={() => void load()}
+            onDeleted={() => {
+              setDirty(false);
+              setSelected(null);
+              void load();
+            }}
+          />
         ) : (
           <section className="tr-card tr-pad ad-empty">
             <p className="tr-hint">從左邊選一位，看結果並做判定。</p>
@@ -166,13 +176,24 @@ function Verdict({ ok, children }: { ok: boolean | null; children: React.ReactNo
   return <span className={ok === null ? "ad-mark" : ok ? "ad-mark ok" : "ad-mark bad"}>{children}</span>;
 }
 
-function Detail({ row, onDirty, onSaved }: { row: TrialModeratorView; onDirty: (d: boolean) => void; onSaved: () => void }) {
+function Detail({
+  row,
+  onDirty,
+  onSaved,
+  onDeleted,
+}: {
+  row: TrialModeratorView;
+  onDirty: (d: boolean) => void;
+  onSaved: () => void;
+  onDeleted: () => void;
+}) {
   const s = row.session;
   const [mod, setMod] = useState<TrialMod>(row.mod);
   const [saved, setSaved] = useState<TrialMod>(row.mod);
   const [state, setState] = useState<{ kind: "ok" | "err"; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   const dirty = JSON.stringify(mod) !== JSON.stringify(saved);
   useEffect(() => onDirty(dirty), [dirty, onDirty]);
@@ -212,6 +233,18 @@ function Detail({ row, onDirty, onSaved }: { row: TrialModeratorView; onDirty: (
     setSaved(mod);
     setState({ kind: "ok", text: `已儲存 ${new Date().toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` });
     onSaved();
+  };
+
+  const remove = async () => {
+    setConfirming(false);
+    setBusy(true);
+    const res = await fetch(`/api/trial/${s.id}`, { method: "DELETE" }).catch(() => null);
+    setBusy(false);
+    if (!res?.ok) {
+      setState({ kind: "err", text: "刪除失敗，紀錄還在，請再試一次。" });
+      return;
+    }
+    onDeleted();
   };
 
   const copy = async () => {
@@ -331,7 +364,7 @@ function Detail({ row, onDirty, onSaved }: { row: TrialModeratorView; onDirty: (
             onChange={(v) => change({ t3Ok: v })}
           />
           <div className="ad-row">
-            <span className="ad-label">你有協助的任務</span>
+            <span className="ad-label">你有協助的任務（可複選）</span>
             <div className="tr-choices">
               {TASKS.map((t) => (
                 <label key={t} className={mod.help[t] ? "tr-choice on" : "tr-choice"}>
@@ -361,6 +394,31 @@ function Detail({ row, onDirty, onSaved }: { row: TrialModeratorView; onDirty: (
             ) : null}
           </div>
         </div>
+      </div>
+
+      <div className="ad-danger">
+        {!confirming ? (
+          <button className="tr-btn small danger" disabled={busy} onClick={() => setConfirming(true)}>
+            刪除這筆紀錄
+          </button>
+        ) : (
+          <div className="ad-confirm" role="alertdialog" aria-label="確認刪除">
+            <p>
+              <b>確定要刪除 {s.code} 嗎？</b>作答、時間和判定都會永久刪除，無法復原，代號也不會重複使用。
+              {s.practice
+                ? ""
+                : " 這是正式受試者：不要因為結果不好看就刪，要保留但不計入統計，請改用上面的「排除這筆」。"}
+            </p>
+            <div className="tr-actions">
+              <button className="tr-btn small danger-solid" disabled={busy} onClick={() => void remove()}>
+                確定刪除
+              </button>
+              <button className="tr-btn small" disabled={busy} onClick={() => setConfirming(false)}>
+                取消
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       <footer className={dirty ? "ad-save dirty" : "ad-save"}>

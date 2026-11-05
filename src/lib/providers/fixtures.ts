@@ -180,6 +180,7 @@ function record(student: Student, courses: CourseRecord[], extra?: Partial<Stude
 
 export type FixtureId =
   | "demo"
+  | "tour"
   | "plain"
   | "overflow-no-transfer"
   | "transfer-student"
@@ -238,6 +239,14 @@ export const FIXTURES: Fixture[] = [
     title: "Demo 學生：超修不得流用 + 3 項待確認",
     tests: "不變式、超修不流用、跨院選修 ambiguity、抵免停開課號、通識領域分布、英文檢定無明文",
     record: record(BASE_STUDENT, DEMO_COURSES),
+  },
+  // 學生試用「看看系統」用：同一位合成學生，但沒有已登記時段，星期五不會多出實習讓人誤會。不進案例選單
+  {
+    id: "tour",
+    title: "試用導覽：沒有已登記時段的合成學生",
+    tests: "學生試用手算後瀏覽系統用，不是任務案例",
+    evalOnly: true,
+    record: record(BASE_STUDENT, DEMO_COURSES, { plannedCommitments: [], preferences: { ...PREFERENCES, note: "" } }),
   },
   {
     id: "plain",

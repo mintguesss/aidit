@@ -499,8 +499,8 @@ function SystemTasks({ view, busy, send }: { view: TrialPublicView; busy: boolea
   const index = TASKS.indexOf(current) + 1;
 
   const start = () => {
-    // 任務 1 把系統分頁換成任務的案例，案例和剛才看的不一樣
-    if (current === "t1" && view.systemUrl) window.open(view.systemUrl, SYSTEM_WINDOW);
+    // 每個任務都把系統分頁帶回任務的案例，就算剛才留在導覽學生或切到別的案例也不會做錯人
+    if (view.systemUrl) window.open(view.systemUrl, SYSTEM_WINDOW);
     void send({ type: "task.start", task: current });
   };
   const finish = async (gaveUp: boolean) => {
@@ -531,6 +531,7 @@ function SystemTasks({ view, busy, send }: { view: TrialPublicView; busy: boolea
             {current === "t1"
               ? "按下開始後，系統分頁會換成這次任務的學生，並開始計時。找到答案再回來填。"
               : "按下開始後計時，到系統分頁操作，完成後回到這一頁。"}
+            {view.systemStudent ? ` 系統右上角要顯示「${view.systemStudent}」。` : ""}
           </p>
           <div className="tr-actions">
             <button className="tr-btn primary" disabled={busy} onClick={start}>

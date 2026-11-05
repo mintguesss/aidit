@@ -18,6 +18,8 @@ import {
   type ManualAnswer,
   type TrialSession,
 } from "@/lib/trial/session";
+import { fixture } from "@/lib/providers/fixtures";
+import { nextParticipantNumber } from "@/lib/trial/session";
 
 const T0 = 1_000_000;
 const make = (number = 1, practice = false) => newSession({ id: "a".repeat(32), number, practice, createdBy: "主持人", now: T0 });
@@ -65,6 +67,17 @@ describe("分組", () => {
   it("練習另外編號", () => {
     expect(make(1).code).toBe("P01");
     expect(make(1, true).code).toBe("T01");
+  });
+});
+
+describe("編號", () => {
+  const withCode = (code: string, practice = false) => ({ ...make(1, practice), code });
+  it("刪掉中間一筆，新的不會和現有代號重複，也不補洞", () => {
+    expect(nextParticipantNumber([withCode("P01"), withCode("P03")], false)).toBe(4);
+    expect(nextParticipantNumber([], false)).toBe(1);
+  });
+  it("練習和正式各算各的", () => {
+    expect(nextParticipantNumber([withCode("P05"), withCode("T02", true)], true)).toBe(3);
   });
 });
 
@@ -174,7 +187,7 @@ describe("熟悉系統", () => {
     expect(applyAction(before, { type: "orientation.start" }, T0).ok).toBe(false);
     const s = atOrientation();
     expect(stepOf(s)).toBe("orientation");
-    expect(publicView(s, T0).demoUrl).toBe("/?fixture=demo");
+    expect(publicView(s, T0).demoUrl).toBe("/?fixture=tour");
     expect(publicView(s, T0).systemUrl).toBeNull();
   });
 
@@ -190,6 +203,27 @@ describe("熟悉系統", () => {
     const row = csvRow(s, emptyMod());
     expect(row[CSV_HEADER.indexOf("熟悉系統秒")]).toBe("60");
     expect(row[CSV_HEADER.indexOf("T1秒")]).toBe("30");
+  });
+});
+
+describe("案例不會認錯", () => {
+  it("導覽學生沒有已登記時段，星期五不會多出實習", () => {
+    expect(fixture("tour").record.plannedCommitments).toEqual([]);
+    expect(JSON.stringify(fixture("tour").record)).not.toContain("實習");
+    expect(fixture("demo").record.plannedCommitments?.length).toBe(1);
+  });
+
+  it("任務時會告訴受試者右上角該顯示誰，和導覽學生不同", () => {
+    const s = make();
+    applyAction(s, { type: "consent", agreed: true, profile }, T0);
+    applyAction(s, { type: "manual.start" }, T0);
+    applyAction(s, { type: "manual.submit", answer: answerFor40, gaveUp: false }, T0);
+    expect(publicView(s, T0).systemStudent).toBeNull();
+    applyAction(s, { type: "orientation.start" }, T0);
+    applyAction(s, { type: "orientation.end" }, T0);
+    const name = publicView(s, T0).systemStudent;
+    expect(name).toBe("示範學生（第二位）");
+    expect(name).not.toBe(fixture("tour").record.student.displayName);
   });
 });
 

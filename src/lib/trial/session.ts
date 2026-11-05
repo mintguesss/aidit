@@ -28,7 +28,9 @@ export const manualSheetOf = (g: Group): SheetNo => (g === "A" ? 2 : 1);
 export const systemSheetOf = (g: Group): SheetNo => (g === "A" ? 1 : 2);
 export const systemUrlOf = (g: Group) => `/?fixture=${SHEET_FIXTURE[systemSheetOf(g)].publicId}`;
 /** 熟悉系統用合成案例，不是任務那位學生，先看過也不會知道答案 */
-export const DEMO_URL = "/?fixture=demo";
+export const DEMO_URL = "/?fixture=tour";
+/** 任務案例在系統右上角顯示的名字，讓受試者確認開對了 */
+export const systemStudentOf = (g: Group) => fixture(SHEET_FIXTURE[systemSheetOf(g)].fixture).record.student.displayName;
 
 function keyOf(sheet: SheetNo) {
   const c = REAL_CASES.find((x) => x.fixture === SHEET_FIXTURE[sheet].fixture);
@@ -145,6 +147,12 @@ export function newSession(args: { id: string; number: number; practice: boolean
     tasks: { t1: {}, t2: {}, t3: {} },
     traceIds: [],
   };
+}
+
+/** 下一個編號：取現有最大值加一。用筆數會在刪除後和現有代號重複；空號留著，看得出有刪過 */
+export function nextParticipantNumber(existing: TrialSession[], practice: boolean): number {
+  const nums = existing.filter((x) => x.practice === practice).map((x) => Number(x.code.slice(1))).filter(Number.isFinite);
+  return Math.max(0, ...nums) + 1;
 }
 
 export type Step = "consent" | "declined" | "manual-intro" | "manual" | "orientation" | "system" | "survey" | "done";
@@ -313,6 +321,7 @@ export function publicView(s: TrialSession, now: number) {
     categories: SHEET_CATEGORIES,
     domains: GEN_ED_DOMAINS,
     systemUrl: step === "system" ? systemUrlOf(s.group) : null,
+    systemStudent: step === "system" ? systemStudentOf(s.group) : null,
     tasks: Object.fromEntries(
       TASK_IDS.map((t) => [t, { startedAt: s.tasks[t].startedAt ?? null, endedAt: s.tasks[t].endedAt ?? null }]),
     ) as Record<TaskId, { startedAt: number | null; endedAt: number | null }>,

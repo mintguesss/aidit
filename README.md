@@ -184,6 +184,7 @@ npx tsx scripts/push-draft.ts ...                                               
 | `GET /api/cron/purge` | 清除過期資料 | **要**（`CRON_SECRET`） |
 | `GET／POST /api/trial`、`GET /api/trial/export`、`POST /api/trial/:id/mod` | 學生試用的主持人後台：受試者列表與新增、匯出 CSV、人工判定 | **要**（同校對登入） |
 | `GET／PATCH /api/trial/:id` | 受試者作答流程；回應不含標準答案與批改結果 | 否，憑連結裡的隨機 id |
+| `DELETE /api/trial/:id` | 刪除一筆試用紀錄 | **要**（同校對登入） |
 | `GET /api/trace/:id` | 取回去識別的執行紀錄 | 否 |
 | `GET /api/corpus/:docId`、`/api/offering/:code` | 規章原文、開課資料 | 否 |
 | `GET /api/health` | 設定狀態（`configured` 不代表金鑰有效，要實測用 `npm run smoke`） | 否 |

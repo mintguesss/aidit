@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { REVIEW_COOKIE, reviewerFromSession } from "@/lib/review/auth";
-import { moderatorView, newSession } from "@/lib/trial/session";
+import { moderatorView, newSession, nextParticipantNumber } from "@/lib/trial/session";
 import { listSessions, saveSession } from "@/lib/trial/store";
 
 export const runtime = "nodejs";
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => null)) as { practice?: unknown } | null;
   const practice = body?.practice === true;
   const rows = await listSessions();
-  const number = rows.filter((r) => r.session.practice === practice).length + 1;
+  const number = nextParticipantNumber(rows.map((r) => r.session), practice);
   const session = newSession({ id: randomBytes(16).toString("hex"), number, practice, createdBy: who, now: Date.now() });
   await saveSession(session);
   return NextResponse.json({ id: session.id, code: session.code, group: session.group });

@@ -65,6 +65,18 @@ export async function listSessions(): Promise<{ session: TrialSession; mod: Tria
   return rows.filter((r): r is NonNullable<typeof r> => r !== null).sort((a, b) => a.session.createdAt - b.session.createdAt);
 }
 
+/** 刪除一位受試者的紀錄與主持人判定 */
+export async function deleteSession(id: string): Promise<void> {
+  if (!isTrialId(id)) throw new Error("不合法的代號");
+  const names = [`${id}.json`, `${id}.mod.json`];
+  if (useFiles()) {
+    for (const n of names) rmSync(join(localDir(), n), { force: true });
+    return;
+  }
+  const { error } = await (await supabaseClient()).storage.from(BUCKET).remove(names.map((n) => `${PREFIX}/${n}`));
+  if (error) throw new Error(`刪除試用紀錄失敗：${error.message}`);
+}
+
 /** 刪除全部試用的原始紀錄，回傳刪了幾個檔案 */
 export async function purgeAllTrials(): Promise<number> {
   const names = await listNames();

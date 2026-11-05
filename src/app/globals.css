@@ -2362,9 +2362,11 @@ html[data-anon] a[aria-disabled="true"]{color:inherit;text-decoration:none;curso
 .tr-choice{display:inline-flex;align-items:center;min-height:38px;padding:0 14px;font-size:14px;
   background:var(--paper);border:1px solid var(--line-2);cursor:pointer;user-select:none}
 .tr-choice:hover{background:var(--surface)}
-.tr-choice input{position:absolute;opacity:0;width:1px;height:1px}
+.tr-choice{gap:8px}
+.tr-choice input{flex:0 0 16px;width:16px;height:16px;margin:0;accent-color:var(--ink-2);cursor:pointer}
 .tr-choice:focus-within{outline:2px solid var(--link);outline-offset:2px}
-.tr-choice.on{color:#fff;background:var(--ink-2);border-color:var(--ink-2)}
+/* 選到的：勾選記號、粗外框、字體加粗三者一起變，不只靠顏色 */
+.tr-choice.on{font-weight:700;color:var(--ink);background:#E6EEF7;border-color:var(--ink-2);box-shadow:inset 0 0 0 1px var(--ink-2)}
 .tr-choice.danger{color:var(--unmet);background:var(--unmet-bg);border-color:var(--unmet-line)}
 .tr-text{display:flex;flex-direction:column;gap:6px;font-size:14px;font-weight:500}
 .tr-text.narrow input{max-width:160px}
@@ -2425,8 +2427,7 @@ html[data-anon] a[aria-disabled="true"]{color:inherit;text-decoration:none;curso
 
 /* 問卷 */
 .tr-likert{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2)}
-.tr-likert .tr-choice{justify-content:center;min-width:44px;padding:0;color:var(--text);font-family:var(--mono)}
-.tr-likert .tr-choice.on{color:#fff}
+.tr-likert .tr-choice{justify-content:center;min-width:52px;padding:0 10px;color:var(--text);font-family:var(--mono)}
 
 /* 後台 */
 .ad-head{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px 24px;margin-bottom:18px}
@@ -2476,6 +2477,13 @@ html[data-anon] a[aria-disabled="true"]{color:inherit;text-decoration:none;curso
 .ad-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .ad-label{font-size:14px;font-weight:500}
 .ad-reason{flex:1 1 240px;min-width:0}
+.tr-btn.danger{color:var(--unmet);border-color:var(--unmet-line)}
+.tr-btn.danger:hover{background:var(--unmet-bg)}
+.tr-btn.danger-solid{color:#fff;background:var(--unmet);border-color:var(--unmet)}
+.tr-btn.danger-solid:hover{background:#8C2A22}
+.ad-danger{padding:0 22px 18px}
+.ad-confirm{padding:12px 14px;font-size:13.5px;background:var(--unmet-bg);border:1px solid var(--unmet-line)}
+.ad-confirm p{margin:0 0 10px}
 .ad-save{position:sticky;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 22px;
   font-size:13px;color:var(--text-2);background:var(--paper);border-top:1px solid var(--line)}
 .ad-save.dirty{color:var(--hold);font-weight:500;background:var(--hold-bg);border-top-color:var(--hold-line)}

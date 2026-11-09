@@ -536,3 +536,35 @@ describe("整天條件由模型給完整結果（2026-11-09 試用：「一到�
     expect(r.tools).not.toContain("check.days-disagree");
   });
 });
+
+describe("原句明說整類不排，模型沒給數量（2026-11-10 對話理解實測）", () => {
+  it("「這學期不排通識」：不反問要拿幾門，直接整類不排", async () => {
+    const r = await withModel("這學期不排通識", {
+      kind: "intent",
+      intent: "swap-course",
+      reason: "",
+      params: { ...empty(), dropCategory: { category: "通識", count: null } },
+    });
+    expect(r.clarifying).toBe(false);
+    expect(r.plan!.constraintSet.skipCategories?.length ?? 0).toBeGreaterThan(0);
+  });
+
+  it("「通識拿掉」沒說幾門、也沒說全部：不會變成整類不排", async () => {
+    const r = await withModel("通識拿掉", {
+      kind: "intent",
+      intent: "swap-course",
+      reason: "",
+      params: { ...empty(), dropCategory: { category: "通識", count: null } },
+    });
+    expect(r.plan?.constraintSet.skipCategories ?? []).toEqual([]);
+  });
+});
+
+describe("模型反問要拿幾門，但原句明說整類不排（2026-11-10 對話理解實測）", () => {
+  it("「這學期不排通識」：改用規則整類不排，不反問", async () => {
+    const r = await withModel("這學期不排通識", { kind: "clarify", question: "這學期不排通識，要拿掉幾門？" });
+    expect(r.clarifying).toBe(false);
+    expect(r.plan!.constraintSet.skipCategories?.length ?? 0).toBeGreaterThan(0);
+    expect(r.tools).toContain("rule.fallback");
+  });
+});

@@ -200,7 +200,9 @@ export async function planTurn(
     // 牽涉星期時，只有句子明確說要空出（不要、要打工、有實習…）才用規則；其他保留模型的反問，問一句比猜錯好
     const touchesDays =
       rules.params.allowDays.length > 0 || rules.params.avoidDays.some((d) => !explicitDays.includes(d));
-    if (!touchesDays && tried.unresolved.length === 0 && changesOf(rules.params, tried.next).length > 0) {
+    // 整類不排（「這學期不排通識」）不在 applyParams 裡，changesOf 看不到；原句明說全部時一樣不必再問（2026-11-10 實測）
+    const dropsAll = rules.params.dropCategory?.count === "all";
+    if (!touchesDays && tried.unresolved.length === 0 && (dropsAll || changesOf(rules.params, tried.next).length > 0)) {
       intent = rules;
       tools.push("rule.fallback");
     }
@@ -286,6 +288,8 @@ export async function planTurn(
     // 數量也要原句有：實測 自架小模型 對「通識拿掉」填 count="all"，沒問就整類不排了
     const count =
       d.count === "all" ? (DROP_ALL_CUE.test(t) ? "all" : null)
+      // 原句已明說整類不排（「這學期不排通識」），模型卻沒給數量：照原句，不再反問要拿幾門（2026-11-10 實測）
+      : d.count === null && DROP_ALL_CUE.test(t) && !/[\d一二兩三四五六][堂門個]/.test(t) ? "all"
       : d.count !== null && !/[\d一二兩三四五六][堂門個]/.test(t) && !(intent.params.replace && /換成|改成/.test(t)) ? null
       : d.count;
     // 模型常把類別也塞進要排除的課名（「通識課」），那不是課名，查不到只會多一句「找不到」

@@ -546,7 +546,7 @@ export const PART_WORDS: [RegExp, DayPart][] = [
 ];
 const PART_LABEL: Record<DayPart, string> = { morning: "早上", afternoon: "下午", evening: "晚上" };
 /** 句子是在「畫掉」某段時間，而不是在說那段時間可以 */
-export const BLOCK_CUE = /不要|不想|別排|別|空出|空下|拿掉|沒辦法|不行|沒空|要打工|要上班|有事/;
+export const BLOCK_CUE = /不要|不想|別排|別|空出|空下|拿掉|沒辦法|不行|沒空|要打工|要上班|有事|有實習|要實習/;
 
 const CN_DIGIT: Record<string, number> = { 一: 1, 二: 2, 兩: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
 

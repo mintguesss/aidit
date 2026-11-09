@@ -197,8 +197,9 @@ export async function planTurn(
     // 就不必多問一輪。實測模型對「我不想上顧客關係管理」反問「要換成什麼課？」。
     // 課名查不到（「幫我加一堂AI相關的課程」）時保留模型的反問，那比「找不到」好。
     const tried = applyParams(ctx.constraints, ctx.originalConstraints, rules.params, rules.reason, raw, shownCount, schoolOf(ctx.record.student));
-    // 牽涉星期時保留模型的反問：規則對星期的判讀不可靠，問一句比猜錯好
-    const touchesDays = rules.params.avoidDays.length > 0 || rules.params.allowDays.length > 0;
+    // 牽涉星期時，只有句子明確說要空出（不要、要打工、有實習…）才用規則；其他保留模型的反問，問一句比猜錯好
+    const touchesDays =
+      rules.params.allowDays.length > 0 || rules.params.avoidDays.some((d) => !explicitDays.includes(d));
     if (!touchesDays && tried.unresolved.length === 0 && changesOf(rules.params, tried.next).length > 0) {
       intent = rules;
       tools.push("rule.fallback");

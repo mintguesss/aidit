@@ -361,40 +361,52 @@ export function applyParams(
 
   const dayName = (d: number) => "一二三四五六日"[d - 1];
 
-  // 原句是「最好在禮拜一」「解除空出星期一」的，模型給成空出就是反了（Haiku 5.5 實測）。
-  // 擋下；原句說解除的，改當成開放
+  // 「最好在禮拜一」這類偏好，後面加主題課時還會用到
   const cues = dayCues(raw);
-  const wrongWay = params.avoidDays.filter(
-    (d) => !cues.block.includes(d) && (cues.prefer.includes(d) || cues.free.includes(d) || cues.only.includes(d)),
-  );
-  if (wrongWay.length > 0) {
-    // 「一到四排滿」是要把課集中，下面會改成空出其他平日，不是拒絕
-    const refused = wrongWay.filter((d) => !cues.only.includes(d));
-    if (refused.length > 0) refusedParams.push(`空出星期${refused.map(dayName).join("、")}（原句不是要空出這幾天）`);
-    params = {
-      ...params,
-      avoidDays: params.avoidDays.filter((d) => !wrongWay.includes(d)),
-      allowDays: [...new Set([...params.allowDays, ...wrongWay.filter((d) => cues.free.includes(d))])],
-    };
-  }
-  // 「禮拜一到四排滿」：模型給空出一、四（2026-11-09 試用實測）或什麼都沒給，都改成空出其他平日
-  const outside = weekdaysOutside(cues.only).filter((d) => !params.avoidDays.includes(d) && !cues.free.includes(d));
-  if (outside.length > 0) params = { ...params, avoidDays: [...params.avoidDays, ...outside].sort((a, b) => a - b) };
-
-  if (params.avoidDays.length > 0) {
+  if (params.freeDays !== undefined) {
+    // 模型看著目前條件給出完整結果（見 intent.ts 的 freeDays）：照單全收，不再用關鍵字規則猜語意。
+    // 規則猜錯會把模型對的理解蓋掉（2026-11-09 試用：「一到四排滿」被做成空出一、四）。
+    // 不合理的結果（五個平日全空）與規則明確相反的情況，由 route.ts 先問使用者，不在這裡默默改
     requested = true;
-    const set = new Set([...next.avoidDays, ...params.avoidDays]);
-    for (const d of params.allowDays) {
-      if (!set.has(d)) continue;
-      if (allowTurnOff(`開放星期${dayName(d)}`)) set.delete(d);
+    const target = [...new Set(params.freeDays)].filter((d) => d >= 1 && d <= 7).sort((a, b) => a - b);
+    const added = target.filter((d) => !current.avoidDays.includes(d));
+    next.avoidDays = target;
+    if (added.length > 0) delta.avoidDays = added;
+  } else {
+    // 原句是「最好在禮拜一」「解除空出星期一」的，模型給成空出就是反了（Haiku 5.5 實測）。
+    // 擋下；原句說解除的，改當成開放
+    const wrongWay = params.avoidDays.filter(
+      (d) => !cues.block.includes(d) && (cues.prefer.includes(d) || cues.free.includes(d) || cues.only.includes(d)),
+    );
+    if (wrongWay.length > 0) {
+      // 「一到四排滿」是要把課集中，下面會改成空出其他平日，不是拒絕
+      const refused = wrongWay.filter((d) => !cues.only.includes(d));
+      if (refused.length > 0) refusedParams.push(`空出星期${refused.map(dayName).join("、")}（原句不是要空出這幾天）`);
+      params = {
+        ...params,
+        avoidDays: params.avoidDays.filter((d) => !wrongWay.includes(d)),
+        allowDays: [...new Set([...params.allowDays, ...wrongWay.filter((d) => cues.free.includes(d))])],
+      };
     }
-    next.avoidDays = [...set].sort((a, b) => a - b);
-    delta.avoidDays = params.avoidDays;
-  } else if (params.allowDays.length > 0) {
-    const freed = params.allowDays.filter((d) => next.avoidDays.includes(d));
-    if (freed.length > 0 && allowTurnOff(`開放星期${freed.map(dayName).join("、")}`)) {
+    // 「禮拜一到四排滿」：模型給空出一、四（2026-11-09 試用實測）或什麼都沒給，都改成空出其他平日
+    const outside = weekdaysOutside(cues.only).filter((d) => !params.avoidDays.includes(d) && !cues.free.includes(d));
+    if (outside.length > 0) params = { ...params, avoidDays: [...params.avoidDays, ...outside].sort((a, b) => a - b) };
+
+    if (params.avoidDays.length > 0) {
       requested = true;
-      next.avoidDays = next.avoidDays.filter((d) => !params.allowDays.includes(d));
+      const set = new Set([...next.avoidDays, ...params.avoidDays]);
+      for (const d of params.allowDays) {
+        if (!set.has(d)) continue;
+        if (allowTurnOff(`開放星期${dayName(d)}`)) set.delete(d);
+      }
+      next.avoidDays = [...set].sort((a, b) => a - b);
+      delta.avoidDays = params.avoidDays;
+    } else if (params.allowDays.length > 0) {
+      const freed = params.allowDays.filter((d) => next.avoidDays.includes(d));
+      if (freed.length > 0 && allowTurnOff(`開放星期${freed.map(dayName).join("、")}`)) {
+        requested = true;
+        next.avoidDays = next.avoidDays.filter((d) => !params.allowDays.includes(d));
+      }
     }
   }
 

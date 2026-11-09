@@ -494,3 +494,45 @@ describe("問規定：模型判超出範圍，但原句講到本系的畢業條�
     expect(r.reply.kind).toBe("超出範圍");
   });
 });
+
+describe("整天條件由模型給完整結果（2026-11-09 試用：「一到四排滿」疊成五天全空）", () => {
+  const turnWith = (said: string, freeDays: number[] | undefined, avoidDays: number[]) => {
+    vi.mocked(parsePlanIntent).mockResolvedValueOnce({ kind: "intent", intent: "adjust-time", reason: "", params: { ...empty(), freeDays } });
+    return planTurn([{ role: "user", content: said }], { ...base, constraints: { ...base.constraints, avoidDays } }, new LlmBudget(LIMITS.llmCallsPerTurn));
+  };
+
+  it("前幾輪錯空的一、四，說「一到四排滿」就改回來：只空出星期五", async () => {
+    const r = await turnWith("星期一到星期四課排滿", [5], [1, 4]);
+    expect(r.plan!.constraintSet.avoidDays).toEqual([5]);
+    expect(r.tools).not.toContain("rule.fallback");
+  });
+
+  it("前幾輪已空出一到四，同一句也不會疊成五天全空", async () => {
+    const r = await turnWith("星期一到星期四課排滿", [5], [1, 2, 3, 4]);
+    expect(r.plan!.constraintSet.avoidDays).toEqual([5]);
+  });
+
+  it("模型的結果是五個平日全空：不套用，先問", async () => {
+    const r = await turnWith("星期一到星期四課排滿", [1, 2, 3, 4, 5], [5]);
+    expect(r.clarifying).toBe(true);
+    expect(r.plan).toBeUndefined();
+    expect(r.tools).toContain("check.all-days-free");
+  });
+
+  it("原句明確說不要星期五，模型卻沒空出：不猜，先問", async () => {
+    const r = await turnWith("星期五不要排課", [], []);
+    expect(r.clarifying).toBe(true);
+    expect(r.reply.headline).toContain("星期五");
+    expect(r.tools).toContain("check.days-disagree");
+  });
+
+  it("「星期五可以排了」模型給 []：照做，不需要「解除」這類字", async () => {
+    const r = await turnWith("星期五又可以去學校了", [], [5]);
+    expect(r.plan!.constraintSet.avoidDays).toEqual([]);
+  });
+
+  it("沒談到星期的句子不會因為規則的猜測而問", async () => {
+    const r = await turnWith("星期三的課可以換一門嗎", undefined, []);
+    expect(r.tools).not.toContain("check.days-disagree");
+  });
+});

@@ -2,6 +2,7 @@ import { takenCourseCodes } from "@/lib/solver/taken";
 import { describe, expect, it } from "vitest";
 import { runAudit } from "@/lib/agent/runner";
 import {
+  solve,
   solveWithRelaxation,
   requirementsFrom,
   reservedFrom,
@@ -264,5 +265,18 @@ describe("正常進度依剩下的學期平均分攤，不是一路排到學分�
     const ctx = await demoContext({});
     expect(balanced.plans[0]!.totalCredits).toBeGreaterThanOrEqual(ctx.termMinCredits);
     expect(balanced.plans[0]!.totalCredits).toBeLessThanOrEqual(asap.plans[0]!.totalCredits);
+  });
+});
+
+describe("排不出課時說真正的原因（2026-11-09 試用）", () => {
+  it("開課都被空出的星期擋掉：說是條件的關係，不說學校沒開課", async () => {
+    const r = solve(await demoContext({ avoidDays: [1, 2, 3, 4, 5, 6, 7] }));
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.infeasibilities.length).toBeGreaterThan(0);
+    for (const i of r.infeasibilities) {
+      expect(i.suggestion).not.toContain("查無符合本類別之開課");
+      expect(i.suggestion).toContain("空出");
+    }
   });
 });

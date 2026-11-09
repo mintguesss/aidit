@@ -1344,13 +1344,19 @@ function buildInfeasibility(req: Requirement, ctx: SolveContext, exclusions: Exc
     ? ctx.reserved.find((r) => clashHit.reason.includes(r.label))
     : undefined;
 
+  // 被學生自己空出的星期或時段擋掉的，是他能自己調整的：優先講這個，其他原因附在後面
+  // （2026-11-09 試用：五天全空時逐類回「查無開課，請洽系辦加開」或「已全數額滿」，學生會以為是學校的問題）
+  const byOwnTime = mine.some((e) => e.step === "avoid-day" || e.step === "avoid-period");
+  const full = mine.some((e) => e.reason === "修課餘額為 0");
   const suggestion = clashHit
     ? `本類別開課全數與「${conflictWith?.label ?? "已登記時段"}」重疊；可考慮調整該時段，或確認是否開設暑修班。`
-    : mine.some((e) => e.reason === "修課餘額為 0")
-      ? "本類別開課已全數額滿，可考慮加簽或改選其他學期。"
-      : mine.some((e) => e.reason.startsWith("先修科目未修畢"))
-        ? "本類別開課皆有先修限制，須先補修先修科目。"
-        : `${ctx.termLabel} 查無符合本類別之開課，請洽系辦確認是否另行加開。`;
+    : byOwnTime
+      ? `本類別 ${ctx.termLabel} 的開課${full ? "有些額滿，其餘" : "都"}落在你空出的星期或時段，可考慮少空出一天或放寬時段。`
+      : full
+        ? "本類別開課已全數額滿，可考慮加簽或改選其他學期。"
+        : mine.some((e) => e.reason.startsWith("先修科目未修畢"))
+          ? "本類別開課皆有先修限制，須先補修先修科目。"
+          : `${ctx.termLabel} 查無符合本類別之開課，請洽系辦確認是否另行加開。`;
 
   return {
     category: req.label,

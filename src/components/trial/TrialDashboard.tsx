@@ -288,7 +288,7 @@ function Detail({
               {s.manual.endedAt && g ? (
                 <>
                   <span className="ad-line">
-                    {row.manualMinutes} 分鐘，合計作答 {a?.total ?? "未填"}
+                    {row.manualMinutes} 分鐘，合計{a?.basis === "earned" ? "已修" : "還差"}作答 {a?.total ?? "未填"}
                     {s.manual.gaveUp ? "，放棄" : ""}
                     {s.manual.timedOut ? "，超時" : ""}
                     {a?.uncertain ? "，標註不確定" : ""}

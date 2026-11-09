@@ -73,6 +73,11 @@ export function sheetRows(sheet: SheetNo): SheetRow[] {
 /* ---------- 紀錄 ---------- */
 
 export type ManualAnswer = {
+  /**
+   * 各類別的數字是「已修」還是「還差」。2026-11-09 起改填已修（使用者回饋：還差不直觀）；
+   * 之前的紀錄沒有這一欄，一律是還差，照原本的標準批改
+   */
+  basis?: ManualBasis;
   categories: Record<string, number | null>;
   total: number | null;
   missingDomains: string[];
@@ -80,6 +85,9 @@ export type ManualAnswer = {
   note: string;
   uncertain: boolean;
 };
+
+export type ManualBasis = "earned" | "unmet";
+export const basisOf = (a: ManualAnswer | undefined): ManualBasis => a?.basis ?? "unmet";
 
 export type TaskRecord = {
   startedAt?: number;
@@ -173,6 +181,7 @@ const text = (max: number) => z.string().trim().max(max);
 const credits = z.number().int().min(0).max(300).nullable();
 
 const manualAnswer = z.object({
+  basis: z.enum(["earned", "unmet"]).optional(),
   categories: z.record(z.string().max(40), credits),
   total: credits,
   missingDomains: z.array(z.string().max(20)).max(5),
@@ -282,12 +291,15 @@ const sameSet = (a: string[], b: string[]) => a.length === b.length && [...a].so
 
 /** 任一類別或合計不同就算錯，與系統、單一模型同一標準（試用執行手冊第 4 節） */
 export function gradeManual(sheet: SheetNo, a: ManualAnswer | undefined) {
-  const key = keyOf(sheet);
+  const key = manualKeyOf(sheet);
+  const earned = basisOf(a) === "earned";
   return {
     allCategories:
-      !!a && a.total === key.totalUnmet && key.categories.every((c) => a.categories[c.name] === c.unmet),
-    domains: !!a && sameSet(a.missingDomains, key.missingGenEdDomains),
-    graduate: !!a && a.canGraduate === (key.canGraduate === "yes"),
+      !!a &&
+      a.total === (earned ? key.totalEarned : key.total) &&
+      key.categories.every((c) => a.categories[c.name] === (earned ? c.earned : c.unmet)),
+    domains: !!a && sameSet(a.missingDomains, key.domains),
+    graduate: !!a && a.canGraduate === key.canGraduate,
   };
 }
 
@@ -303,8 +315,9 @@ export const expectedTotal = (sheet: SheetNo) => keyOf(sheet).totalUnmet;
 export function manualKeyOf(sheet: SheetNo) {
   const key = keyOf(sheet);
   return {
-    categories: key.categories.map((c) => ({ name: c.name, unmet: c.unmet })),
+    categories: key.categories.map((c) => ({ name: c.name, required: c.required, earned: c.earned, unmet: c.unmet })),
     total: key.totalUnmet,
+    totalEarned: key.categories.reduce((n, c) => n + c.earned, 0),
     domains: key.missingGenEdDomains,
     canGraduate: key.canGraduate === "yes",
   };
@@ -353,6 +366,7 @@ export const CSV_HEADER = [
   "系統題目", "T1完成", "T1秒", "T1協助", "T1答案全對", "T2完成", "T2秒", "T2協助", "T3完成", "T3秒", "T3協助",
   "Q1比手算快", "Q2看得懂", "Q3更相信", "Q4接受不確定", "Q5會使用", "開放題", "對話traceId", "主持人備註", "是否排除", "排除理由",
   "同意", "手算通識領域全對", "手算是否符合畢業全對", "手算各類別作答", "手算通識缺領域", "手算備註", "T1合計作答", "T1缺類別作答", "T2作答", "T3作答", "熟悉系統秒",
+  "手算作答方式",
 ];
 
 const yn = (b: boolean | null | undefined) => (b === null || b === undefined ? "" : b ? "是" : "否");
@@ -385,6 +399,7 @@ export function csvRow(s: TrialSession, mod: TrialMod): string[] {
     a?.missingDomains.join("、") ?? "", a?.note ?? "",
     String(s.tasks.t1.total ?? ""), s.tasks.t1.categories?.join("、") ?? "", s.tasks.t2.text ?? "", s.tasks.t3.text ?? "",
     String(orientationSeconds(s) ?? ""),
+    a ? (basisOf(a) === "earned" ? "已修" : "還差") : "",
   ];
 }
 

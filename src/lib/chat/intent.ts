@@ -33,6 +33,78 @@ const zClarify = z.string().max(60).nullable();
 
 // --------------------------------------------------- A 介面：課表微調
 
+/**
+ * 程式內部的條件變更（PlanParams）。avoidDays／allowDays 是「這一句加了／解除了哪幾天」，
+ * 只有離線規則會用；模型改給 freeDays（見 zModelDelta）。
+ */
+const zDelta = z.object({
+  avoidDays: z.array(z.number().int().min(1).max(7)).max(7),
+  allowDays: z.array(z.number().int().min(1).max(7)).max(7),
+  /**
+   * 這一句之後「全部」要空出的整天（完整清單，不是差異），模型看著目前條件填。
+   * 2026-11-09 試用：用差異累加時，前幾輪錯空的天數改不回來，「一到四排滿」疊成五天全空。
+   * 模型其實看得懂這些說法（本機實測），所以由它給出完整結果，程式只檢查。沒談到整天就省略
+   */
+  freeDays: z.array(z.number().int().min(1).max(7)).max(7).optional(),
+  /** 只涵蓋第 1 節 */
+  avoidEarly: z.boolean().nullable(),
+  /** 整個早上（第 1–4 節）；與 avoidEarly 是兩件事，不得互相代用 */
+  avoidMorning: z.boolean().nullable(),
+  /**
+   * 某一天的某個時段（「禮拜一早上要打工」「週五下午不要有課」）。
+   * 整天用 freeDays；每天早上用 avoidMorning。三者範圍不同，不得互相代用 ——
+   * 用整天代替「週五下午」會把整個星期五都空掉，做得比使用者要的多。
+   */
+  avoidDayParts: z
+    .array(
+      z.object({
+        day: z.number().int().min(1).max(7),
+        part: z.enum(["morning", "afternoon", "evening"]),
+      }),
+    )
+    .max(14),
+  /** 只是「盡量」集中；說了幾天要用 maxDays */
+  preferCompactDays: z.boolean().nullable(),
+  /**
+   * 課必須排在幾天內（「集中在一天」填 1、「兩天就好」填 2）；不限天數填 7。
+   * 與 preferCompactDays 不同：那只是盡量，這是硬限制，排不進就回報做不到。
+   */
+  maxDays: z.number().int().min(1).max(7).nullable(),
+  maxCredits: z.number().int().min(0).max(30).nullable(),
+  courseCountDelta: z.number().int().min(-6).max(6).nullable(),
+  courseCountTarget: z.number().int().min(0).max(30).nullable(),
+  goal: z.enum(["asap", "balanced", "light"]).nullable(),
+  goals: z.array(z.enum(["early-graduation", "minor", "cert-program"])).max(3),
+  /** 課號或課名；程式會自行查開課資料轉成課號 */
+  excludeCourses: z.array(z.string().max(40)).max(5),
+  pinCourses: z.array(z.string().max(40)).max(5),
+  /** 「想修一堂 AI 相關的課」的主題（AI、程式、資安…）；沒提到填 null（TODO G2） */
+  addTopic: z.string().max(20).nullable().optional(),
+  /** 新加的那門課要幾學分（「多選一堂兩學分的課」填 2）；只限新加的課，沒提到填 null（TODO G1） */
+  newCourseCredits: z.number().int().min(1).max(6).nullable().optional(),
+  /**
+   * 「換成」「改成」：拿掉的課由新的課補上，堂數不變（TODO G12）。
+   * 與「多一堂」「加一堂」不同：那是堂數 +1
+   */
+  // 不用 nullable：Claude 的結構化輸出最多 16 個可為 null 的欄位，排課的格式原本有 18 個（Haiku 5.5 實測 400）。
+  // 用 optional：沒說就省略，程式本來也只看真假
+  replace: z.boolean().optional(),
+  /**
+   * 拿掉某一類的課（「拿掉一堂通識」「通識拿掉」「這學期不排通識」）。
+   * category 填使用者說的類別（通識、選修、必修、全人…）；count 填幾門，「全部、這學期都不排」填 "all"，沒說填 null
+   */
+  dropCategory: z
+    .object({ category: z.string().max(12), count: z.union([z.number().int().min(1).max(6), z.literal("all")]).nullable() })
+    .nullable()
+    .optional(),
+  /** 「換另一門」：上一次拿掉的那門放回來，改拿同一類的另一門 */
+  dropAnother: z.boolean().optional(),
+  reset: z.boolean(),
+});
+
+/** 模型看到的格式：整天只用完整清單 freeDays，不給差異欄位，免得兩種寫法互相打架 */
+const zModelDelta = zDelta.omit({ avoidDays: true, allowDays: true });
+
 const zPlanIntent = z.object({
   intent: z
     .enum([
@@ -49,66 +121,7 @@ const zPlanIntent = z.object({
   forbidden: zForbidden,
   clarify: zClarify,
   /** 約束變更；只有 adjust-* / swap / pin / change-goal 會用到 */
-  delta: z
-    .object({
-      avoidDays: z.array(z.number().int().min(1).max(7)).max(7),
-      allowDays: z.array(z.number().int().min(1).max(7)).max(7),
-      /** 只涵蓋第 1 節 */
-      avoidEarly: z.boolean().nullable(),
-      /** 整個早上（第 1–4 節）；與 avoidEarly 是兩件事，不得互相代用 */
-      avoidMorning: z.boolean().nullable(),
-      /**
-       * 某一天的某個時段（「禮拜一早上要打工」「週五下午不要有課」）。
-       * 整天用 avoidDays；每天早上用 avoidMorning。三者範圍不同，不得互相代用 ——
-       * 用 avoidDays 代替「週五下午」會把整個星期五都空掉，做得比使用者要的多。
-       */
-      avoidDayParts: z
-        .array(
-          z.object({
-            day: z.number().int().min(1).max(7),
-            part: z.enum(["morning", "afternoon", "evening"]),
-          }),
-        )
-        .max(14),
-      /** 只是「盡量」集中；說了幾天要用 maxDays */
-      preferCompactDays: z.boolean().nullable(),
-      /**
-       * 課必須排在幾天內（「集中在一天」填 1、「兩天就好」填 2）；不限天數填 7。
-       * 與 preferCompactDays 不同：那只是盡量，這是硬限制，排不進就回報做不到。
-       */
-      maxDays: z.number().int().min(1).max(7).nullable(),
-      maxCredits: z.number().int().min(0).max(30).nullable(),
-      courseCountDelta: z.number().int().min(-6).max(6).nullable(),
-      courseCountTarget: z.number().int().min(0).max(30).nullable(),
-      goal: z.enum(["asap", "balanced", "light"]).nullable(),
-      goals: z.array(z.enum(["early-graduation", "minor", "cert-program"])).max(3),
-      /** 課號或課名；程式會自行查開課資料轉成課號 */
-      excludeCourses: z.array(z.string().max(40)).max(5),
-      pinCourses: z.array(z.string().max(40)).max(5),
-      /** 「想修一堂 AI 相關的課」的主題（AI、程式、資安…）；沒提到填 null（TODO G2） */
-      addTopic: z.string().max(20).nullable().optional(),
-      /** 新加的那門課要幾學分（「多選一堂兩學分的課」填 2）；只限新加的課，沒提到填 null（TODO G1） */
-      newCourseCredits: z.number().int().min(1).max(6).nullable().optional(),
-      /**
-       * 「換成」「改成」：拿掉的課由新的課補上，堂數不變（TODO G12）。
-       * 與「多一堂」「加一堂」不同：那是堂數 +1
-       */
-      // 不用 nullable：Claude 的結構化輸出最多 16 個可為 null 的欄位，排課的格式原本有 18 個（Haiku 5.5 實測 400）。
-      // 用 optional：沒說就省略，程式本來也只看真假
-      replace: z.boolean().optional(),
-      /**
-       * 拿掉某一類的課（「拿掉一堂通識」「通識拿掉」「這學期不排通識」）。
-       * category 填使用者說的類別（通識、選修、必修、全人…）；count 填幾門，「全部、這學期都不排」填 "all"，沒說填 null
-       */
-      dropCategory: z
-        .object({ category: z.string().max(12), count: z.union([z.number().int().min(1).max(6), z.literal("all")]).nullable() })
-        .nullable()
-        .optional(),
-      /** 「換另一門」：上一次拿掉的那門放回來，改拿同一類的另一門 */
-      dropAnother: z.boolean().optional(),
-      reset: z.boolean(),
-    })
-    .nullable(),
+  delta: zModelDelta.nullable(),
   /** intent=explain 時，使用者問的是哪一門課（課號或課名） */
   explainCourse: z.string().max(40).nullable(),
   /**
@@ -130,7 +143,7 @@ export type PlanIntentResult =
   | { kind: "out-of-scope" };
 
 /** LLM 解析出的原始參數。課名轉課號、套用到約束集合都在 apply.ts 完成。 */
-export type PlanParams = NonNullable<z.infer<typeof zPlanIntent>["delta"]>;
+export type PlanParams = z.infer<typeof zDelta>;
 
 /**
  * 禁止主題的判定規則，兩個介面共用。
@@ -177,8 +190,7 @@ const PLAN_SYSTEM = [
   "4. 時段有三種範圍，由窄到寬，不得互相代用：",
   "   某天的某時段（禮拜一早上、週五下午）→ avoidDayParts",
   "   每天早上（第 1–4 節）→ avoidMorning；只有早八（第 1 節）→ avoidEarly",
-  "   整天（空出星期五）→ avoidDays",
-  "   課集中在某幾天（「禮拜一到四排滿」「只排一到四」）→ avoidDays 填其他平日（此例為 [5]），不是空出說到的那幾天",
+  "   整天 → freeDays（見規則 10）",
   "   「盡量集中」→ preferCompactDays；說了天數（集中在一天、兩天就好）→ maxDays",
   "5. 重來、回到原本、全部取消 → intent=change-goal、delta.reset=true。這不是 compare。",
   "   「取消剛剛的調整」「改回去」是退回上一步，由畫面處理，不要填 reset。",
@@ -190,16 +202,34 @@ const PLAN_SYSTEM = [
   "9. 拿掉某一類的課（「拿掉一堂通識」「通識拿掉」「這學期不排通識」）→ delta.dropCategory：category 填使用者說的類別，",
   "   count 填幾門；「全部」「這學期都不排」填 \"all\"；沒說幾門填 null（程式會反問），不要猜。不要把類別名稱放進 excludeCourses。",
   "   「換另一門」（上一輪拿掉的那門不要拿，改拿另一門）→ delta.dropAnother=true。",
+  "10. 整天要不要排課用 delta.freeDays：填「這一句之後」全部要空出的整天，是完整清單，不是這一句新增的。",
+  "   先看「目前條件」裡已空出的整天，再依對話決定最後的結果（1＝星期一 … 7＝星期日）：",
+  "   目前 [] 說「星期五不要排課」→ [5]；目前 [5] 說「星期三也不要」→ [3,5]；",
+  "   目前 [1,4] 說「一到四排滿」「課集中在前四天」→ [5]（課要排在一到四，所以一到四不能空出）；",
+  "   目前 [5] 說「星期五可以排了」→ []。這一句沒談到整天，就省略 freeDays，不要照抄目前條件。",
 ].join("\n");
+
+/** 給模型看的目前條件（這一句之前）。整天要附上數字，模型才能據此填完整的 freeDays */
+export type PlanState = { freeDays: number[]; summary: string[] };
+
+export function renderState(state: PlanState): string {
+  const days = state.freeDays.map((d) => `星期${"一二三四五六日"[d - 1]}`).join("、") || "無";
+  return [
+    "目前條件（這一句之前，已套用在課表上）：",
+    `- 已空出的整天 freeDays：[${state.freeDays.join(",")}]（${days}）`,
+    ...state.summary.map((x) => `- ${x}`),
+  ].join("\n");
+}
 
 export async function parsePlanIntent(
   messages: ChatMessage[],
   budget: LlmBudget,
+  state?: PlanState,
 ): Promise<PlanIntentResult> {
   const res = await structured(
     {
       system: PLAN_SYSTEM,
-      user: renderHistory(messages),
+      user: state ? `${renderState(state)}\n\n${renderHistory(messages)}` : renderHistory(messages),
       schema: zPlanIntent,
       offline: () => offlinePlanIntent(lastUser(messages)),
     },
@@ -228,7 +258,9 @@ function toPlanResult(d: z.infer<typeof zPlanIntent>, raw: string): PlanIntentRe
   if (d.intent === "compare") return { kind: "compare" };
 
   if (!d.delta) return { kind: "out-of-scope" };
-  return { kind: "intent", intent: d.intent, params: d.delta, reason: d.reason || raw };
+  // 差異欄位（avoidDays／allowDays）只有離線規則會填；模型的格式沒有這兩欄（zod 會濾掉），整天條件在 freeDays
+  const params: PlanParams = { avoidDays: [], allowDays: [], ...(d.delta as Partial<PlanParams>) } as PlanParams;
+  return { kind: "intent", intent: d.intent, params, reason: d.reason || raw };
 }
 
 // ------------------------------------------------- B 介面：修業問答
@@ -487,6 +519,22 @@ export function dayCues(text: string): { block: number[]; free: number[]; prefer
     out[kind].push(...days);
   }
   return out;
+}
+
+/**
+ * 句子裡「明確」說要空出的星期：分句裡有不要、空出、放假這類字。
+ * dayCues 的 block 在沒有任何線索時也會歸到空出，那只適合當離線後援；
+ * 拿來檢查模型時要用這個，免得「星期三的課是什麼」這種句子也被當成要空出
+ */
+export function explicitBlockDays(text: string): number[] {
+  const t = expandDayRanges(text);
+  const out: number[] = [];
+  for (const clause of t.split(/[，,。；;！!？?]|但是|不過|然後/)) {
+    if (/解除|取消|恢復|不用空|不必空|可以排|能排|可以有課|沒關係/.test(clause)) continue;
+    if (!(BLOCK_CUE.test(clause) || /放假|休息|不上課|沒課|空下來|空出來/.test(clause))) continue;
+    for (const [re, d] of DAY_WORDS) if (re.test(clause) && !out.includes(d)) out.push(d);
+  }
+  return out.sort((a, b) => a - b);
 }
 
 export type DayPart = "morning" | "afternoon" | "evening";

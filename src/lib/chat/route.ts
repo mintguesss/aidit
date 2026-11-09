@@ -16,6 +16,8 @@ import {
   type PlanIntentResult,
   type PlanParams,
   ASKS_HOLDS,
+  dayCues,
+  explicitBlockDays,
 } from "./intent";
 import { applyParams, describeDelta, describeSet, periodNamesFor } from "./apply";
 import {
@@ -155,7 +157,9 @@ export async function planTurn(
   // 規則看的句子：學生自己學校的稱呼換成「本校」，「輔大」才不會被當成他校
   const forRules = withoutOwnSchool(raw, schoolOf(ctx.record.student));
   const tools = ["chat.intent"];
-  let intent = await orRules(parsePlanIntent(messages, budget), () => rulePlanIntent(forRules), tools);
+  // 模型看得到目前條件，才能給出改完之後的完整結果（見 intent.ts 的 freeDays）
+  const state = { freeDays: ctx.constraints.avoidDays, summary: describeSet(ctx.constraints, periodNamesFor(ctx.record.student.school)) };
+  let intent = await orRules(parsePlanIntent(messages, budget, state), () => rulePlanIntent(forRules), tools);
 
   // 使用者眼前的課表（見 shownPlan）。ctx.currentPlan 是依個人資料求的第一版，
   // 多輪之後就不是使用者看到的了 —— 拿它當「之前」，課表差異會一直跟第一版比，
@@ -170,6 +174,14 @@ export async function planTurn(
     p.reset ? ["重設為個人資料的原始設定"] : describeDelta(ctx.constraints, next, periodNamesFor(ctx.record.student.school));
 
   const rules = rulePlanIntent(forRules);
+  // 模型有給出結果時，星期的判斷以模型為準：規則的星期只在模型完全沒理解（超出範圍）或連不上時才用。
+  // 規則用關鍵字猜語意，猜錯會蓋掉模型對的理解（2026-11-09 試用：「一到四排滿」被做成空出一、四）
+  // 例外是句子明確說「不要、空出、放假」的星期：模型漏掉時仍可補上（模型給了完整結果卻相反時，下面會先問）
+  const explicitDays = explicitBlockDays(forRules);
+  const rulesNoDays: PlanIntentResult =
+    rules.kind === "intent"
+      ? { ...rules, params: { ...rules.params, avoidDays: rules.params.avoidDays.filter((d) => explicitDays.includes(d)), allowDays: [] } }
+      : rules;
   intent = correctOtherInstitution(intent, rules, tools);
   if (rules.kind === "forbidden") {
     // 模型沒擋就補擋；模型也擋了但理由不同，採用規則的理由 ——
@@ -185,7 +197,9 @@ export async function planTurn(
     // 就不必多問一輪。實測模型對「我不想上顧客關係管理」反問「要換成什麼課？」。
     // 課名查不到（「幫我加一堂AI相關的課程」）時保留模型的反問，那比「找不到」好。
     const tried = applyParams(ctx.constraints, ctx.originalConstraints, rules.params, rules.reason, raw, shownCount, schoolOf(ctx.record.student));
-    if (tried.unresolved.length === 0 && changesOf(rules.params, tried.next).length > 0) {
+    // 牽涉星期時保留模型的反問：規則對星期的判讀不可靠，問一句比猜錯好
+    const touchesDays = rules.params.avoidDays.length > 0 || rules.params.allowDays.length > 0;
+    if (!touchesDays && tried.unresolved.length === 0 && changesOf(rules.params, tried.next).length > 0) {
       intent = rules;
       tools.push("rule.fallback");
     }
@@ -251,8 +265,8 @@ export async function planTurn(
   // 只填 avoidEarly、avoidMorning 留空 —— 有生效的變更，下面「沒變更才改用規則」接不到，
   // 結果只排掉早八，使用者要的整個早上沒做到。只補留空的，模型填了的不覆蓋；
   // 規則抽到的都是原句字面上的條件，補上不會多做使用者沒說的事
-  if (rules.kind === "intent" && rules !== intent) {
-    const merged = fillEmpty(intent.params, rules.params);
+  if (rulesNoDays.kind === "intent" && rules !== intent) {
+    const merged = fillEmpty(intent.params, rulesNoDays.params);
     if (merged !== intent.params) {
       intent = { ...intent, params: merged };
       tools.push("rule.merge");
@@ -285,7 +299,40 @@ export async function planTurn(
     intent = { ...intent, params: { ...intent.params, excludeCourses: [...intent.params.excludeCourses, ...drop.excludeCodes] } };
   }
 
+  // 模型給的整天結果和原句明確說的相反（說了不要星期五，結果卻沒空出；說了可以排，結果卻空出）：
+  // 不猜哪一邊對，先問。只用明確的「不要、空出、放假」，沒有線索的句子不會觸發
+  if (intent !== rules && intent.params.freeDays !== undefined) {
+    const free = intent.params.freeDays;
+    const missed = explicitDays.filter((d) => !free.includes(d));
+    const reopened = dayCues(forRules).free.filter((d) => free.includes(d));
+    if (missed.length > 0 || reopened.length > 0) {
+      tools.push("check.days-disagree");
+      const days = (ds: number[]) => ds.map((d) => `星期${"一二三四五六日"[d - 1]}`).join("、");
+      return {
+        reply: clarify(
+          missed.length > 0
+            ? `想確認一下：你是要空出${days(missed)}嗎？可以直接說「${days(missed)}不要排課」。`
+            : `想確認一下：${days(reopened)}是要可以排課嗎？可以直接說「${days(reopened)}可以排課」。`,
+        ),
+        tools,
+        intent: intent.intent,
+        clarifying: true,
+      };
+    }
+  }
+
   let applied = applyParams(ctx.constraints, ctx.originalConstraints, intent.params, intent.reason, raw, shownCount, schoolOf(ctx.record.student));
+  // 五個平日全部空出就沒有時間排課，一定不是使用者要的：不套用，先問（2026-11-09 試用：五天全空、排不出課）
+  const allWeekdays = (ds: number[]) => [1, 2, 3, 4, 5].every((d) => ds.includes(d));
+  if (allWeekdays(applied.next.avoidDays) && !allWeekdays(ctx.constraints.avoidDays)) {
+    tools.push("check.all-days-free");
+    return {
+      reply: clarify("這樣星期一到五都空出來，就沒有時間可以排課了。你想空出哪幾天？例如「星期五不要排課」。"),
+      tools,
+      intent: intent.intent,
+      clarifying: true,
+    };
+  }
   if (drop.applies) {
     const next: ConstraintSet = {
       ...applied.next,
@@ -314,14 +361,14 @@ export async function planTurn(
 
   // 模型解析出意圖，卻沒有任何有效變更 —— 沒填、填錯被擋、或填成原本就是的值。
   // 規則能從原句抽出有效變更的話改用規則的；抽不出來就維持「條件沒有變動」照實講。
-  if (changed.length === 0 && rules.kind === "intent" && rules !== intent) {
-    const byRules = applyParams(ctx.constraints, ctx.originalConstraints, rules.params, rules.reason, raw, shownCount, schoolOf(ctx.record.student));
-    const ruleChanged = changesOf(rules.params, byRules.next);
+  if (changed.length === 0 && rulesNoDays.kind === "intent" && rules !== intent) {
+    const byRules = applyParams(ctx.constraints, ctx.originalConstraints, rulesNoDays.params, rulesNoDays.reason, raw, shownCount, schoolOf(ctx.record.student));
+    const ruleChanged = changesOf(rulesNoDays.params, byRules.next);
     requested ||= byRules.requested;
     if (ruleChanged.length > 0) {
       applied = { ...byRules, refusedParams: [...applied.refusedParams, ...byRules.refusedParams] };
       changed = ruleChanged;
-      intent = rules;
+      intent = rulesNoDays;
       tools.push("rule.fallback");
     }
   }

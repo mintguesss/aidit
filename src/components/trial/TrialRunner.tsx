@@ -261,7 +261,7 @@ function ManualIntro({ busy, send }: { busy: boolean; send: Send }) {
       <ul className="tr-list">
         <li>下一頁是一位 111 學年度入學、資訊管理學系學生的修課紀錄（皆已及格）。</li>
         <li>課程規劃表與修業規則也在下一頁，用上方的分頁切換。請只用這些資料計算，不要使用本系統或任何 AI。</li>
-        <li>寫出各類別還差幾學分、合計、通識還缺哪些領域，以及是否已符合畢業學分。</li>
+        <li>寫出各類別已修了幾學分（可以採計的部分）、合計、通識還缺哪些領域，以及是否已符合畢業學分。</li>
         <li>超過應修學分的部分不能補到其他類別（請依修業規則判斷）。</li>
         <li>資料不足無法判斷的地方，請寫在備註，不要硬猜。</li>
         <li>上限 15 分鐘，時間到會自動交卷。算不完或想放棄都沒關係，這也是有用的資料。</li>
@@ -322,6 +322,7 @@ function Manual({ id, view, busy, send }: { id: string; view: TrialPublicView; b
   const [left, setLeft] = useState(deadline - view.now);
 
   const answer = (): ManualAnswer => ({
+    basis: "earned",
     categories: Object.fromEntries(view.categories.map((c) => [c.name, num(draft.categories[c.name] ?? "")])),
     total: num(draft.total),
     missingDomains: draft.missingDomains,
@@ -370,7 +371,7 @@ function Manual({ id, view, busy, send }: { id: string; view: TrialPublicView; b
 
         <div className="tr-card tr-pad tr-stack tr-answer">
           <div className="tr-field">
-            <h2>各類別還差幾學分</h2>
+            <h2>各類別已修幾學分</h2>
             <div className="tr-credits">
               {view.categories.map((c) => (
                 <label key={c.name}>
@@ -386,7 +387,7 @@ function Manual({ id, view, busy, send }: { id: string; view: TrialPublicView; b
                 </label>
               ))}
               <label className="total">
-                <span>合計還差</span>
+                <span>合計已修</span>
                 <input inputMode="numeric" value={draft.total} onChange={(e) => update({ total: e.target.value })} />
               </label>
             </div>

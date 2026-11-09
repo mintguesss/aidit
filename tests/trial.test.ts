@@ -424,3 +424,35 @@ describe("手算的正確答案", () => {
     expect(review?.key.categories.map((c) => c.name)).toEqual(SHEET_CATEGORIES.map((c) => c.name));
   });
 });
+
+describe("手算改填已修學分（2026-11-09 使用者回饋：還差不直觀）", () => {
+  const earnedFor88: ManualAnswer = {
+    basis: "earned",
+    categories: { 全人教育核心課程: 2, 基本能力課程: 12, 通識涵養課程: 8, 院系必修課程: 52, 選修課程: 14 },
+    total: 88,
+    missingDomains: ["社會科學"],
+    canGraduate: false,
+    note: "",
+    uncertain: false,
+  };
+
+  it("已修的答案照已修批改", () => {
+    expect(gradeManual(2, earnedFor88).allCategories).toBe(true);
+    expect(gradeManual(2, { ...earnedFor88, total: 40 }).allCategories).toBe(false);
+  });
+
+  it("之前填還差的紀錄（沒有 basis）仍照還差批改，不會被當成錯", () => {
+    expect(answerFor40.basis).toBeUndefined();
+    expect(gradeManual(2, answerFor40).allCategories).toBe(true);
+  });
+
+  it("CSV 記下作答方式", () => {
+    const s = make();
+    applyAction(s, { type: "consent", agreed: true, profile }, T0);
+    applyAction(s, { type: "manual.start" }, T0 + 1);
+    applyAction(s, { type: "manual.submit", answer: earnedFor88, gaveUp: false }, T0 + 2);
+    const row = csvRow(s, emptyMod());
+    expect(CSV_HEADER[CSV_HEADER.length - 1]).toBe("手算作答方式");
+    expect(row[row.length - 1]).toBe("已修");
+  });
+});

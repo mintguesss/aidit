@@ -17,6 +17,7 @@ import {
   manualSheetOf,
   MANUAL_LIMIT_MS,
   newSession,
+  moderatorView,
   publicView,
   SHEET_CATEGORIES,
   sheetRows,
@@ -398,5 +399,28 @@ describe("匯出", () => {
     expect(csv.startsWith("﻿")).toBe(true);
     expect(csv).toContain("'=SUM(A1)");
     expect(csv).toContain('"a,""b"""');
+  });
+});
+
+describe("手算的正確答案", () => {
+  it("受試者全部做完才看得到，主持人一直看得到", () => {
+    const s = make();
+    applyAction(s, { type: "consent", agreed: true, profile }, T0);
+    applyAction(s, { type: "manual.start" }, T0 + 1);
+    applyAction(s, { type: "manual.submit", answer: answerFor40, gaveUp: false }, T0 + 2);
+    expect(publicView(s, T0 + 3).manualReview).toBeNull();
+    expect(moderatorView(s, emptyMod()).manualKey.total).toBe(manualSheetOf(s.group) === 2 ? 40 : 37);
+    applyAction(s, { type: "orientation.start" }, T0 + 4);
+    applyAction(s, { type: "orientation.end" }, T0 + 5);
+    for (const t of ["t1", "t2", "t3"] as const) {
+      applyAction(s, { type: "task.start", task: t }, T0 + 6);
+      expect(publicView(s, T0 + 6).manualReview).toBeNull();
+      applyAction(s, { type: "task.submit", task: t, gaveUp: false, text: "x" }, T0 + 7);
+    }
+    expect(publicView(s, T0 + 8).manualReview).toBeNull();
+    applyAction(s, { type: "survey", scores: [3, 3, 3, 3, 3], open: "" }, T0 + 9);
+    const review = publicView(s, T0 + 10).manualReview;
+    expect(review?.answer.total).toBe(40);
+    expect(review?.key.categories.map((c) => c.name)).toEqual(SHEET_CATEGORIES.map((c) => c.name));
   });
 });

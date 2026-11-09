@@ -299,6 +299,18 @@ export function gradeT1(sheet: SheetNo, t: TaskRecord) {
 
 export const expectedTotal = (sheet: SheetNo) => keyOf(sheet).totalUnmet;
 
+/** 手算的標準答案（給主持人，以及做完全部流程的受試者對照） */
+export function manualKeyOf(sheet: SheetNo) {
+  const key = keyOf(sheet);
+  return {
+    categories: key.categories.map((c) => ({ name: c.name, unmet: c.unmet })),
+    total: key.totalUnmet,
+    domains: key.missingGenEdDomains,
+    canGraduate: key.canGraduate === "yes",
+  };
+}
+export type ManualKey = ReturnType<typeof manualKeyOf>;
+
 const secs = (t: TaskRecord) => (t.startedAt && t.endedAt ? Math.round((t.endedAt - t.startedAt) / 1000) : null);
 export const taskSeconds = secs;
 const orientationSeconds = (s: TrialSession) => secs(s.orientation ?? {});
@@ -322,6 +334,9 @@ export function publicView(s: TrialSession, now: number) {
     domains: GEN_ED_DOMAINS,
     systemUrl: step === "system" ? systemUrlOf(s.group) : null,
     systemStudent: step === "system" ? systemStudentOf(s.group) : null,
+    // 兩題缺的類別一樣，太早給答案會影響任務 1；全部做完才給受試者對照
+    manualReview:
+      step === "done" && s.manual.answer ? { answer: s.manual.answer, key: manualKeyOf(manualSheetOf(s.group)) } : null,
     tasks: Object.fromEntries(
       TASK_IDS.map((t) => [t, { startedAt: s.tasks[t].startedAt ?? null, endedAt: s.tasks[t].endedAt ?? null }]),
     ) as Record<TaskId, { startedAt: number | null; endedAt: number | null }>,
@@ -399,6 +414,7 @@ export function moderatorView(s: TrialSession, mod: TrialMod) {
     manualGrade: s.manual.endedAt ? gradeManual(mSheet, s.manual.answer) : null,
     t1Grade: s.tasks.t1.endedAt ? gradeT1(sysSheet, s.tasks.t1) : null,
     expectedTotal: expectedTotal(sysSheet),
+    manualKey: manualKeyOf(mSheet),
     seconds: { t1: secs(s.tasks.t1), t2: secs(s.tasks.t2), t3: secs(s.tasks.t3), orientation: orientationSeconds(s) },
   };
 }

@@ -2412,6 +2412,12 @@ html[data-anon] a[aria-disabled="true"]{color:inherit;text-decoration:none;curso
 .tr-sheet tbody tr:hover{background:var(--surface)}
 .tr-sheet-note{margin:0;padding:10px}
 .tr-materials{min-width:0;overflow:hidden}
+.tr-sub{margin:4px 0 0;font-size:15px;color:var(--ink)}
+.tr-compare{width:100%;max-width:560px;border-collapse:collapse;font-size:13.5px;margin-top:6px}
+.tr-compare th{text-align:left;font-weight:500;color:var(--text-2);background:var(--surface)}
+.tr-compare th,.tr-compare td{padding:6px 10px;border-bottom:1px solid var(--line)}
+.tr-compare td:not(:first-child){font-family:var(--mono)}
+.tr-compare tr.wrong td:nth-child(2){color:var(--unmet);font-weight:700}
 .tr-tabs{display:flex;gap:2px;padding:6px 8px 0;border-bottom:1px solid var(--line);background:var(--surface)}
 .tr-tabs button{flex:0 1 auto;padding:9px 14px;font:inherit;font-size:13.5px;color:var(--text-2);background:none;border:0;
   border-bottom:2px solid transparent;margin-bottom:-1px;cursor:pointer}

@@ -2,7 +2,7 @@ import { DEFAULT_PREFERENCES, type Constraints, type CoursePreferences, type Off
 import { isCourseCode } from "@/lib/courses/code";
 import { allOfferings } from "@/lib/offerings";
 import type { ConstraintDelta, ConstraintSet } from "./types";
-import { BLOCK_CUE, DAY_WORDS, PART_WORDS, dayCues, parseNum, type PlanParams } from "./intent";
+import { BLOCK_CUE, DAY_WORDS, PART_WORDS, dayCues, parseNum, weekdaysOutside, type PlanParams } from "./intent";
 import { DEFAULT_SCHOOL } from "@/lib/schools";
 import { periodScheme, periodLabel } from "@/lib/offerings/period-scheme";
 import { topicCodes } from "./topics";
@@ -364,15 +364,22 @@ export function applyParams(
   // 原句是「最好在禮拜一」「解除空出星期一」的，模型給成空出就是反了（Haiku 5.5 實測）。
   // 擋下；原句說解除的，改當成開放
   const cues = dayCues(raw);
-  const wrongWay = params.avoidDays.filter((d) => !cues.block.includes(d) && (cues.prefer.includes(d) || cues.free.includes(d)));
+  const wrongWay = params.avoidDays.filter(
+    (d) => !cues.block.includes(d) && (cues.prefer.includes(d) || cues.free.includes(d) || cues.only.includes(d)),
+  );
   if (wrongWay.length > 0) {
-    refusedParams.push(`空出星期${wrongWay.map(dayName).join("、")}（原句不是要空出這幾天）`);
+    // 「一到四排滿」是要把課集中，下面會改成空出其他平日，不是拒絕
+    const refused = wrongWay.filter((d) => !cues.only.includes(d));
+    if (refused.length > 0) refusedParams.push(`空出星期${refused.map(dayName).join("、")}（原句不是要空出這幾天）`);
     params = {
       ...params,
       avoidDays: params.avoidDays.filter((d) => !wrongWay.includes(d)),
       allowDays: [...new Set([...params.allowDays, ...wrongWay.filter((d) => cues.free.includes(d))])],
     };
   }
+  // 「禮拜一到四排滿」：模型給空出一、四（2026-11-09 試用實測）或什麼都沒給，都改成空出其他平日
+  const outside = weekdaysOutside(cues.only).filter((d) => !params.avoidDays.includes(d) && !cues.free.includes(d));
+  if (outside.length > 0) params = { ...params, avoidDays: [...params.avoidDays, ...outside].sort((a, b) => a - b) };
 
   if (params.avoidDays.length > 0) {
     requested = true;

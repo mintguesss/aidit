@@ -178,6 +178,7 @@ const PLAN_SYSTEM = [
   "   某天的某時段（禮拜一早上、週五下午）→ avoidDayParts",
   "   每天早上（第 1–4 節）→ avoidMorning；只有早八（第 1 節）→ avoidEarly",
   "   整天（空出星期五）→ avoidDays",
+  "   課集中在某幾天（「禮拜一到四排滿」「只排一到四」）→ avoidDays 填其他平日（此例為 [5]），不是空出說到的那幾天",
   "   「盡量集中」→ preferCompactDays；說了天數（集中在一天、兩天就好）→ maxDays",
   "5. 重來、回到原本、全部取消 → intent=change-goal、delta.reset=true。這不是 compare。",
   "   「取消剛剛的調整」「改回去」是退回上一步，由畫面處理，不要填 reset。",
@@ -437,24 +438,48 @@ export const DAY_WORDS: [RegExp, number][] = [
   [/星期日|星期天|週日|禮拜天/, 7],
 ];
 
+const DAY_CHARS = "一二三四五六日";
+
+/** 「禮拜一到禮拜四」「週一至四」→「禮拜一、禮拜二、禮拜三、禮拜四」 */
+export function expandDayRanges(text: string): string {
+  return text.replace(
+    /(星期|禮拜|週|周)([一二三四五六日天])\s*(?:到|至|~|～|-|－)\s*(?:星期|禮拜|週|周)?([一二三四五六日天])/g,
+    (m, w: string, a: string, b: string) => {
+      const from = DAY_CHARS.indexOf(a === "天" ? "日" : a);
+      const to = DAY_CHARS.indexOf(b === "天" ? "日" : b);
+      if (from < 0 || to <= from) return m;
+      return Array.from({ length: to - from + 1 }, (_, i) => w + DAY_CHARS[from + i]).join("、");
+    },
+  );
+}
+
+/** 想把課集中在說到的那幾天 */
+const CONCENTRATE_CUE = /排滿|塞滿|集中|擠在|只排|只上|只在|只要排|都排在|都放在/;
+
+/** 課集中在 only 這幾天時，要空出的其他平日 */
+export const weekdaysOutside = (only: number[]) => (only.length === 0 ? [] : [1, 2, 3, 4, 5].filter((d) => !only.includes(d)));
+
 /**
  * 句子裡每個星期是什麼意思，以分句判斷（「不要早八，最好在禮拜一」的「不要」不能算到禮拜一頭上）：
  *   block   不要排、空出（「星期五不要排課」）
  *   free    解除空出、可以排（「解除「空出星期一」」「星期三可以排」）
  *   prefer  想排在這天（「最好在禮拜一、二、四」）—— 系統沒有「某門課排哪天」的條件，不能當成空出
- * 「星期一、二、四」這種簡寫先展開。
+ *   only    課集中在這幾天（「禮拜一到四排滿」「只排一到四」）—— 等於空出其他平日，見 weekdaysOutside
+ * 「星期一、二、四」這種簡寫與「一到四」這種範圍先展開（2026-11-09 試用：「一到四排滿」被當成空出一、四）。
  */
-export function dayCues(text: string): { block: number[]; free: number[]; prefer: number[] } {
-  const t = text.replace(/(星期|禮拜|週|周)([一二三四五六日天])((?:\s*[、,，和跟及或與]\s*[一二三四五六日天](?![一-龥]{0,0}[期拜]))+)/g, (_m, w: string, first: string, more: string) =>
+export function dayCues(text: string): { block: number[]; free: number[]; prefer: number[]; only: number[] } {
+  const t = expandDayRanges(text).replace(/(星期|禮拜|週|周)([一二三四五六日天])((?:\s*[、,，和跟及或與]\s*[一二三四五六日天](?![一-龥]{0,0}[期拜]))+)/g, (_m, w: string, first: string, more: string) =>
     [first, ...more.split(/\s*[、,，和跟及或與]\s*/).filter(Boolean)].map((d) => w + d).join("、"),
   ).replace(/周/g, "週");
-  const out = { block: [] as number[], free: [] as number[], prefer: [] as number[] };
+  const out = { block: [] as number[], free: [] as number[], prefer: [] as number[], only: [] as number[] };
   for (const clause of t.split(/[，,。；;！!？?]|但是|不過|然後/)) {
     const days = DAY_WORDS.filter(([re]) => re.test(clause)).map(([, d]) => d);
     if (days.length === 0) continue;
     const kind = /解除|取消|恢復|不用空|不必空|可以排|能排|可以有課|沒關係/.test(clause)
       ? "free"
-      : BLOCK_CUE.test(clause) || /放假|休息|不上課|沒課|空下來|空出來/.test(clause)
+      : CONCENTRATE_CUE.test(clause) && !/不要|不想|別/.test(clause)
+        ? "only"
+        : BLOCK_CUE.test(clause) || /放假|休息|不上課|沒課|空下來|空出來/.test(clause)
         ? "block"
         : /最好|希望|想要?|排在|安排在|放在|^.{0,4}在/.test(clause)
           ? "prefer"
@@ -595,6 +620,11 @@ function offlinePlanIntent(raw: string): z.infer<typeof zPlanIntent> {
   for (const day of cues.block) {
     d.avoidDays.push(day);
     reasons.push(`空出星期${"一二三四五六日"[day - 1]}`);
+  }
+  const outside = weekdaysOutside(cues.only).filter((day) => !d.avoidDays.includes(day));
+  if (outside.length > 0) {
+    d.avoidDays.push(...outside);
+    reasons.push(`課集中在星期${cues.only.map((x) => DAY_CHARS[x - 1]).join("、")}，空出星期${outside.map((x) => DAY_CHARS[x - 1]).join("、")}`);
   }
   for (const day of cues.free) {
     d.allowDays.push(day);

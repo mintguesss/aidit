@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ManualCompare } from "./ManualCompare";
 import type { Step, TaskId, TrialMod, TrialModeratorView } from "@/lib/trial/session";
 
 const STEP_LABEL: Record<Step, string> = {
@@ -298,6 +299,7 @@ function Detail({
                     <Verdict ok={g.graduate}>畢業判斷{g.graduate ? "對" : "錯"}</Verdict>
                   </span>
                   {a?.note ? <span className="ad-quote">備註：{a.note}</span> : null}
+                  <ManualCompare answer={a} answerKey={row.manualKey} />
                 </>
               ) : (
                 <span className="ad-wait">未完成</span>

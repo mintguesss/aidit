@@ -82,3 +82,28 @@ describe("多選一堂兩學分的課（G1）", () => {
     expect(added[0]!.credits).toBe(2);
   });
 });
+
+describe("禮拜一到禮拜四的課排滿（2026-11-09 試用：被做成空出星期一、四）", () => {
+  const said = "禮拜一到禮拜四的課排滿";
+
+  it("離線規則：空出星期五，不是空出一、四", () => {
+    const { applied, plan } = turn(said);
+    expect(applied.next.avoidDays).toEqual([5]);
+    expect(plan!.courses.every((c) => !(c.slots ?? []).some((s) => s.day === 5))).toBe(true);
+  });
+
+  it("模型給成空出一、四時，套用前改成空出星期五", () => {
+    const intent = rulePlanIntent(said);
+    if (intent.kind !== "intent") throw new Error("規則沒解析出意圖");
+    const fromModel = { ...intent.params, avoidDays: [1, 4] };
+    const applied = applyParams(original, original, fromModel, "空出星期一、四", said, shown.courses.length, "fju");
+    expect(applied.next.avoidDays).toEqual([5]);
+    expect(applied.refusedParams.join("")).not.toContain("星期一");
+  });
+
+  it("「最好在禮拜一」仍然不會空出其他天", () => {
+    const intent = rulePlanIntent("加一門程式設計的課，最好在禮拜三");
+    if (intent.kind !== "intent") throw new Error("規則沒解析出意圖");
+    expect(intent.params.avoidDays).toEqual([]);
+  });
+});

@@ -252,12 +252,16 @@ describe("原句是否在問本系的畢業條件（模型判超出範圍時的�
 
 describe("星期的意思要照分句判斷（Vercel 接 Haiku 實測）", () => {
   it.each([
-    ["我想再修一堂ai相關的課程，但是不要早八，最好在禮拜一、禮拜二或禮拜四。", { block: [], free: [], prefer: [1, 2, 4] }],
-    ["解除「空出星期一、二、四」", { block: [], free: [1, 2, 4], prefer: [] }],
-    ["空出星期一跟三", { block: [1, 3], free: [], prefer: [] }],
-    ["星期五不要排課", { block: [5], free: [], prefer: [] }],
-    ["星期五想放假", { block: [5], free: [], prefer: [] }],
-    ["加一門程式設計的課，最好在禮拜三", { block: [], free: [], prefer: [3] }],
+    ["我想再修一堂ai相關的課程，但是不要早八，最好在禮拜一、禮拜二或禮拜四。", { block: [], free: [], prefer: [1, 2, 4], only: [] }],
+    ["解除「空出星期一、二、四」", { block: [], free: [1, 2, 4], prefer: [], only: [] }],
+    ["空出星期一跟三", { block: [1, 3], free: [], prefer: [], only: [] }],
+    ["星期五不要排課", { block: [5], free: [], prefer: [], only: [] }],
+    ["星期五想放假", { block: [5], free: [], prefer: [], only: [] }],
+    ["加一門程式設計的課，最好在禮拜三", { block: [], free: [], prefer: [3], only: [] }],
+    // 2026-11-09 試用：「一到四」只抓到頭尾、「排滿」當成空出，結果空出星期一、四
+    ["禮拜一到禮拜四的課排滿", { block: [], free: [], prefer: [], only: [1, 2, 3, 4] }],
+    ["課只排週一至四", { block: [], free: [], prefer: [], only: [1, 2, 3, 4] }],
+    ["星期一到三不要排課", { block: [1, 2, 3], free: [], prefer: [], only: [] }],
   ])("%s", (said, want) => {
     expect(dayCues(said)).toEqual(want);
   });

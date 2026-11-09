@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { resetSystemState, TRIAL_CHANNEL } from "@/lib/trial/channel";
 import type { ManualAnswer, SheetRow, Step, TaskId, TrialAction, TrialPublicView } from "@/lib/trial/session";
+import { ManualCompare } from "./ManualCompare";
 import { PlanReference, RulesReference } from "./TrialReference";
 
 const IDENTITIES = ["大一", "大二", "大三", "大四", "碩士班", "其他"];
@@ -109,7 +110,17 @@ export function TrialRunner({ id }: { id: string }) {
       {view.step === "orientation" ? <Orientation view={view} busy={busy} send={send} /> : null}
       {view.step === "system" ? <SystemTasks view={view} busy={busy} send={send} /> : null}
       {view.step === "survey" ? <Survey busy={busy} send={send} /> : null}
-      {view.step === "done" ? <Message title="試用完成，謝謝你" text="紀錄已送出，可以把裝置交回給主持人。" /> : null}
+      {view.step === "done" ? (
+        <Card title="試用完成，謝謝你">
+          <p>紀錄已送出，可以把裝置交回給主持人。</p>
+          {view.manualReview ? (
+            <>
+              <h2 className="tr-sub">手算對答案</h2>
+              <ManualCompare answer={view.manualReview.answer} answerKey={view.manualReview.key} />
+            </>
+          ) : null}
+        </Card>
+      ) : null}
     </>
   );
 }

@@ -39,7 +39,7 @@ export default async function Overview({
         <>
           {/* 規劃表版本已寫在頁面上方的說明列，這裡不重複 */}
           <PageHead title="畢業學分審查結果" />
-          <UsageGuide search={`?fixture=${fixture}&term=${term}`} />
+          <UsageGuide />
 
           <section className="panel">
             {/* 結論一句話常駐；細節（還差哪幾類、哪些條件待確認）收起來，下面的進度尺與數字已經講了 */}

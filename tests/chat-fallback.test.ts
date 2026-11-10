@@ -568,3 +568,20 @@ describe("模型反問要拿幾門，但原句明說整類不排（2026-11-10 �
     expect(r.tools).toContain("rule.fallback");
   });
 });
+
+describe("同一句話要得到同一份課表（2026-11-10 試用回饋）", () => {
+  const turnWith = (said: string, freeDays: number[], avoidDays: number[]) => {
+    vi.mocked(parsePlanIntent).mockResolvedValueOnce({ kind: "intent", intent: "adjust-time", reason: "", params: { ...empty(), freeDays } });
+    return planTurn([{ role: "user", content: said }], { ...base, constraints: { ...base.constraints, avoidDays } }, new LlmBudget(LIMITS.llmCallsPerTurn));
+  };
+
+  it("沒提到週末，模型順手填的六、日不算", async () => {
+    const r = await turnWith("星期五不要排課", [5, 6, 7], []);
+    expect(r.plan!.constraintSet.avoidDays).toEqual([5]);
+  });
+
+  it("原句說了週末就照做；本來就空出的週末也留著", async () => {
+    expect((await turnWith("星期五跟週末都不要排課", [5, 6, 7], [])).plan!.constraintSet.avoidDays).toEqual([5, 6, 7]);
+    expect((await turnWith("星期五不要排課", [5, 6], [6])).plan!.constraintSet.avoidDays).toEqual([5, 6]);
+  });
+});

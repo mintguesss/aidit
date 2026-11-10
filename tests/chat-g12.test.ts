@@ -181,7 +181,7 @@ describe("有模型版實測找到的（2026-10-09）", () => {
 
   it("「課排下午」把人生哲學換到下午的班：要說換了班，不能說課表沒有變動", async () => {
     const { r } = await talk("我早上爬不起來，課排下午");
-    expect(r.reply.detail).toContain("換班：人生哲學改到");
+    expect(r.reply.detail).toContain("改時段：人生哲學改到");
     expect(r.reply.detail).not.toContain("課表沒有變動");
   });
 

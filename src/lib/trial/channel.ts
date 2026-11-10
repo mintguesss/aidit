@@ -8,7 +8,8 @@ export const TRIAL_CHANNEL = "aidit-trial";
 export function resetSystemState(): void {
   try {
     for (const key of Object.keys(localStorage)) {
-      if (key.startsWith("aidit:hold:") || key === "aidit.preferences") localStorage.removeItem(key);
+      // 使用說明收起的紀錄也清掉，下一位受試者一樣先看到說明
+      if (key.startsWith("aidit:hold:") || key === "aidit.preferences" || key === "aidit.guide.dismissed") localStorage.removeItem(key);
     }
   } catch {
     // 瀏覽器擋住儲存時本來也沒有東西留下

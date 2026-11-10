@@ -101,7 +101,7 @@ export function runPlanTurn(
   const slotBefore = new Map((before?.courses ?? []).map((c) => [c.code, c.slotText]));
   const moved = (after?.courses ?? [])
     .filter((c) => slotBefore.has(c.code) && slotBefore.get(c.code) !== c.slotText)
-    .map((c) => `${c.name}改到${c.slotText}（原本${slotBefore.get(c.code)}）`);
+    .map((c) => `${c.name}改到${readableSlot(c.slotText)}（原本${readableSlot(slotBefore.get(c.code) ?? "")}）`);
 
   return {
     solve: result,
@@ -221,4 +221,16 @@ function parseTerm(label: string): [number, 1 | 2] {
   const m = /^(\d+)-([12])$/.exec(label);
   if (!m) throw new Error(`學期代號格式錯誤：${label}`);
   return [Number(m[1]), Number(m[2]) as 1 | 2];
+}
+
+/**
+ * 「一 D5,D6,D7」→「星期一 D5–D7」。回覆裡的時段要讓沒看過節次代號的人也看得懂是哪一天、哪一段
+ * （2026-11-10 試用回饋：「換班：作業系統改到二 D5,D6,D7」看不懂）
+ */
+export function readableSlot(slotText: string): string {
+  return slotText.replace(/([一二三四五六日])\s+([^\s一二三四五六日][^一二三四五六日]*)/g, (_m, day: string, periods: string) => {
+    const ps = periods.trim().split(/[,、]\s*/).filter(Boolean);
+    const span = ps.length > 1 ? `${ps[0]}–${ps[ps.length - 1]}` : (ps[0] ?? "");
+    return `星期${day} ${span} `;
+  }).trim();
 }

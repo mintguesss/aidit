@@ -15,7 +15,6 @@ const SURVEY = [
   "系統說「不確定、請問承辦單位」時，我可以接受",
   "如果學校提供，我下學期選課前會使用",
 ];
-const SYSTEM_WINDOW = "aidit-trial-system";
 const STAGES: { label: string; steps: Step[] }[] = [
   { label: "同意", steps: ["consent", "declined"] },
   { label: "手算", steps: ["manual-intro", "manual"] },
@@ -495,46 +494,93 @@ function ManualMaterials({ rows }: { rows: SheetRow[] }) {
   );
 }
 
+/**
+ * 系統直接嵌在試用頁裡，不用切分頁（2026-11-10 試用回饋：跳來跳去很麻煩；也有人整段任務都做在導覽學生上）。
+ * 每 1.5 秒看一次裡面的網址，不是這一步的學生就自動切回，任務不會做錯人。
+ * locked：任務還沒按開始時蓋住，免得先看到答案，計時才準。
+ */
+function SystemFrame({ url, locked }: { url: string; locked?: string }) {
+  const ref = useRef<HTMLIFrameElement>(null);
+  const [switchedBack, setSwitchedBack] = useState(false);
+  const expect = new URL(url, "http://x").searchParams.get("fixture");
+  useEffect(() => {
+    if (!expect) return;
+    const t = setInterval(() => {
+      try {
+        const loc = ref.current?.contentWindow?.location;
+        if (!loc || !loc.href.startsWith(window.location.origin)) return;
+        const now = new URL(loc.href);
+        if (now.searchParams.get("fixture") === expect) return;
+        now.searchParams.set("fixture", expect);
+        now.searchParams.delete("term");
+        loc.replace(`${now.pathname}?${now.searchParams.toString()}`);
+        setSwitchedBack(true);
+      } catch {
+        // 讀不到裡面的網址（還在載入）就等下一次
+      }
+    }, 1500);
+    return () => clearInterval(t);
+  }, [expect]);
+  return (
+    <div className="tr-frame-wrap">
+      {switchedBack ? (
+        <p className="tr-alert" role="status">
+          系統剛才不是這一步的學生，已經幫你切回來了。
+        </p>
+      ) : null}
+      <div className="tr-frame-box">
+        <iframe ref={ref} className="tr-frame" title="Aidit 系統" src={url} />
+        {locked ? (
+          <div className="tr-frame-lock">
+            <span>{locked}</span>
+          </div>
+        ) : null}
+      </div>
+      <p className="tr-hint">
+        系統顯示不出來？
+        <a href={url} target="_blank" rel="noreferrer">
+          改在新分頁開啟
+        </a>
+      </p>
+    </div>
+  );
+}
+
+/** 固定在畫面上方的任務列：現在做哪一步、要做什麼，往下捲系統時也看得到 */
+function TaskBar({ step, title, children }: { step: string; title: string; children?: ReactNode }) {
+  return (
+    <section className="tr-taskbar" data-anon-keep>
+      <div className="tr-taskbar-hd">
+        <span className="tr-taskbar-step">{step}</span>
+        <b>{title}</b>
+      </div>
+      {children}
+    </section>
+  );
+}
+
 function Orientation({ view, busy, send }: { view: TrialPublicView; busy: boolean; send: Send }) {
   const started = Boolean(view.orientation.startedAt);
-  const open = () => {
-    // 要在點擊當下開分頁才不會被瀏覽器擋；之後的任務沿用同一個分頁
-    if (view.demoUrl) window.open(view.demoUrl, SYSTEM_WINDOW);
-    void send({ type: "orientation.start" });
-  };
   return (
-    <Card title="先看看系統（約 1 分鐘）">
-      <p>
-        手算結束了。接下來的任務要用系統操作，先花 1 分鐘隨意點點看。這裡看到的是另一位示範學生，<b>不是任務的案例</b>，不算進任務時間。
-      </p>
-      {!started ? (
+    <>
+      <TaskBar step="看看系統" title="先花 1 分鐘隨意點點看，不算進任務時間">
+        <p className="tr-hint">
+          下面的系統是另一位示範學生，<b>不是任務的案例</b>。上方那一排（首頁、修業明細、待確認、選課建議、修業問答）可以切換功能，首頁有每一項的說明。
+        </p>
         <div className="tr-actions">
-          <button className="tr-btn primary" disabled={busy} onClick={open}>
-            開啟系統
-          </button>
-        </div>
-      ) : (
-        <>
-          <p className="tr-hint">
-            系統開在另一個分頁。看完回到這裡。
-            {view.demoUrl ? (
-              <>
-                {" "}
-                分頁不見了？
-                <a href={view.demoUrl} target={SYSTEM_WINDOW}>
-                  重新開啟
-                </a>
-              </>
-            ) : null}
-          </p>
-          <div className="tr-actions">
+          {!started ? (
+            <button className="tr-btn primary" disabled={busy} onClick={() => void send({ type: "orientation.start" })}>
+              開始看系統
+            </button>
+          ) : (
             <button className="tr-btn primary" disabled={busy} onClick={() => void send({ type: "orientation.end" })}>
               看完了，開始任務
             </button>
-          </div>
-        </>
-      )}
-    </Card>
+          )}
+        </div>
+      </TaskBar>
+      {started && view.demoUrl ? <SystemFrame url={view.demoUrl} /> : null}
+    </>
   );
 }
 
@@ -545,6 +591,13 @@ const TASK_TEXT: Record<TaskId, string> = {
 };
 const TASKS: TaskId[] = ["t1", "t2", "t3"];
 
+/** 做法的提示只說在哪裡操作、答案填哪裡，不說答案在哪一頁（那是任務要量的） */
+const TASK_HINT: Record<TaskId, string> = {
+  t1: "在下面的系統找到這位學生的畢業進度，把結果填在這裡。",
+  t2: "在下面的系統找出它標示不確定、要再確認的事項，把原因和該找誰寫在這裡（可以直接複製貼上）。",
+  t3: "在下面的系統用打字的方式請它調整課表，再把它回覆的改動寫在這裡（可以直接複製貼上）。",
+};
+
 function SystemTasks({ view, busy, send }: { view: TrialPublicView; busy: boolean; send: Send }) {
   const [total, setTotal] = useState("");
   const [cats, setCats] = useState<string[]>([]);
@@ -553,11 +606,6 @@ function SystemTasks({ view, busy, send }: { view: TrialPublicView; busy: boolea
   const started = Boolean(view.tasks[current].startedAt);
   const index = TASKS.indexOf(current) + 1;
 
-  const start = () => {
-    // 每個任務都把系統分頁帶回任務的案例，就算剛才留在導覽學生或切到別的案例也不會做錯人
-    if (view.systemUrl) window.open(view.systemUrl, SYSTEM_WINDOW);
-    void send({ type: "task.start", task: current });
-  };
   const finish = async (gaveUp: boolean) => {
     const ok = await send(
       current === "t1"
@@ -568,78 +616,59 @@ function SystemTasks({ view, busy, send }: { view: TrialPublicView; busy: boolea
   };
 
   return (
-    <Card
-      title={`第二部分：用系統`}
-      aside={
-        <span className="tr-tasks" aria-label={`任務 ${index}／3`}>
-          {TASKS.map((t, i) => (
-            <i key={t} className={i + 1 < index ? "done" : i + 1 === index ? "now" : undefined} />
-          ))}
-          任務 {index}／3
-        </span>
-      }
-    >
-      <p className="tr-task">{TASK_TEXT[current]}</p>
-      {!started ? (
-        <>
-          <p className="tr-hint">
-            {current === "t1"
-              ? "按下開始後，系統分頁會換成這次任務的學生，並開始計時。找到答案再回來填。"
-              : "按下開始後計時，到系統分頁操作，完成後回到這一頁。"}
-            {view.systemStudent ? ` 系統右上角要顯示「${view.systemStudent}」。` : ""}
-          </p>
+    <>
+      <TaskBar step={`任務 ${index}／3`} title={TASK_TEXT[current]}>
+        {!started ? (
           <div className="tr-actions">
-            <button className="tr-btn primary" disabled={busy} onClick={start}>
+            <button className="tr-btn primary" disabled={busy} onClick={() => void send({ type: "task.start", task: current })}>
               開始任務 {index}
             </button>
+            <span className="tr-hint">
+              按下後開始計時。在下面的系統找答案，再填回這一列。
+              {view.systemStudent ? `系統右上角會顯示「${view.systemStudent}」。` : ""}
+            </span>
           </div>
-        </>
-      ) : (
-        <>
-          {current === "t1" ? (
-            <>
-              <label className="tr-text narrow">
-                合計還差幾學分
-                <input inputMode="numeric" value={total} onChange={(e) => setTotal(e.target.value)} />
+        ) : (
+          <>
+            <p className="tr-hint">{TASK_HINT[current]}</p>
+            {current === "t1" ? (
+              <div className="tr-answer-row">
+                <Field label="缺哪幾類">
+                  {view.categories.map((c) => (
+                    <Choice
+                      key={c.name}
+                      type="checkbox"
+                      checked={cats.includes(c.name)}
+                      onChange={(on) => setCats(on ? [...cats, c.name] : cats.filter((x) => x !== c.name))}
+                    >
+                      {c.name}
+                    </Choice>
+                  ))}
+                </Field>
+                <label className="tr-text narrow">
+                  合計還差幾學分
+                  <input inputMode="numeric" value={total} onChange={(e) => setTotal(e.target.value)} />
+                </label>
+              </div>
+            ) : (
+              <label className="tr-text">
+                {current === "t2" ? "原因與該問誰" : "改了什麼"}
+                <textarea rows={2} maxLength={2000} value={text} onChange={(e) => setText(e.target.value)} />
               </label>
-              <Field label="缺哪幾類">
-                {view.categories.map((c) => (
-                  <Choice
-                    key={c.name}
-                    type="checkbox"
-                    checked={cats.includes(c.name)}
-                    onChange={(on) => setCats(on ? [...cats, c.name] : cats.filter((x) => x !== c.name))}
-                  >
-                    {c.name}
-                  </Choice>
-                ))}
-              </Field>
-            </>
-          ) : (
-            <label className="tr-text">
-              {current === "t2" ? "原因與該問誰" : "改了什麼"}
-              <textarea rows={4} maxLength={2000} value={text} onChange={(e) => setText(e.target.value)} />
-            </label>
-          )}
-          <div className="tr-actions">
-            <button className="tr-btn primary" disabled={busy} onClick={() => void finish(false)}>
-              完成，下一步
-            </button>
-            <button className="tr-btn" disabled={busy} onClick={() => void finish(true)}>
-              做不出來，跳過
-            </button>
-            {view.systemUrl ? (
-              <span className="tr-hint">
-                系統分頁不見了？
-                <a href={view.systemUrl} target={SYSTEM_WINDOW}>
-                  重新開啟
-                </a>
-              </span>
-            ) : null}
-          </div>
-        </>
-      )}
-    </Card>
+            )}
+            <div className="tr-actions">
+              <button className="tr-btn primary" disabled={busy} onClick={() => void finish(false)}>
+                完成，下一步
+              </button>
+              <button className="tr-btn" disabled={busy} onClick={() => void finish(true)}>
+                做不出來，跳過
+              </button>
+            </div>
+          </>
+        )}
+      </TaskBar>
+      {view.systemUrl ? <SystemFrame url={view.systemUrl} locked={started ? undefined : `按上方「開始任務 ${index}」後再操作`} /> : null}
+    </>
   );
 }
 

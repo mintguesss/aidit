@@ -368,7 +368,12 @@ export function applyParams(
     // 規則猜錯會把模型對的理解蓋掉（2026-11-09 試用：「一到四排滿」被做成空出一、四）。
     // 不合理的結果（五個平日全空）與規則明確相反的情況，由 route.ts 先問使用者，不在這裡默默改
     requested = true;
-    const target = [...new Set(params.freeDays)].filter((d) => d >= 1 && d <= 7).sort((a, b) => a - b);
+    // 週末要原句有提到、或本來就空出才算：模型有時順手把六、日也填進來（同一句有時 [5]、有時 [5,6,7]），
+    // 週末有課可選時，兩種結果排出來的課表不同 —— 同一句話每次要得到同一份課表
+    const weekendSaid = /(?:星期|禮拜|週|周)[六日天]|週末|周末|假日/.test(raw);
+    const target = [...new Set(params.freeDays)]
+      .filter((d) => d >= 1 && d <= 7 && (d <= 5 || weekendSaid || current.avoidDays.includes(d)))
+      .sort((a, b) => a - b);
     const added = target.filter((d) => !current.avoidDays.includes(d));
     next.avoidDays = target;
     if (added.length > 0) delta.avoidDays = added;

@@ -387,6 +387,8 @@ export async function planTurn(
     return {
       ...base,
       keep: shown?.courses.map((c) => c.code),
+      // 沒被點到的課，時段也盡量不動（見 SolveContext.keepSlots）
+      keepSlots: Object.fromEntries((shown?.courses ?? []).map((c) => [c.code, c.slotText])),
       continueCodes: new Set([...(base.continueCodes ?? []), ...strict]),
     };
   };
@@ -640,7 +642,7 @@ function planReply(o: PlanTurnOutcome, requested: boolean, notDone: string[] = [
     : [
         o.diff.removed.length > 0 ? `移除 ${o.diff.removed.join("、")}` : "",
         o.diff.added.length > 0 ? `加入 ${o.diff.added.join("、")}` : "",
-        (o.diff.moved ?? []).length > 0 ? `換班：${o.diff.moved!.join("、")}` : "",
+        (o.diff.moved ?? []).length > 0 ? `改時段：${o.diff.moved!.join("、")}` : "",
       ]
         .filter(Boolean)
         .join("；") + "。";

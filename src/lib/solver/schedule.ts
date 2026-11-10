@@ -184,6 +184,12 @@ export type SolveContext = {
    * 只影響平手時的順序，不影響可行性。
    */
   keep?: string[];
+  /**
+   * 使用者眼前課表每門課的時段（課號 → slotText）。保留的課數相同時，優先選時段沒被搬動的方案 ——
+   * 2026-11-10 試用回饋：空出星期五，系統補了一門和作業系統撞時段的通識，再把作業系統搬到別天；
+   * 明明有不用搬的補法（平手時照課號排序，才選到要搬的）。只影響平手時的順序
+   */
+  keepSlots?: Record<string, string>;
 };
 
 /**
@@ -1203,12 +1209,17 @@ function attemptSolve(
   // 原本的 3 門卻被換掉 2 門 —— 條件沒有要求的變動，對使用者來說就是無緣無故。
   const keep = new Set(ctx.keep ?? []);
   const kept = (s: { sel: Candidate[] }) => s.sel.filter((c) => keep.has(c.offering.code)).length;
+  // 保留的課裡，時段跟眼前課表一樣的有幾門
+  const keepSlots = ctx.keepSlots ?? {};
+  const stayed = (s: { sel: Candidate[] }) =>
+    s.sel.filter((c) => keepSlots[c.offering.code] !== undefined && slotTextOf(c.offering) === keepSlots[c.offering.code]).length;
   const ranked = complete
     .sort(
       (a, b) =>
         // 規劃條件永遠優先；其次是少動使用者已經看到的課；契合度只在完全平手時才決定順序
         lexCompare(obj(a.score), obj(b.score)) ||
         kept(b) - kept(a) ||
+        stayed(b) - stayed(a) ||
         b.score.affinity - a.score.affinity ||
         cmp(a.score.key, b.score.key),
     )

@@ -5,7 +5,7 @@ import { zRulePack } from "@/lib/rules/schema";
 import { fixture } from "@/lib/providers/fixtures";
 import { rulePlanIntent } from "@/lib/chat/intent";
 import { applyParams, constraintSetFrom, preferencesOf } from "@/lib/chat/apply";
-import { buildContext } from "@/lib/chat/plan-turn";
+import { buildContext, readableSlot } from "@/lib/chat/plan-turn";
 import { solve } from "@/lib/solver/schedule";
 import { topicCodes, topicTerms } from "@/lib/chat/topics";
 import { offeringsFor } from "@/lib/offerings";
@@ -105,5 +105,28 @@ describe("禮拜一到禮拜四的課排滿（2026-11-09 試用：被做成空�
     const intent = rulePlanIntent("加一門程式設計的課，最好在禮拜三");
     if (intent.kind !== "intent") throw new Error("規則沒解析出意圖");
     expect(intent.params.avoidDays).toEqual([]);
+  });
+});
+
+describe("空出星期時，沒被點到的課不搬動（2026-11-10 試用回饋：作業系統被搬到別天）", () => {
+  it("只換掉星期五那門，其他課的時段照舊", () => {
+    const set = { ...original, avoidDays: [5] };
+    const r = solve({
+      ...buildContext(audit, rec, pack, set),
+      keep: shownCodes,
+      keepSlots: Object.fromEntries(shown.courses.map((c) => [c.code, c.slotText])),
+    });
+    if (!r.ok) throw new Error("排不出課表");
+    const after = new Map(r.plans[0]!.courses.map((c) => [c.code, c.slotText]));
+    for (const c of shown.courses.filter((x) => !x.slotText.includes("五"))) {
+      expect(after.get(c.code), `${c.name} 不該被搬動`).toBe(c.slotText);
+    }
+  });
+
+  it("時段的寫法看得出是星期幾、哪一段", () => {
+    expect(readableSlot("二 D5,D6,D7")).toBe("星期二 D5–D7");
+    expect(readableSlot("一 D8,E0")).toBe("星期一 D8–E0");
+    expect(readableSlot("三 5")).toBe("星期三 5");
+    expect(readableSlot("時間另訂")).toBe("時間另訂");
   });
 });

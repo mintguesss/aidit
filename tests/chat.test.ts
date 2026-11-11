@@ -111,6 +111,18 @@ describe("§2.2 意圖路由", () => {
     expect(r.plan).toBeUndefined();
   });
 
+  it("在選課建議問規定、問試算，就地回答，不叫學生換頁（2026-11-10 試用回饋）", async () => {
+    const r = await plan("我想提前一學期畢業");
+    expect(r.redirect).toBeUndefined();
+    expect(r.intent).toBe("what-if");
+    expect(r.tools).toContain("route.ask");
+    expect(r.whatif).toBeDefined();
+
+    const q = await plan("資料探勘什麼時候開？");
+    expect(q.redirect).toBeUndefined();
+    expect(q.intent).toBe("course-info");
+  });
+
   it("what-if 走 simulate", async () => {
     const r = await ask("我想提前一學期畢業");
     expect(r.intent).toBe("what-if");

@@ -565,7 +565,7 @@ function Orientation({ view, busy, send }: { view: TrialPublicView; busy: boolea
     <>
       <TaskBar step="看看系統" title="先花 1 分鐘隨意點點看，不算進任務時間">
         <p className="tr-hint">
-          下面的系統是另一位示範學生，<b>不是任務的案例</b>。上方那一排（首頁、修業明細、待確認、選課建議、修業問答）可以切換功能，首頁有每一項的說明。
+          下面的系統是另一位示範學生，<b>不是任務的案例</b>。上方那一排（首頁、修業明細、待確認、選課建議、更多）可以切換功能，第一次打開會有導覽說明每一項。
         </p>
         <div className="tr-actions">
           {!started ? (
@@ -657,9 +657,15 @@ function SystemTasks({ view, busy, send }: { view: TrialPublicView; busy: boolea
               </label>
             )}
             <div className="tr-actions">
-              <button className="tr-btn primary" disabled={busy} onClick={() => void finish(false)}>
+              {/* 任務 1 合計學分沒填就不能完成：送出後回不去補（2026-11-10 試用，P06） */}
+              <button
+                className="tr-btn primary"
+                disabled={busy || (current === "t1" && num(total) === null)}
+                onClick={() => void finish(false)}
+              >
                 完成，下一步
               </button>
+              {current === "t1" && num(total) === null ? <span className="tr-hint">填好合計還差幾學分才能按完成。</span> : null}
               <button className="tr-btn" disabled={busy} onClick={() => void finish(true)}>
                 做不出來，跳過
               </button>

@@ -138,21 +138,11 @@ export async function planTurn(
   // 「要拿掉一門，還是這學期都不排？」之後的回答（「一門」「全部」）要接回上一句才看得懂（TODO G12）
   const raw = withDropAnswer(messages) ?? lastUser(messages);
 
-  // 在選課建議問雙主修、輔系、學程、轉系、提前畢業、停修：這裡只調整下學期的課表，答不了，
-  // 但不該只回「不在範圍」—— 指到情境試算（試算）與修業問答（問規定）。不叫模型，省一次錢
+  // 在選課建議問雙主修、輔系、學程、轉系、提前畢業、停修：直接照修業問答的流程回答（試算、規定都在那裡），
+  // 不叫學生換頁（2026-11-10 試用回饋：不知道該去選課建議還是修業問答問）
   if (SCENARIO_TOPIC.test(raw) && !TIMETABLE_CUE.test(raw)) {
-    return {
-      reply: {
-        kind: "決定",
-        headline: "這個問題要到「情境試算」或「修業問答」處理，這裡只調整下學期的課表。",
-        detail: "想知道如果改了會怎樣（例如提前畢業、停修、加修雙主修），用情境試算；想問規定或申請流程，用修業問答。",
-        citations: [],
-      },
-      tools: [],
-      intent: "redirect-scenario",
-      clarifying: false,
-      redirect: "scenario",
-    };
+    const here = await answerHere(messages, ctx, budget, []);
+    if (here) return here;
   }
   // 規則看的句子：學生自己學校的稱呼換成「本校」，「輔大」才不會被當成他校
   const forRules = withoutOwnSchool(raw, schoolOf(ctx.record.student));
@@ -206,6 +196,12 @@ export async function planTurn(
       intent = rules;
       tools.push("rule.fallback");
     }
+  }
+
+  // 不是在調整課表（問規定、問某門課、問畢業進度）：同上，在這裡直接回答
+  if (intent.kind === "out-of-scope") {
+    const here = await answerHere(messages, ctx, budget, tools);
+    if (here) return here;
   }
 
   const guard = guardCommon(intent, messages);
@@ -670,6 +666,21 @@ const STEP_LABEL: Record<ExclusionReason["step"], string> = {
   chosen: "已經排在課表裡",
 };
 
+/**
+ * 選課建議的對話框收到不是課表的問題時，改用修業問答的流程回答，結果照樣顯示在這裡。
+ * 修業問答也判斷是排課（或答不出來）時回 null，由呼叫端照原本的方式回覆。
+ */
+async function answerHere(
+  messages: ChatMessage[],
+  ctx: TurnContext,
+  budget: LlmBudget,
+  tools: string[],
+): Promise<TurnResult | null> {
+  const r = await askTurn(messages, ctx, budget);
+  if (r.redirect === "plan" || r.intent === "out-of-scope") return null;
+  return { ...r, tools: [...tools, "route.ask", ...r.tools] };
+}
+
 // ============================================================ B 介面
 
 export async function askTurn(
@@ -896,10 +907,8 @@ export async function askTurn(
       return {
         reply: {
           kind: "決定",
-          headline: "排課請到「選課建議」頁進行。",
-          detail:
-            "那裡會依你的選課傾向排出課表，並可在課表下方逐輪調整條件，" +
-            "每次調整都會告訴你改了什麼、課表差在哪、代價是什麼。",
+          headline: "這是調整課表，幫你帶到「選課建議」照這句話調整。",
+          detail: "課表在選課建議頁，改完會告訴你改了什麼、課表差在哪、代價是什麼。",
           citations: [],
         },
         tools,

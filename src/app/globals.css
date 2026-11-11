@@ -41,7 +41,7 @@ img{max-width:100%}
   box-shadow:0 1px 0 rgba(0,0,0,.18)}
 .topbar-in{max-width:var(--shell);margin:0 auto;padding:0 28px;height:56px;display:flex;align-items:stretch}
 .brand-mark{display:flex;align-items:center;font-weight:700;font-size:17.5px;letter-spacing:.06em;
-  margin-right:28px;flex:0 0 auto;color:#fff}
+  margin-right:56px;flex:0 0 auto;color:#fff}
 .brand-mark:hover{color:#fff;text-decoration:none;opacity:.85}
 
 /* 桌機不設 overflow：一設 overflow-x:auto，overflow-y 會跟著變成 auto，

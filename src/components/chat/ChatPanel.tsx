@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import type { ExclusionReason, WhatIfResult } from "@/lib/types";
 import { LIMITS, type ConstraintSet, type Reply } from "@/lib/chat/types";
 import { Messenger } from "./Messenger";
@@ -40,6 +41,8 @@ export function ChatPanel({
   stamp,
   shownCourses,
   onOpenPlan,
+  autoAsk,
+  onAutoAsked,
 }: {
   title: string;
   hint: string;
@@ -67,7 +70,11 @@ export function ChatPanel({
   shownCourses?: ShownCourse[];
   /** 在彈出視窗裡看某一版的課表（調整課表用） */
   onOpenPlan?: (p: PlanUpdate, label: string) => void;
+  /** 從修業問答帶過來的一句話（見下方 redirect）：課表準備好時傳入，自動送出一次 */
+  autoAsk?: string;
+  onAutoAsked?: () => void;
 }) {
+  const router = useRouter();
   const [turns, setTurns] = useState<Turn[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -107,6 +114,15 @@ export function ChatPanel({
     };
     setTurns((prev) => [...prev, ...(said ? [{ id: ++seq.current, role: "user" as const, text: said, at: now() }] : []), note]);
   };
+
+  const asked = useRef(false);
+  useEffect(() => {
+    if (!autoAsk || asked.current) return;
+    asked.current = true;
+    void send(autoAsk);
+    onAutoAsked?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAsk]);
 
   const send = async (text: string) => {
     const q = text.trim();
@@ -168,6 +184,12 @@ export function ChatPanel({
         error?: string;
       };
       announceTrace(data.traceId);
+
+      // 在修業問答說的是調整課表：直接帶到選課建議，照這句話調整，不用學生自己換頁再講一次
+      // （2026-11-10 試用回饋：不知道該去選課建議還是修業問答問）
+      if (scope === "ask" && data.redirect === "plan" && planHref) {
+        router.push(`${planHref}${planHref.includes("?") ? "&" : "?"}ask=${encodeURIComponent(q)}`);
+      }
 
       if (data.plan) {
         consRef.current = data.plan.constraints;

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { CoursePreferences, ExclusionSummary, Infeasibility, Plan } from "@/lib/types";
 import { parseSlots } from "@/lib/solver/slots";
 import { Timetable } from "./Timetable";
@@ -81,6 +82,12 @@ export function PlanPanel({
   const [state, setState] = useState<State>(initial);
   const [view, setView] = useState<"grid" | "list">("grid");
   const [syncing, setSyncing] = useState(false);
+  /** 課表已經是使用者會看到的那一份（存過的選課傾向重排完了），從修業問答帶來的那句話才送 */
+  const [ready, setReady] = useState(false);
+  const params = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const ask = params.get("ask") ?? undefined;
   /** 彈出視窗正在看哪一份課表（null＝關著） */
   const [shown, setShown] = useState<{ plan: Plan; label: string } | null>(null);
   /** 對話改了課表之後，按鈕上掛一個「已更新」，看過就拿掉 */
@@ -95,7 +102,10 @@ export function PlanPanel({
       Boolean(s.optional.careerDirection) ||
       s.optional.interestAreas.length > 0 ||
       s.optional.avoidCourseTypes.length > 0;
-    if (JSON.stringify(stored) === JSON.stringify(originalPreferences) && !hasOptional) return;
+    if (JSON.stringify(stored) === JSON.stringify(originalPreferences) && !hasOptional) {
+      setReady(true);
+      return;
+    }
     let cancelled = false;
     setSyncing(true);
     void fetch("/api/plan", {
@@ -117,7 +127,9 @@ export function PlanPanel({
       })
       .catch(() => undefined)
       .finally(() => {
-        if (!cancelled) setSyncing(false);
+        if (cancelled) return;
+        setSyncing(false);
+        setReady(true);
       });
     return () => {
       cancelled = true;
@@ -221,6 +233,13 @@ export function PlanPanel({
         // 問雙主修、提前畢業這類要去情境試算的，連結沿用這條的參數（見 redirectLinks）
         planHref={`/plan${search}`}
         onPlanUpdate={onPlanUpdate}
+        autoAsk={ready ? ask : undefined}
+        // 送出後把 ask 從網址拿掉，重新整理才不會再送一次
+        onAutoAsked={() => {
+          const next = new URLSearchParams(params.toString());
+          next.delete("ask");
+          router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+        }}
         onOpenPlan={(u, label) => {
           const p = u.plans[0];
           if (p) setShown({ plan: p, label });

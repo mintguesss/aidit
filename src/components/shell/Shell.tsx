@@ -39,14 +39,15 @@ export function Shell({
   const student = outcome.ok ? outcome.audit.student : outcome.state.record?.student;
   const search = `?fixture=${fixture}&term=${term}`;
 
-  // 導覽只留五項主要功能。執行紀錄與個人資料屬於次要入口，
+  // 導覽只留四項主要功能。執行紀錄與個人資料屬於次要入口，
   // 放在身分列與頁尾即可 —— 導覽列塞滿八個項目，等於每一項都不重要。
+  // 修業問答收進「更多」：選課建議的對話框也能問規定、問課，兩個入口並排反而不知道該去哪
+  // （2026-11-10 試用回饋）
   const items: NavItem[] = [
     { href: "/", label: "首頁" },
     { href: "/audit", label: "修業明細" },
     { href: "/holds", label: "待確認", count: audit ? audit.holds.length + pendingGraduationChecks(audit).length : 0, tone: "hold" },
     { href: "/plan", label: "選課建議" },
-    { href: "/assistant", label: "修業問答" },
   ];
 
   return (
@@ -64,6 +65,7 @@ export function Shell({
               // 適用規劃表與原文出處都是「判定依據的文件」，合成一個入口，兩頁互相連結。
               // 規則校對是內部作業，不放選單（直接輸入 /review，要登入）
               more={[
+                { href: "/assistant", label: "修業問答" },
                 { href: "/scenario", label: "情境試算" },
                 { href: "/rulepack", label: "規劃表與原文" },
                 { href: "/privacy", label: "資料與隱私" },

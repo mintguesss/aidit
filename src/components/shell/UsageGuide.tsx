@@ -22,9 +22,8 @@ const STEPS: Step[] = [
   { title: "首頁", text: "畢業還差幾學分、缺哪幾類，一眼看完。", find: navLink("/"), menu: true },
   { title: "修業明細", text: "每一類應修、已修、還差多少，每門課算在哪一類、依據哪一條規定。", find: navLink("/audit"), menu: true },
   { title: "待確認", text: "系統從修課紀錄判斷不了的事（例如英文檢定有沒有過），會寫出原因和該問誰。旁邊的數字是還有幾項。", find: navLink("/holds"), menu: true },
-  { title: "選課建議", text: "排好下學期的課表。可以直接打字調整，例如「星期五不要排課」「不要早八」。", find: navLink("/plan"), menu: true },
-  { title: "修業問答", text: "問規定、問課，例如「雙主修要怎麼申請」「人生哲學是哪個老師開的」。", find: navLink("/assistant"), menu: true },
-  { title: "更多", text: "情境試算（提前畢業、加修輔系會怎樣）、規劃表與原文、資料與隱私都在這裡。", find: () => document.querySelector(".navmore-btn"), menu: true },
+  { title: "選課建議", text: "排好下學期的課表。下方的對話框可以直接打字調整（例如「星期五不要排課」「不要早八」），也可以問規定、問課。", find: navLink("/plan"), menu: true },
+  { title: "更多", text: "修業問答（只問規定和課，例如「雙主修要怎麼申請」）、情境試算（提前畢業、加修輔系會怎樣）、規劃表與原文、資料與隱私都在這裡。", find: () => document.querySelector(".navmore-btn"), menu: true },
   { title: "個人資料", text: "點名字可以設定選課傾向（例如想輕鬆一點、不要早八），課表會照著排。", find: () => document.querySelector(".topbar-right .who") },
   { title: "執行紀錄", text: "每一個結果是怎麼判定的、查了哪些資料，都記在這裡，可以逐步核對。", find: () => document.querySelector('.topbar-right a[href^="/trace"]') },
 ];

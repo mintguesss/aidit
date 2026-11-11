@@ -198,8 +198,9 @@ export async function planTurn(
     }
   }
 
-  // 不是在調整課表（問規定、問某門課、問畢業進度）：同上，在這裡直接回答
-  if (intent.kind === "out-of-scope") {
+  // 不是在調整課表（問規定、問某門課、問畢業進度）：同上，在這裡直接回答。
+  // 「某課是哪個老師開的」在這裡會被當成評價老師擋掉，修業問答分得出是查課（2026-11-11 正式站實測）
+  if (intent.kind === "out-of-scope" || (intent.kind === "forbidden" && intent.topic === "teacher-evaluation")) {
     const here = await answerHere(messages, ctx, budget, tools);
     if (here) return here;
   }
@@ -781,6 +782,13 @@ export async function askTurn(
     tools.push("rule.fallback");
   }
 
+  // 在修業問答說的是調整課表（「不要早八」「禮拜五要打工」）：模型常反問「要排哪個學期」，
+  // 但課表只排下學期、就在選課建議頁，直接帶過去照這句話調整（2026-11-11 正式站實測）
+  if ((intent.kind === "clarify" || intent.kind === "out-of-scope") && adjustsTimetable(forRules)) {
+    intent = { kind: "intent", intent: "plan", params: { raw: lastUser(messages) } };
+    tools.push("rule.fallback");
+  }
+
   const guard = guardCommon(intent, messages);
   if (guard) return { reply: guard.reply, tools, intent: guard.intent, clarifying: guard.clarifying };
 
@@ -1207,6 +1215,12 @@ export function isDropCategory(category: string | null | undefined, raw: string,
 const SCENARIO_TOPIC = /雙主修|雙學位|輔系|輔修|學程|轉系|提前畢業|延畢|停修|退選/;
 /** 但講的是課表本身（「把學程的課排進來」「停修之後課表怎麼排」）就照常處理 */
 const TIMETABLE_CUE = /排(?:進|課|在|到)|課表|加一?[堂門]|多一?[堂門]|空出|早八|換掉|拿掉|保留/;
+
+/** 這句話是在調整課表：規則抽得出要改的條件（星期、早八、堂數、換課…） */
+function adjustsTimetable(raw: string): boolean {
+  const r = rulePlanIntent(raw);
+  return r.kind === "intent" && r.intent !== "change-goal" && (TIMETABLE_CUE.test(raw) || r.params.avoidDays.length > 0 || r.params.avoidEarly === true);
+}
 
 /** 我們問「要拿掉一門，還是這學期都不排？」時的固定問句；用來認出下一句是在回答它 */
 const DROP_ASK = "還是這學期都不排";

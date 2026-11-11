@@ -123,6 +123,13 @@ describe("§2.2 意圖路由", () => {
     expect(q.intent).toBe("course-info");
   });
 
+  it("在修業問答說要調整課表，帶到選課建議，不反問哪一學期（2026-11-11 正式站實測）", async () => {
+    for (const q of ["不要早八", "禮拜五要打工，不能有課", "星期五不要排課"]) {
+      const r = await ask(q);
+      expect(r.redirect, q).toBe("plan");
+    }
+  });
+
   it("what-if 走 simulate", async () => {
     const r = await ask("我想提前一學期畢業");
     expect(r.intent).toBe("what-if");

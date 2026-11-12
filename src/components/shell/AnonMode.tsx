@@ -12,6 +12,20 @@ import { ANON_BLOCKED_HREF, anonUrl, makeAnonymizer } from "@/lib/anon";
 
 const ATTRS = ["title", "placeholder", "aria-label", "alt"];
 
+/** 目前生效的替換函式（取得教師名單後由下面的元件設定） */
+let active: ((s: string) => string) | null = null;
+let fallback: ((s: string) => string) | null = null;
+
+/**
+ * 程式直接填進輸入框的文字（例：詢問信）要自己先換。
+ * 輸入框的 value 是屬性不是文字節點，React 改它時 MutationObserver 看不到，顯示層換不到。
+ * 匿名模式沒開就原樣回傳；教師名單還沒拿到時先用固定的替換表。
+ */
+export function anonDisplay(s: string): string {
+  if (typeof document === "undefined" || !document.documentElement.hasAttribute("data-anon")) return s;
+  return (active ?? (fallback ??= makeAnonymizer([])))(s);
+}
+
 export function AnonMode() {
   useEffect(() => {
     const root = document.documentElement;
@@ -23,6 +37,7 @@ export function AnonMode() {
     const run = (teachers: string[]) => {
       if (cancelled) return;
       const anon = makeAnonymizer(teachers);
+      active = anon;
       // 使用者自己打的字不換：打「物理系」卻在自己的對話泡泡裡變成「D 系」，看起來像系統改了他的話
       const kept = (n: Node) => Boolean((n.nodeType === Node.ELEMENT_NODE ? (n as Element) : n.parentElement)?.closest("[data-anon-keep]"));
       const fixText = (n: Node) => {

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { HoldItem } from "@/lib/types";
 import { contactOf } from "@/lib/rules/contacts";
 import { Modal } from "../shell/Modal";
+import { anonDisplay } from "../shell/AnonMode";
 
 /**
  * 待確認事項。
@@ -261,7 +262,7 @@ function LetterModal({
     if (!h) return;
     setCopied(false);
     setText(
-      [
+      anonDisplay([
         `本人為${subject}學生，就下列事項請求協助確認：`,
         "",
         h.body,
@@ -272,7 +273,7 @@ function LetterModal({
         "（本說明由修業規劃輔助系統產生，僅供洽詢之用，非畢業資格證明。）",
       ]
         .filter((l, i, a) => l !== "" || a[i - 1] !== "")
-        .join("\n"),
+        .join("\n")),
     );
   }, [h, subject]);
 

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { traceStore } from "@/lib/store";
 import { prefsStore } from "@/lib/store/prefs-store";
 import { dataDir } from "@/lib/store/paths";
-import { LLM, MODEL_LABEL, LLM_REASONING_EFFORT, LLM_TIMEOUT_MS, llmAvailable } from "@/lib/llm/client";
+import { LLM, MODEL_LABEL, LLM_REASONING_EFFORT, LLM_TIMEOUT_MS, llmAvailable, llmDisabledByDeploy } from "@/lib/llm/client";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,6 +53,8 @@ export async function GET() {
       // false = 走確定性替身。true 只代表有設定，不代表金鑰有效或額度夠：
       // 這條路徑是公開的，不在這裡花錢呼叫模型。實際通不通用 `npm run smoke`
       configured: llmAvailable(),
+      // true = 正式站的展示模式，刻意不接模型（AIDIT_LLM_ENABLED=1 才會接）
+      disabledByDeploy: llmDisabledByDeploy(),
       timeoutMs: LLM_TIMEOUT_MS,
       // 思考型模型沒設 none 時一次解析要十幾秒，常逾時
       reasoningEffort: LLM_REASONING_EFFORT ?? null,

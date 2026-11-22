@@ -8,11 +8,15 @@
 
 畢業審查 · 選課建議 · 情境試算 · 修業問答
 
+[![AAIC 2026 第二名](https://img.shields.io/badge/AAIC_2026-🥈_校園自主命題組第二名-C0C0C0?style=for-the-badge)](https://napaincu.github.io/aaic2026/)
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 ![Next.js](https://img.shields.io/badge/Next.js-15-black?logo=next.js)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white)
 
-[線上展示](https://aidit-weld.vercel.app) · [快速開始](#快速開始) · [架構](#架構) · [評測](#評測)
+🏆 **NAPAI Agentic AI 校園落地創新應用競賽（AAIC 2026）校園自主命題組 第二名**
+
+[線上展示](https://aidit-weld.vercel.app) · [快速開始](#快速開始) · [架構](#架構) · [評測](#評測) · [競賽](#競賽)
 
 <img src=".github/assets/home.png" alt="審查結果" width="820">
 
@@ -20,6 +24,21 @@
 
 > **在畢業審查場域，答錯的代價遠高於不答。**
 > 學分由確定性引擎計算，模型只負責理解；規定沒寫清楚的地方不硬算，改成待確認事項，告訴你該問誰。
+
+### 為什麼不直接問 LLM
+
+同一份真實成績單、10 個時間點，同一個模型：
+
+| | 答對 | 同一題問兩次答案一致 | 呼叫模型 |
+|---|---|---|---|
+| 直接把成績單和規章丟給 LLM | 20 次中 9 次（另有 10 次轉人工） | 3 / 10 | 每次 |
+| **Aidit** | **10 / 10，錯答 0** | 10 / 10 | 不需要 |
+
+詳見[評測](#評測)。
+
+> [!NOTE]
+> **線上展示目前是離線模式**：比賽結束後正式站不接模型，對話改用規則解析（直接的說法聽得懂，口語化的句子可能需要換個說法），
+> 公告判斷改用確定性替身。學分審查、排課、原文回查本來就不經過模型，結果與接模型時相同。
 
 ## 功能
 
@@ -198,6 +217,7 @@ npx tsx scripts/push-draft.ts ...                                               
 | 變數 | 用途 |
 |---|---|
 | `ANTHROPIC_API_KEY` | 模型金鑰；沒設就走確定性替身 |
+| `AIDIT_LLM_ENABLED` | 正式站（Vercel production）預設不接模型，設 `1` 才接；本機與 preview 不受影響 |
 | `AIDIT_LLM_PROVIDER`、`AIDIT_LLM_MODEL`、`AIDIT_LLM_BASE_URL`、`AIDIT_LLM_API_KEY` | 切換模型或供應商 |
 | `SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY` | 資料庫；沒設就存本地檔案，也讀不到真實規則包 |
 | `AIDIT_TRACE_SECRET` | 學號雜湊用的密鑰 |
@@ -225,6 +245,7 @@ npx tsx scripts/push-draft.ts ...                                               
 
 | 現象 | 原因與處理 |
 |---|---|
+| 正式站的 trace 都是 `mode=offline` | 正式站預設不接模型；要接模型在 Vercel 設 `AIDIT_LLM_ENABLED=1` 後重新部署 |
 | 對話都標 `rule.degraded`，`npm run smoke` 失敗，網站看起來正常 | 模型呼叫失敗。先查額度與部署的 `ANTHROPIC_API_KEY`，部署紀錄搜尋 `[chat]` 看原因；改好後重新部署 |
 | 「尚未支援此系所／學年度」 | 真實規則包在資料庫，沒設 `SUPABASE_*` 讀不到；合成案例用 `?fixture=demo` |
 | `eval:understanding`、`eval:baseline-c` 報找不到規則包 | 同上，要設 `SUPABASE_*` |
@@ -241,6 +262,17 @@ npx tsx scripts/push-draft.ts ...                                               
 - 開課資料只有學校公開介面提供的欄位
 - 對話 trace 只有整輪耗時，沒有分開量各工具；查回來的 token 數為 0，實際數字記在步驟摘要裡
 - 展示版沒有學生登入（見「資料流程與權限」）
+- 公告與規章是人工收錄，學校發布新公告後要有人收錄才會生效，不會自動更新
+- 線上展示不接模型（見上方說明），對話理解以規則為主
+
+## 競賽
+
+本作品參加教育部 NAPAI 計畫主辦的 [Agentic AI 校園落地創新應用競賽（AAIC 2026）](https://napaincu.github.io/aaic2026/)，
+於 2026-11-21 隨 [TAAI 2026](https://taai2026.github.io/) 舉辦的決賽獲**校園自主命題組第二名**。
+
+- 場域：輔仁大學資訊管理學系 111 學年度入學的修業規定（真實規則包，經人工逐條校對鎖版）
+- 場域驗證：學生訪談、需求問卷與系統試用
+- 示範學生的修課紀錄取自真實成績單，經本人同意，只取課名、學分、學期與選別，不含成績、學號與姓名
 
 ## 授權
 

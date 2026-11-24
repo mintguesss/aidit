@@ -16,7 +16,7 @@
 
 🏆 **NAPAI Agentic AI 校園落地創新應用競賽（AAIC 2026）校園自主命題組 第二名**
 
-[線上展示](https://aidit-weld.vercel.app) · [Demo 影片](https://youtu.be/Y6mpBks158Y) · [快速開始](#快速開始) · [架構](#架構) · [評測](#評測) · [競賽](#競賽)
+[線上展示](https://aidit-weld.vercel.app) · [Demo 影片](https://youtu.be/Y6mpBks158Y) · [決賽簡報](https://canva.link/lowwteawnoqgr6v) · [快速開始](#快速開始) · [架構](#架構) · [評測](#評測) · [競賽](#競賽)
 
 <img src=".github/assets/home.png" alt="審查結果" width="820">
 
@@ -278,6 +278,7 @@ npx tsx scripts/push-draft.ts ...                                               
 - 場域驗證：學生訪談、需求問卷與系統試用
 - 示範學生的修課紀錄取自真實成績單，經本人同意，只取課名、學分、學期與選別，不含成績、學號與姓名
 - [Demo 影片](https://youtu.be/Y6mpBks158Y)
+- [決賽簡報](https://canva.link/lowwteawnoqgr6v)
 
 ### 團隊
 

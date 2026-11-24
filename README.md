@@ -284,7 +284,7 @@ npx tsx scripts/push-draft.ts ...                                               
 | 成員 | GitHub |
 |---|---|
 | 黃予岑 | [@mintguesss](https://github.com/mintguesss) |
-| 徐子崴 | |
+| 徐子崴 | [@xuziwei9315](https://github.com/xuziwei9315) |
 
 ## 授權
 

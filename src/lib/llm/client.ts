@@ -204,8 +204,18 @@ export class LlmBudget {
 
 let client: Anthropic | null = null;
 
-export function llmAvailable(): boolean {
-  return LLM.provider === "anthropic" ? Boolean(process.env.ANTHROPIC_API_KEY) : Boolean(LLM.baseUrl);
+/**
+ * 正式站（Vercel production）預設不接模型：比賽結束後線上 demo 只當展示用，
+ * 不讓公開網址持續花 API 費用。要重新接模型時，在 Vercel 設 AIDIT_LLM_ENABLED=1。
+ * 本機、家用主機、preview 部署、評測腳本不受影響，照舊看金鑰有沒有設。
+ */
+export function llmDisabledByDeploy(env: Record<string, string | undefined> = process.env): boolean {
+  return env.VERCEL_ENV === "production" && env.AIDIT_LLM_ENABLED !== "1";
+}
+
+export function llmAvailable(env: Record<string, string | undefined> = process.env): boolean {
+  if (llmDisabledByDeploy(env)) return false;
+  return LLM.provider === "anthropic" ? Boolean(env.ANTHROPIC_API_KEY) : Boolean(LLM.baseUrl);
 }
 
 function getClient(): Anthropic {
